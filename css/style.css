@@ -497,3 +497,5 @@ h2.screen-title {
 .shop-item .btn { width: 100%; }
 .shop-item .card { width: 120px; }
 .rarity-tag.basic { color: #8a7a66; }
+.die.broken { opacity: .25; text-decoration: line-through; border-style: dashed; transform: none; }
+.die.broken::after { content: '✕'; color: var(--blood-2); font-size: 11px; margin-left: 2px; }

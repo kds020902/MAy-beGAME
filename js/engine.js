@@ -6,13 +6,11 @@
  *   1) startTurn   : 양쪽이 손패를 채우고, 적이 사용할 카드를 공개한다.
  *   2) assignCard  : 플레이어가 코스트 안에서 카드를 슬롯에 배치한다.
  *   3) resolveTurn : 전투 시작 효과를 처리한 뒤, 같은 줄의 카드끼리 합을 진행한다.
- *                    두 카드의 주사위를 앞에서부터 하나씩 굴려 맞붙인다.
- *                      공격 vs 공격 : 높은 쪽이 굴린 값만큼 피해
- *                      공격 vs 방어 : 공격이 높으면 차이만큼 피해, 방어가 높으면 차이만큼 반격
- *                      공격 vs 회피 : 회피가 높으면 피하고 회피 주사위를 다시 사용, 공격이 높으면 전부 피해
- *                      방어 vs 방어 : 아무 일도 없음
- *                    한쪽 주사위가 먼저 떨어지면 남은 공격 주사위는 일방 공격한다.
- *                    상대가 없는 줄의 카드는 곧바로 일방 공격한다.
+ *                    양쪽 맨 앞 주사위를 굴려 높은 쪽이 이긴다. 진 주사위만 파괴되고,
+ *                    이긴 주사위는 남아 상대의 다음 주사위와 다시 굴린다. (비기면 다시, 회피는 비기면 승리)
+ *                    합이 끝나기 전에는 피해가 없다. 한쪽 주사위가 모두 파괴되면
+ *                    남은 쪽이 남은 공격 주사위를 다시 굴려 그 값만큼 공격한다.
+ *                    상대가 없는 줄의 카드는 곧바로 모든 공격 주사위로 공격한다.
  *   4) 턴 종료     : 화상 처리 후, 어느 한쪽 체력이 0이 될 때까지 반복.
  */
 (function (root) {
@@ -290,58 +288,53 @@
   function unassign(b, row) { b.plan[row] = null; }
 
   // ───────── 합 규칙 (예측과 실제 해결이 함께 쓴다) ─────────
-  // 두 주사위 목록을 맞붙인다. roll(side, die) → 굴린 값, hit(side, die, value, typed) → 피해 처리
-  // side 'a' 가 첫 번째 목록, 'b' 가 두 번째 목록이다.
-  function clashDice(A, B, roll, hit, onClash, stop) {
+  // 두 주사위 목록을 맞붙인다. side 'a' 가 첫 번째 목록, 'b' 가 두 번째 목록이다.
+  //   합  : 양쪽 맨 앞 주사위를 굴려 높은 쪽이 이긴다. 진 주사위만 파괴되고,
+  //         이긴 주사위는 남아서 상대의 다음 주사위와 다시 굴린다. 비기면 다시 굴린다.
+  //         (회피 주사위는 비기면 이긴다)
+  //   공격: 한쪽 주사위가 모두 파괴되면 합이 끝나고, 남은 쪽이 남은 공격 주사위를 다시 굴려 공격한다.
+  // cb.roll(side, die, phase) → 굴린 값 ('clash' | 'attack')
+  // cb.clash(i, j, va, vb, result)  result: 'a' | 'b' | 'tie'
+  // cb.attack(side, from)           남은 주사위로 공격 시작
+  // cb.strike(side, k, value)       공격 주사위 하나
+  // cb.hit(side, die, value)        피해 처리
+  // cb.stop() → true 면 중단
+  function clashDice(A, B, cb) {
+    const stop = () => cb.stop && cb.stop();
     let i = 0;
     let j = 0;
+    let rounds = 0;
     while (i < A.length && j < B.length) {
-      if (stop && stop()) return;
+      if (stop()) return;
       const a = A[i];
       const d = B[j];
-      const va = roll('a', a);
-      const vb = roll('b', d);
+      const va = cb.roll('a', a, 'clash');
+      const vb = cb.roll('b', d, 'clash');
       let result = 'tie';
-      let dmg = null; // [side, die, value, typed]
-      let nextI = i + 1;
-      let nextJ = j + 1;
-      if (a.atk && d.atk) {
-        if (va > vb) { result = 'a'; dmg = ['a', a, va, true]; } else if (vb > va) { result = 'b'; dmg = ['b', d, vb, true]; }
-      } else if (a.atk && !d.atk) {
-        if (d.t === 'G') {
-          if (va > vb) { result = 'a'; dmg = ['a', a, va - vb, true]; } else if (vb > va) { result = 'b'; dmg = ['b', d, vb - va, false]; }
-        } else if (vb > va) { result = 'b-evade'; nextJ = j; } else if (va > vb) { result = 'a'; dmg = ['a', a, va, true]; }
-      } else if (!a.atk && d.atk) {
-        if (a.t === 'G') {
-          if (vb > va) { result = 'b'; dmg = ['b', d, vb - va, true]; } else if (va > vb) { result = 'a'; dmg = ['a', a, va - vb, false]; }
-        } else if (va > vb) { result = 'a-evade'; nextI = i; } else if (vb > va) { result = 'b'; dmg = ['b', d, vb, true]; }
-      } else {
-        result = 'none';
-      }
-      if (onClash) onClash(i, j, va, vb, result);
-      if (dmg) hit(dmg[0], dmg[1], dmg[2], dmg[3]);
-      i = nextI;
-      j = nextJ;
+      if (va > vb || (va === vb && a.t === 'E' && d.t !== 'E')) result = 'a';
+      else if (vb > va || (va === vb && d.t === 'E' && a.t !== 'E')) result = 'b';
+      if (++rounds > 60 && result === 'tie') result = A.length - i >= B.length - j ? 'a' : 'b'; // 무한 합 방지
+      if (cb.clash) cb.clash(i, j, va, vb, result);
+      if (result === 'a') j++;
+      else if (result === 'b') i++;
     }
-    // 남은 공격 주사위는 일방 공격
-    for (; i < A.length; i++) {
-      if (stop && stop()) return;
-      if (!A[i].atk) continue;
-      const v = roll('a', A[i]);
-      if (onClash) onClash(i, -1, v, null, 'a-free');
-      hit('a', A[i], v, true);
-    }
-    for (; j < B.length; j++) {
-      if (stop && stop()) return;
-      if (!B[j].atk) continue;
-      const v = roll('b', B[j]);
-      if (onClash) onClash(-1, j, null, v, 'b-free');
-      hit('b', B[j], v, true);
+    const side = i < A.length ? 'a' : j < B.length ? 'b' : null;
+    if (!side) return;
+    const W = side === 'a' ? A : B;
+    const from = side === 'a' ? i : j;
+    if (cb.attack) cb.attack(side, from);
+    for (let k = from; k < W.length; k++) {
+      if (stop()) return;
+      if (!W[k].atk) continue;
+      const v = cb.roll(side, W[k], 'attack');
+      if (stop()) return;
+      if (cb.strike) cb.strike(side, k, v);
+      cb.hit(side, W[k], v);
     }
   }
 
-  function hitDamage(value, typed, type, target, protect, fragile) {
-    const res = typed ? (target.res[D.TYPE_OF[type]] || 1) : 1;
+  function hitDamage(value, type, target, protect, fragile) {
+    const res = target.res[D.TYPE_OF[type]] || 1;
     return Math.max(1, Math.floor(value * res) + fragile - protect - target.dmgReduce);
   }
 
@@ -354,13 +347,14 @@
     const n = iterations || 300;
     let dealt = 0;
     let taken = 0;
-    const roll = (side, d) => randInt(d.min, d.max, Math.random);
-    for (let k = 0; k < n; k++) {
-      clashDice(P, E, roll, (side, d, v, typed) => {
-        if (side === 'a') dealt += hitDamage(v, typed, d.t, e, e.status.protect, e.status.fragile);
-        else taken += hitDamage(v, typed, d.t, p, p.status.protect, p.status.fragile);
-      });
-    }
+    const cb = {
+      roll: (side, d) => randInt(d.min, d.max, Math.random),
+      hit: (side, d, v) => {
+        if (side === 'a') dealt += hitDamage(v, d.t, e, e.status.protect, e.status.fragile);
+        else taken += hitDamage(v, d.t, p, p.status.protect, p.status.fragile);
+      },
+    };
+    for (let k = 0; k < n; k++) clashDice(P, E, cb);
     return { dealt: dealt / n, taken: taken / n };
   }
 
@@ -375,10 +369,7 @@
     }, iterations);
   }
 
-  // clashDice 결과('a'/'b' 기준)를 화면용('p'/'e' 기준)으로
-  const RESULT_SIDE = {
-    a: 'p', b: 'e', 'a-evade': 'p-evade', 'b-evade': 'e-evade', 'a-free': 'p-free', 'b-free': 'e-free', tie: 'tie', none: 'none',
-  };
+  const SIDE = { a: 'p', b: 'e', tie: 'tie' };
 
   // ───────── 턴 해결 ─────────
   function resolveTurn(b, rng) {
@@ -435,44 +426,43 @@
       push({ t: 'row', row: i, p: P && { name: P.name, dice: P.dice }, e: E && { name: E.name, dice: E.dice } });
 
       const ctxOf = side => (side === 'a' ? P : E);
-      const roll = (side, d) => {
-        const X = ctxOf(side);
-        const v = randInt(d.min, d.max, rng);
-        // 출혈: 공격 주사위를 굴릴 때마다 피해
-        if (d.atk && X.owner.status.bleed > 0 && X.owner.hp > 0) {
-          const bl = X.owner.status.bleed;
-          damage(X.owner, bl);
-          X.owner.status.bleed = bl - Math.ceil(bl / 3);
-          push({ t: 'proc', side: sideOf(X.owner), key: 'bleed', amount: bl });
-        }
-        return v;
-      };
-      const hit = (side, d, value, typed) => {
-        if (dead()) return;
-        const X = ctxOf(side);
-        const tgt = X.owner === p ? e : p;
-        const dmg = hitDamage(value, typed, d.t, tgt, tgt.status.protect, tgt.status.fragile);
-        damage(tgt, dmg);
-        const res = typed ? (tgt.res[D.TYPE_OF[d.t]] || 1) : 1;
-        push({ t: 'hit', side: sideOf(X.owner), die: d.t, value, dmg, res, counter: !typed });
-        if (!typed) return; // 방어 반격은 효과를 발동하지 않는다
-        const fx = X.fx;
-        if (fx.bleed) addStatus(tgt, 'bleed', fx.bleed);
-        if (fx.burn) addStatus(tgt, 'burn', fx.burn);
-        if (!X.hit) {
-          X.hit = true;
-          if (X.owner.firstHitBleed) addStatus(tgt, 'bleed', X.owner.firstHitBleed);
-          if (X.owner.firstHitBurn) addStatus(tgt, 'burn', X.owner.firstHitBurn);
-          if (fx.weak) addStatus(tgt, 'weakNext', fx.weak);
-          if (fx.fragile) addStatus(tgt, 'fragileNext', fx.fragile);
-        }
-        const ls = (fx.lifesteal || 0) + (X.owner.lifesteal || 0);
-        if (ls > 0) { const h = Math.floor(dmg * ls); if (h > 0) heal(X.owner, h); }
-      };
-      const onClash = (ia, ib, va, vb, result) => {
-        push({ t: 'clash', row: i, pi: ia, ei: ib, pv: va, ev: vb, result: RESULT_SIDE[result] });
-      };
-      clashDice(P ? P.dice : [], E ? E.dice : [], roll, hit, onClash, dead);
+      clashDice(P ? P.dice : [], E ? E.dice : [], {
+        stop: dead,
+        roll: (side, d, phase) => {
+          const X = ctxOf(side);
+          // 출혈: 공격 주사위로 공격할 때마다 피해
+          if (phase === 'attack' && X.owner.status.bleed > 0 && X.owner.hp > 0) {
+            const bl = X.owner.status.bleed;
+            damage(X.owner, bl);
+            X.owner.status.bleed = bl - Math.ceil(bl / 3);
+            push({ t: 'proc', side: sideOf(X.owner), key: 'bleed', amount: bl });
+          }
+          return randInt(d.min, d.max, rng);
+        },
+        clash: (ia, ib, va, vb, result) => push({ t: 'clash', row: i, pi: ia, ei: ib, pv: va, ev: vb, result: SIDE[result] }),
+        attack: (side, from) => push({ t: 'attack', row: i, side: SIDE[side], from, opposed: !!(P && E) }),
+        strike: (side, k, value) => push({ t: 'strike', row: i, side: SIDE[side], k, value }),
+        hit: (side, d, value) => {
+          if (dead()) return;
+          const X = ctxOf(side);
+          const tgt = X.owner === p ? e : p;
+          const dmg = hitDamage(value, d.t, tgt, tgt.status.protect, tgt.status.fragile);
+          damage(tgt, dmg);
+          push({ t: 'hit', side: sideOf(X.owner), die: d.t, value, dmg, res: tgt.res[D.TYPE_OF[d.t]] || 1 });
+          const fx = X.fx;
+          if (fx.bleed) addStatus(tgt, 'bleed', fx.bleed);
+          if (fx.burn) addStatus(tgt, 'burn', fx.burn);
+          if (!X.hit) {
+            X.hit = true;
+            if (X.owner.firstHitBleed) addStatus(tgt, 'bleed', X.owner.firstHitBleed);
+            if (X.owner.firstHitBurn) addStatus(tgt, 'burn', X.owner.firstHitBurn);
+            if (fx.weak) addStatus(tgt, 'weakNext', fx.weak);
+            if (fx.fragile) addStatus(tgt, 'fragileNext', fx.fragile);
+          }
+          const ls = (fx.lifesteal || 0) + (X.owner.lifesteal || 0);
+          if (ls > 0) { const h = Math.floor(dmg * ls); if (h > 0) heal(X.owner, h); }
+        },
+      });
     }
 
     // 사용한 카드는 버린 카드 더미로

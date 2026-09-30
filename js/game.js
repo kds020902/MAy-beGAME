@@ -401,9 +401,7 @@
   function markUsed(el) { if (el) el.classList.add('used'); }
 
   const DIE_WORD = t => `${D.DICE[t].icon}${D.DICE[t].name}`;
-  const RESULT_TEXT = {
-    p: '승리', e: '패배', tie: '무승부', none: '방어끼리 — 무효', 'p-evade': '회피 성공 (주사위 재사용)', 'e-evade': '적이 회피 (적 주사위 재사용)',
-  };
+  function markBroken(el) { if (el) { el.classList.remove('win', 'even', 'roll'); el.classList.add('broken'); } }
 
   async function play(events) {
     let row = null;
@@ -440,25 +438,37 @@
         case 'clash': {
           const pe = dieEl(row, 'p', ev.pi);
           const ee = dieEl(row, 'e', ev.ei);
-          if (ev.result === 'p-free' || ev.result === 'e-free') {
-            const side = ev.result[0];
-            showRoll(side === 'p' ? pe : ee, side === 'p' ? ev.pv : ev.ev, 'win');
-            const d = (side === 'p' ? rowP : rowE).dice[side === 'p' ? ev.pi : ev.ei];
-            log(side, `${nm(side)} 일방 공격 ${DIE_WORD(d.t)} ${side === 'p' ? ev.pv : ev.ev}`);
-            await sleep(380);
-            markUsed(side === 'p' ? pe : ee);
-            break;
-          }
-          const pw = ev.result === 'p' || ev.result === 'p-evade';
-          const ew = ev.result === 'e' || ev.result === 'e-evade';
+          const pw = ev.result === 'p';
+          const ew = ev.result === 'e';
           showRoll(pe, ev.pv, pw ? 'win' : ew ? 'lose' : 'even');
           showRoll(ee, ev.ev, ew ? 'win' : pw ? 'lose' : 'even');
           const pd = rowP.dice[ev.pi];
           const ed = rowE.dice[ev.ei];
-          log('sys', `${DIE_WORD(pd.t)} ${ev.pv} : ${ev.ev} ${DIE_WORD(ed.t)} → ${RESULT_TEXT[ev.result]}`);
-          await sleep(620);
-          if (ev.result !== 'p-evade') markUsed(pe);
-          if (ev.result !== 'e-evade') markUsed(ee);
+          const text = pw ? `${nm('e')}의 주사위 파괴` : ew ? `${nm('p')}의 주사위 파괴` : '무승부 — 다시 굴림';
+          log('sys', `합 ${DIE_WORD(pd.t)} ${ev.pv} : ${ev.ev} ${DIE_WORD(ed.t)} → ${text}`);
+          await sleep(600);
+          if (pw) markBroken(ee);
+          if (ew) markBroken(pe);
+          break;
+        }
+        case 'attack': {
+          const X = ev.side === 'p' ? rowP : rowE;
+          const left = X.dice.slice(ev.from).filter(d => d.atk).length;
+          if (ev.opposed) log(ev.side === 'p' ? 'big' : 'bad', `합 종료 — ${nm(ev.side)} 승리! 남은 공격 주사위 ${left}개로 공격`);
+          else log(ev.side, `${nm(ev.side)}의 「${X.name}」 일방 공격 (공격 주사위 ${left}개)`);
+          row && row.querySelectorAll(`.slot.${ev.side} .die`).forEach((el, k) => {
+            if (k >= ev.from && !el.classList.contains('broken')) el.classList.remove('win', 'lose', 'even', 'roll');
+          });
+          await sleep(350);
+          break;
+        }
+        case 'strike': {
+          const el = dieEl(row, ev.side, ev.k);
+          showRoll(el, ev.value, 'win');
+          const d = (ev.side === 'p' ? rowP : rowE).dice[ev.k];
+          log(ev.side, `  ${DIE_WORD(d.t)} ${ev.value}`);
+          await sleep(300);
+          if (el) el.classList.add('used');
           break;
         }
         case 'hit': {
@@ -467,7 +477,6 @@
           floatText(tgt, '-' + ev.dmg, 'dmg');
           setHp(ev.hp);
           const extra = [];
-          if (ev.counter) extra.push('방어 반격');
           if (ev.res !== 1) extra.push(`${D.RES_NAME[ev.res]} ×${ev.res}`);
           log(ev.side, `  ${nm(tgt)}에게 <b>${ev.dmg}</b> 피해${extra.length ? ` (${extra.join(', ')})` : ''}`);
           await sleep(330);
@@ -791,11 +800,11 @@
       </ol>
       <h4>운명 주사위 합</h4>
       <ul>
-        <li>카드마다 주사위가 1~5개 있습니다. 두 카드의 주사위를 앞에서부터 하나씩 굴려 맞붙입니다.</li>
-        <li><b>공격(⚔참격 ➶관통 ⚒타격) vs 공격</b>: 높은 쪽이 굴린 값만큼 피해를 줍니다.</li>
-        <li><b>공격 vs ⛨방어</b>: 공격이 높으면 차이만큼 피해, 방어가 높으면 차이만큼 반격합니다.</li>
-        <li><b>공격 vs ↯회피</b>: 회피가 높으면 공격을 피하고 회피 주사위를 다시 씁니다. 공격이 높으면 전부 맞습니다.</li>
-        <li>한쪽 주사위가 먼저 떨어지면 남은 공격 주사위는 그대로 일방 공격합니다. 적 카드를 막지 않은 줄도 일방 공격을 받습니다.</li>
+        <li>카드마다 주사위가 1~5개 있습니다. 양쪽 맨 앞 주사위를 굴려 높은 쪽이 합에서 이깁니다.</li>
+        <li><b>진 주사위만 파괴</b>됩니다. 이긴 주사위는 남아서 상대의 다음 주사위와 다시 굴립니다. 비기면 둘 다 다시 굴립니다.</li>
+        <li>합이 끝나기 전에는 피해가 없습니다. 한쪽 주사위가 모두 파괴되면 합이 끝나고, <b>남은 쪽이 남은 공격 주사위를 다시 굴려 그 값만큼 공격</b>합니다.</li>
+        <li>공격 주사위(⚔참격 ➶관통 ⚒타격)만 피해를 줍니다. ⛨방어·↯회피 주사위는 범위가 높아 합에서 상대 주사위를 부수는 데 쓰고, 회피는 비겨도 이깁니다.</li>
+        <li>적 카드를 막지 않은 줄은 적의 모든 공격 주사위에 맞습니다.</li>
         <li>줄 가운데의 <b>우세/균형/열세</b>와 가함/받음 수치는 그 줄의 예상 피해입니다.</li>
       </ul>
       <h4>공격 유형과 내성</h4>

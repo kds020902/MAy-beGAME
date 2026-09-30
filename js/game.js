@@ -59,6 +59,18 @@
     return `<span class="art ${cls || ''}">${src ? `<img src="${src}" alt="">` : `<span class="art-fb">${fallback}</span>`}</span>`;
   }
 
+  // 전투 자세 그림: assets/sprites/<id>/<pose>.png (idle 대기, attack 공격, defend 방어·회피, hit 피격)
+  // 자세 그림이 없으면 대기 그림, 그것도 없으면 아이콘을 쓴다.
+  const spriteSrc = (id, pose) => ASSETS[`sprites/${id}/${pose}`] || ASSETS[`sprites/${id}/idle`];
+  Object.keys(ASSETS).filter(k => k.startsWith('sprites/')).forEach(k => { new Image().src = ASSETS[k]; });
+
+  function fighter(side, id, icon) {
+    const src = spriteSrc(id, 'idle');
+    return `<div class="fighter ${side}" id="f-${side}" data-id="${id}">
+      <div class="fighter-body">${src ? `<img src="${src}" alt="">` : `<span class="fighter-fb">${icon}</span>`}</div>
+    </div>`;
+  }
+
   function resTag(mul, always) {
     if (mul == null || (!always && mul === 1)) return '';
     const cls = mul >= 2 ? 'r2' : mul >= 1.5 ? 'r15' : mul >= 1 ? 'r1' : 'r05';
@@ -298,6 +310,11 @@
           </div>
         </section>
 
+        <section class="stage">
+          ${fighter('p', p.classId, p.icon)}
+          ${fighter('e', e.defId, e.icon)}
+        </section>
+
         <section class="arena">
           <div class="arena-head"><span>${p.name}의 카드</span><span>예상</span><span>${e.name}의 카드</span></div>
           ${rows}
@@ -369,8 +386,23 @@
     });
   }
 
+  // 자세를 바꾸고, move 가 있으면 움직임(lunge 돌진 / hop 뒤로 빠짐 / knock 밀려남)을 한 번 재생한다
+  function pose(side, name, move) {
+    const f = document.getElementById('f-' + side);
+    if (!f) return;
+    const img = f.querySelector('img');
+    const src = spriteSrc(f.dataset.id, name);
+    if (img && src) img.src = src;
+    f.dataset.pose = name;
+    f.classList.remove('m-lunge', 'm-hop', 'm-knock');
+    if (move) { void f.offsetWidth; f.classList.add('m-' + move); }
+  }
+  const actPose = (side, die) => (!die ? pose(side, 'idle')
+    : D.DICE[die.t].atk ? pose(side, 'attack', 'lunge')
+    : pose(side, 'defend', die.t === 'E' ? 'hop' : null));
+
   function floatText(side, text, cls) {
-    const unit = document.getElementById('u-' + side);
+    const unit = document.getElementById('f-' + side) || document.getElementById('u-' + side);
     if (!unit) return;
     const f = document.createElement('div');
     f.className = 'float ' + cls;
@@ -421,6 +453,8 @@
           rowP = ev.p;
           rowE = ev.e;
           if (row) { row.classList.add('active'); row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+          pose('p', 'idle');
+          pose('e', 'idle');
           log('sys', `— ${ev.row + 1}번 줄: ${ev.p ? `「${ev.p.name}」` : '없음'} vs ${ev.e ? `「${ev.e.name}」` : '없음'} —`);
           await sleep(300);
           break;
@@ -444,6 +478,8 @@
             const side = ev.result[0];
             showRoll(side === 'p' ? pe : ee, side === 'p' ? ev.pv : ev.ev, 'win');
             const d = (side === 'p' ? rowP : rowE).dice[side === 'p' ? ev.pi : ev.ei];
+            pose(other(side), 'idle');
+            actPose(side, d);
             log(side, `${nm(side)} 일방 공격 ${DIE_WORD(d.t)} ${side === 'p' ? ev.pv : ev.ev}`);
             await sleep(380);
             markUsed(side === 'p' ? pe : ee);
@@ -455,6 +491,8 @@
           showRoll(ee, ev.ev, ew ? 'win' : pw ? 'lose' : 'even');
           const pd = rowP.dice[ev.pi];
           const ed = rowE.dice[ev.ei];
+          actPose('p', pd);
+          actPose('e', ed);
           log('sys', `${DIE_WORD(pd.t)} ${ev.pv} : ${ev.ev} ${DIE_WORD(ed.t)} → ${RESULT_TEXT[ev.result]}`);
           await sleep(620);
           if (ev.result !== 'p-evade') markUsed(pe);
@@ -463,6 +501,8 @@
         }
         case 'hit': {
           const tgt = other(ev.side);
+          if (ev.counter) pose(ev.side, 'attack', 'lunge');
+          pose(tgt, 'hit', 'knock');
           shake(tgt);
           floatText(tgt, '-' + ev.dmg, 'dmg');
           setHp(ev.hp);
@@ -521,6 +561,13 @@
     log('sys', `━━ ${b.turn}턴 전투 ━━`);
     const events = G.resolveTurn(b, rng);
     await play(events);
+    pose('p', 'idle');
+    pose('e', 'idle');
+    if (b.outcome) {
+      const down = b.outcome === 'win' ? 'e' : 'p';
+      pose(down, 'hit');
+      document.getElementById('f-' + down)?.classList.add('down');
+    }
     S.busy = false;
     if (b.outcome === 'win') {
       log('big', `${b.enemy.name} 처치!`);

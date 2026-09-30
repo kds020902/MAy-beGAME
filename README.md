@@ -84,6 +84,27 @@ node tools/generate-images.js --only monsters   # 종류별로 나눠서 생성
 - 기본으로 `codex exec --full-auto "<지시문>"`을 실행합니다. Codex 버전에 따라 이미지 생성 방식이나 옵션이 다르면 `--codex "exec ..."`로 인자를 바꿀 수 있습니다. 지시문은 Codex 자체의 이미지 생성 기능을 쓰고, 없으면 `OPENAI_API_KEY`로 OpenAI 이미지 API를 호출하도록 안내합니다.
 - 이미지를 직접 넣었다면 `node tools/generate-images.js --manifest`로 목록만 갱신하세요.
 
+### 전투 자세 그림 (픽셀 아트)
+
+전투 화면 가운데 무대에서 플레이어(왼쪽)와 적(오른쪽)이 행동마다 자세를 바꿉니다. 캐릭터마다 4장입니다.
+
+| 자세 | 파일 | 나오는 때 |
+|---|---|---|
+| 대기 | `idle.png` | 평소 |
+| 공격 | `attack.png` | 공격 주사위로 합·일방 공격, 방어 반격 (앞으로 돌진) |
+| 방어·회피 | `defend.png` | 방어 주사위 / 회피 주사위 (회피는 뒤로 빠짐) |
+| 피격 | `hit.png` | 피해를 받을 때 (뒤로 밀림), 쓰러졌을 때 |
+
+```bash
+node tools/generate-sprites.js              # 없는 자세 그림을 모두 생성 (직업 3 + 몬스터 25 = 112장)
+node tools/generate-sprites.js ghoul        # 특정 캐릭터만
+node tools/generate-sprites.js --force ghoul   # 다시 만들기
+```
+
+- `assets/sprites/<id>/<자세>.png`로 저장되고, 끝나면 manifest가 갱신됩니다.
+- 대기 그림을 먼저 만들고, 그 그림을 참고 이미지로 넣어 나머지 자세를 만들기 때문에 같은 캐릭터로 유지됩니다.
+- 자세 그림이 없으면 대기 그림, 그것도 없으면 아이콘이 같은 움직임으로 대신 나옵니다.
+
 ## 파일 구성
 
 | 파일 | 내용 |
@@ -97,6 +118,7 @@ node tools/generate-images.js --only monsters   # 종류별로 나눠서 생성
 | `tools/simulate.js` | 밸런스 확인용 자동 플레이 시뮬레이터 |
 | `tools/generate-images.js` | Codex로 이미지를 만드는 스크립트 |
 | `tools/image-prompts.js` | 이미지 프롬프트 (`IMAGE_PROMPTS.md`의 원본) |
+| `tools/generate-sprites.js` | Codex로 전투 자세 그림을 만드는 스크립트 |
 
 ## 밸런스 조정
 

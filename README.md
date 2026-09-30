@@ -61,7 +61,16 @@
 
 ## 이미지 만들기 (Codex)
 
-직업·몬스터·아이템 이미지는 노트북의 [Codex CLI](https://github.com/openai/codex)로 만듭니다. 이미지가 없으면 게임은 아이콘으로 표시합니다.
+직업·몬스터·아이템 이미지 54개를 넣을 수 있습니다. 이미지가 없으면 게임은 아이콘으로 표시합니다.
+
+**직접 만들 때**: [`IMAGE_PROMPTS.md`](IMAGE_PROMPTS.md)에 항목별 프롬프트와 저장 경로가 있습니다. 원하는 이미지 생성기로 만들어 그 경로에 저장한 뒤 아래를 실행하세요.
+
+```bash
+node tools/generate-images.js --manifest   # 이미지 목록 갱신
+git add assets && git commit -m "이미지 추가" && git push
+```
+
+**Codex CLI로 한 번에 만들 때** (노트북에서):
 
 ```bash
 npm install -g @openai/codex          # Codex CLI가 없다면
@@ -87,6 +96,7 @@ node tools/generate-images.js --only monsters   # 종류별로 나눠서 생성
 | `assets/manifest.js` | 게임이 사용할 이미지 목록 |
 | `tools/simulate.js` | 밸런스 확인용 자동 플레이 시뮬레이터 |
 | `tools/generate-images.js` | Codex로 이미지를 만드는 스크립트 |
+| `tools/image-prompts.js` | 이미지 프롬프트 (`IMAGE_PROMPTS.md`의 원본) |
 
 ## 밸런스 조정
 

@@ -443,7 +443,7 @@
   // 밸런스 조정값
   const BALANCE = {
     enemyHpMul: { normal: 1, midboss: 1, boss: 1 },
-    enemyPower: { normal: 1, midboss: -2, boss: -2 }, // 적 주사위 위력 보정
+    enemyPower: { normal: 2, midboss: -1, boss: -2 }, // 적 주사위 위력 보정
     hpPerFloor: 0.18,       // 층마다 적 체력 +18%
     powerEveryFloors: 2.5,  // n층마다 적 주사위 위력 +1
     extraSlotFloor: 11,     // 이 층부터 일반 몬스터 스킬 슬롯 +1

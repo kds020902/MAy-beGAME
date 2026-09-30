@@ -39,6 +39,7 @@
     regions: null,
     logs: [],
     logOpen: false,
+    animateDraw: false,
     pick: null, // 카드 선택 모달 진행 중인 { opt, done }
   };
 
@@ -74,20 +75,32 @@
   }
   const diceHtml = (dice, vs) => dice.map((d, i) => dieHtml(d, i, vs)).join('');
 
+  // 카드 종류: 공격 주사위만 → 공격, 방어·회피만 → 방어, 섞여 있으면 공격 · 방어
+  function cardKind(dice) {
+    const atk = dice.some(d => d.atk);
+    const def = dice.some(d => !d.atk);
+    return atk && !def ? ['atk', '공격'] : !atk ? ['def', '방어'] : ['mix', '공격 · 방어'];
+  }
+
+  // 슬더스식 세로 카드: 코스트 구슬 / 이름 띠 / 그림 칸(주사위) / 종류 / 설명
   function cardHtml(c, owner, o) {
     o = o || {};
     const s = G.cardStats(c);
+    const def = G.cardDef(c);
     const dice = owner ? G.effective(owner, c).dice : s.dice.map(d => Object.assign({ atk: D.DICE[d.t].atk }, d));
+    const [kcls, kname] = cardKind(dice);
     const fx = G.fxText(s.fx);
+    const frame = s.sig ? 'sig' : D.CLASS_MAP[def.owner] ? def.owner : 'enemy';
     const attrs = [
       o.act ? `data-act="${o.act}" data-uid="${c.uid}"` : '',
-      o.slot ? `data-slot="${o.slot}"` : '',
+      o.style ? `style="${o.style}"` : '',
     ].join(' ');
-    return `<div class="card ${s.rarity} ${o.cls || ''}" ${attrs}>
-      <div class="card-cost">${s.sig ? '★' : s.cost}</div>
-      <div class="card-name">${s.name}${s.upgraded ? ' <span class="plus">+</span>' : ''}</div>
-      <div class="card-dice">${diceHtml(dice, o.vs)}</div>
-      <div class="card-fx">${fx || '&nbsp;'}</div>
+    return `<div class="card f-${frame} k-${kcls} r-${s.rarity} ${o.cls || ''}" ${attrs}>
+      <div class="c-cost">${s.sig ? '★' : s.cost}</div>
+      <div class="c-name">${s.name}${s.upgraded ? '<span class="plus">+</span>' : ''}</div>
+      <div class="c-art"><div class="card-dice">${diceHtml(dice, o.vs)}</div></div>
+      <div class="c-type">${kname}</div>
+      <div class="c-desc">${fx || `주사위 ${dice.length}개`}</div>
     </div>`;
   }
 
@@ -267,6 +280,29 @@
     return `<div class="odds ${cls}">${word}<small>가함 ${Math.round(o.dealt)}<br>받음 ${Math.round(o.taken)}</small></div>`;
   }
 
+  // 적의 의도: 이번 턴에 낼 카드들을 머리 위에 요약한다
+  function intentHtml(b) {
+    const e = b.enemy;
+    return b.enemyPlan.map(c => {
+      const dice = G.effective(e, c).dice;
+      const atk = dice.filter(d => d.atk);
+      const def = dice.length - atk.length;
+      const same = atk.length > 1 && atk.every(d => d.min === atk[0].min && d.max === atk[0].max);
+      const dmg = !atk.length ? '' : same ? `${atk[0].min}~${atk[0].max}<small>×${atk.length}</small>`
+        : `${atk.reduce((t, d) => t + d.min, 0)}~${atk.reduce((t, d) => t + d.max, 0)}`;
+      const name = G.cardDef(c).name;
+      return `<span class="intent${c.sig ? ' sig' : ''}" title="${name}">${atk.length ? `<i>⚔</i>${dmg}` : ''}${def ? `<i class="shield">⛨</i>${def}` : ''}</span>`;
+    }).join('');
+  }
+
+  function relicBar(p) {
+    const light = p.passives.map(id => D.PASSIVES.find(x => x.id === id))
+      .map(x => `<span class="relic light" title="빛의 가호 · ${x.name}: ${x.desc}">✦</span>`);
+    const relics = p.relics.map(id => D.ITEMS.find(i => i.id === id))
+      .map(it => `<span class="relic" title="${it.name}: ${it.desc}">${art('items', it.id, it.icon, 'relic-art')}</span>`);
+    return light.concat(relics).join('');
+  }
+
   function renderBattle() {
     const b = S.battle;
     const run = S.run;
@@ -281,84 +317,97 @@
       const pc = uid != null ? p.hand.find(h => h.uid === uid) : null;
       const ec = b.enemyPlan[i] || null;
       const target = S.targetRow === i;
-      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '슬롯 없음' : target ? '놓을 카드를 고르세요' : '빈 슬롯'}</div>`;
+      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '—' : target ? '낼 카드를 고르세요' : '카드를 내세요'}</div>`;
       const eSlot = ec ? chipHtml(ec, e, p) : '<div class="empty">—</div>';
       return `<div class="row${target ? ' target' : ''}" data-row="${i}">
-        <div class="slot p" data-act="slot" data-row="${i}">${pSlot}</div>
-        <div class="clash-mid">${oddsHtml(b, i)}</div>
+        <div class="slot p" data-act="slot" data-row="${i}" title="${pc ? '눌러서 손패로 되돌리기' : '눌러서 이 줄에 낼 카드 지정'}">${pSlot}</div>
+        <div class="clash-mid"><span class="vs">VS</span>${oddsHtml(b, i)}</div>
         <div class="slot e">${eSlot}</div>
       </div>`;
     }).join('');
 
-    const hand = p.hand.map((c, idx) => {
-      const slot = b.plan.indexOf(c.uid);
-      const cant = slot < 0 && (planned >= p.slots || spent + G.cardDef(c).cost > p.energy);
-      return cardHtml(c, p, { act: 'card', vs: e, cls: `${slot >= 0 ? 'planned' : ''}${cant ? ' cant' : ''}`, slot: slot >= 0 ? `${slot + 1}번 줄` : `${idx + 1}` });
+    // 손패: 아직 내지 않은 카드만 부채꼴로 펼친다
+    const inHand = p.hand.filter(c => b.plan.indexOf(c.uid) < 0);
+    const n = inHand.length;
+    const hand = inHand.map((c, i) => {
+      const off = i - (n - 1) / 2;
+      const cant = planned >= p.slots || spent + G.cardDef(c).cost > p.energy;
+      const style = `--off:${off};--i:${i}`;
+      return cardHtml(c, p, { act: 'card', vs: e, cls: `${cant ? 'cant' : 'playable'}${S.animateDraw ? ' drawn' : ''}`, style });
     }).join('');
+    S.animateDraw = false;
 
-    const energyPips = Array.from({ length: p.energy }, (_, i) => `<i class="pip ${i < p.energy - spent ? 'on' : 'spent'}"></i>`).join('');
     const sigSoon = e.signature && G.isSigTurn(b, b.turn + 1);
     const sigNow = e.signature && G.isSigTurn(b, b.turn);
     const sig = sigNow ? `<div class="sig-warn">★ 이번 턴 고유 스킬 「${e.signature.sig.name}」</div>`
-      : sigSoon ? `<div class="sig-warn soon">⚠ 다음 턴 고유 스킬 「${e.signature.sig.name}」 준비 중</div>` : '';
+      : sigSoon ? `<div class="sig-warn soon">⚠ 다음 턴 고유 스킬 「${e.signature.sig.name}」</div>` : '';
     const last = S.logs.length ? S.logs[S.logs.length - 1].t : '';
+    const cls = D.CLASS_MAP[p.classId];
 
-    return `<div class="screen battle-screen" style="--region:${region.color}">
+    return `<div class="screen battle-screen f-${p.classId}" style="--region:${region.color}">
       <header class="topbar">
+        <div class="tb-hero">
+          <span class="tb-class">${cls.icon} ${cls.name}</span>
+          <span class="tb-hp" title="체력">❤ <b id="tb-hp">${Math.max(0, p.hp)}/${p.maxHp}</b></span>
+          ${goldHtml()}
+        </div>
         <div class="tb-stage">
           <span class="region-name">${region.icon} ${region.name}</span>
-          <span class="floor-no">${run.floor}F</span>
+          <span class="floor-no">${run.floor}층</span>
           <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span>
+          <div class="floor-track" title="이번 구간 5개 층">${floorTrack(run.floor)}</div>
         </div>
-        <div class="floor-track" title="이번 구간 5개 층">${floorTrack(run.floor)}</div>
-        <div class="tb-meta"><span class="turn-no">${b.turn}턴</span>${goldHtml()}</div>
         <div class="tb-menu">
-          <button class="btn small" data-act="deck">덱 · 유물</button>
+          <button class="btn small" data-act="deck" title="덱 · 유물">🂠 덱</button>
           <button class="btn small" data-act="log">기록</button>
-          <button class="btn small" data-act="speed">속도 ×${S.speed}</button>
+          <button class="btn small" data-act="speed">×${S.speed}</button>
           <button class="btn small" data-act="howto" aria-label="게임 방법">?</button>
         </div>
       </header>
+      <div class="relic-bar">${relicBar(p) || '<span class="relic-empty">유물 없음</span>'}</div>
 
       <main class="stage">
         <section class="fighter player" id="u-p">
+          <div class="figure">${figureHtml('classes', p.classId, p.icon)}</div>
           <div class="fighter-hud">
-            <div class="unit-name">${p.icon} ${p.name}</div>
             ${hpBar(p, 'p')}
             <div class="statuses" id="st-p">${statusHtml(p)}</div>
           </div>
-          <div class="figure">${figureHtml('classes', p.classId, p.icon)}</div>
         </section>
 
         <section class="lanes">
           ${sig}
-          <div class="arena-head"><span>나의 카드</span><span>합</span><span>적의 카드</span></div>
           ${lanes}
+          <div class="ticker" id="ticker" data-act="log" title="전체 기록 보기">${last}</div>
         </section>
 
         <section class="fighter enemy" id="u-e">
+          <div class="intents" title="적의 의도">${intentHtml(b)}</div>
+          <div class="figure" data-act="enemyInfo" title="적 정보 보기">${figureHtml('monsters', e.defId, e.icon)}</div>
           <div class="fighter-hud">
             <div class="unit-name">${e.name} <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span></div>
             ${hpBar(e, 'e')}
             ${resRow(e)}
             <div class="statuses" id="st-e">${statusHtml(e)}</div>
           </div>
-          <div class="figure" data-act="enemyInfo" title="적 정보 보기">${figureHtml('monsters', e.defId, e.icon)}</div>
         </section>
-
-        <div class="ticker" id="ticker" data-act="log" title="전체 기록 보기">${last}</div>
       </main>
 
-      <footer class="dock">
-        <div class="dock-info">
-          <div class="energy-row"><span class="energy-label">코스트</span><div class="pips">${energyPips}</div><span class="energy-num">${p.energy - spent}/${p.energy}</span></div>
-          <div class="piles">카드 ${planned}/${p.slots} · 덱 ${p.drawPile.length} · 버림 ${p.discard.length}<span class="kbd-hint"> · 숫자키 1~9, Enter</span></div>
+      <footer class="hand-zone">
+        <div class="hz-left">
+          <div class="energy-orb" title="코스트: 이번 턴에 남은 / 최대">
+            <b>${p.energy - spent}</b><small>/${p.energy}</small>
+          </div>
+          <button class="pile draw" data-act="pile" data-which="draw" title="뽑을 카드 더미"><span class="pile-back"></span><b>${p.drawPile.length}</b></button>
         </div>
-        <div class="hand">${hand || '<div class="empty">손패가 없습니다</div>'}</div>
-        <div class="dock-actions">
-          <button class="btn" data-act="auto" ${S.busy ? 'disabled' : ''}>자동 배치</button>
-          <button class="btn" data-act="clear" ${S.busy ? 'disabled' : ''}>초기화</button>
-          <button class="btn primary big" data-act="fight" ${S.busy ? 'disabled' : ''}>전투 시작</button>
+        <div class="hand fan" style="--n:${n}">${hand || '<div class="hand-empty">낼 수 있는 카드를 모두 냈습니다</div>'}</div>
+        <div class="hz-right">
+          <button class="btn end-turn" data-act="fight" ${S.busy ? 'disabled' : ''}>턴 종료</button>
+          <div class="hz-small">
+            <button class="btn small" data-act="auto" ${S.busy ? 'disabled' : ''}>자동</button>
+            <button class="btn small" data-act="clear" ${S.busy ? 'disabled' : ''}>되돌리기</button>
+          </div>
+          <button class="pile discard" data-act="pile" data-which="discard" title="버린 카드 더미"><span class="pile-back"></span><b>${p.discard.length}</b></button>
         </div>
       </footer>
 
@@ -404,6 +453,7 @@
       el.querySelector('.fill').style.width = pct + '%';
       el.querySelector('.fill').classList.toggle('low', pct <= 30);
       el.querySelector('span').textContent = `${v} / ${c.maxHp}`;
+      if (side === 'p') { const t = document.getElementById('tb-hp'); if (t) t.textContent = `${v}/${c.maxHp}`; }
     });
   }
 
@@ -547,20 +597,21 @@
     }
   }
 
-  function banner(text, cls) {
+  function banner(text, cls, ms, sub) {
     const el = document.createElement('div');
     el.className = 'banner ' + cls;
-    el.innerHTML = `<div>${text}</div>`;
+    el.innerHTML = `<div>${text}${sub ? `<small>${sub}</small>` : ''}</div>`;
     document.body.appendChild(el);
-    return new Promise(r => setTimeout(() => { el.remove(); r(); }, 1100));
+    return new Promise(r => setTimeout(() => { el.remove(); r(); }, ms || 1100));
   }
+  const turnBanner = () => banner('나의 턴', 'turn', 750, `${S.battle.turn}턴`);
 
   async function fight() {
     const b = S.battle;
     if (S.busy || !b || b.outcome) return;
     if (G.planCount(b) === 0 && b.enemyPlan.length && !S.confirmEmpty) {
       S.confirmEmpty = true;
-      toast('카드를 배치하지 않았습니다. 한 번 더 누르면 그대로 진행합니다.');
+      toast('카드를 내지 않았습니다. 한 번 더 누르면 그대로 턴을 마칩니다.');
       return;
     }
     S.confirmEmpty = false;
@@ -568,7 +619,8 @@
     S.busy = true;
     document.querySelectorAll('[data-act="fight"],[data-act="auto"],[data-act="clear"]').forEach(x => { x.disabled = true; });
     document.querySelectorAll('.row').forEach(r => r.classList.remove('target'));
-    log('sys', `━━ ${b.turn}턴 전투 ━━`);
+    log('sys', `━━ ${b.turn}턴 합 개시 ━━`);
+    await banner('합 개시', 'clash', 650 / S.speed);
     const events = G.resolveTurn(b, rng);
     await play(events);
     S.busy = false;
@@ -586,7 +638,9 @@
       go('over');
     } else {
       G.startTurn(b, rng);
+      S.animateDraw = true;
       render();
+      turnBanner();
     }
   }
 
@@ -693,7 +747,9 @@
     S.targetRow = null;
     const e = S.battle.enemy;
     log('sys', `${S.run.floor}층 — ${KIND_NAME[S.battle.kind]} 「${e.name}」 출현`);
+    S.animateDraw = true;
     go('battle');
+    turnBanner();
   }
 
   // ───────── 상점 ─────────
@@ -820,6 +876,16 @@
       <section><h4>덱 (9장)</h4><div class="hand">${p.deck.map(c => cardHtml(c, p, { cls: 'static' })).join('')}</div></section>`);
   }
 
+  function openPile(which) {
+    const p = S.battle.player;
+    const list = (which === 'draw' ? p.drawPile.slice() : p.discard.slice())
+      .sort((a, c) => G.cardDef(a).cost - G.cardDef(c).cost);
+    openModal(`<button class="btn small modal-close" data-act="closeModal">닫기</button>
+      <h3>${which === 'draw' ? '뽑을 카드 더미' : '버린 카드 더미'} (${list.length}장)</h3>
+      <p class="sub">${which === 'draw' ? '순서는 섞여 있어 코스트 순으로 보여줍니다. 더미가 비면 버린 카드를 섞어 다시 뽑습니다.' : '턴이 끝나면 쓴 카드와 남은 손패가 모두 여기로 옵니다.'}</p>
+      <div class="hand">${list.map(c => cardHtml(c, p, { cls: 'static' })).join('') || '<p class="sub">비어 있습니다.</p>'}</div>`);
+  }
+
   function openEnemyInfo() {
     const e = S.battle.enemy;
     openModal(`<button class="btn small modal-close" data-act="closeModal">닫기</button>
@@ -837,9 +903,10 @@
       <p>카드를 뽑아 스킬을 얻고, <b>운명 주사위</b>로 합을 겨뤄 층을 오르는 다크 판타지 로그라이크입니다.</p>
       <h4>전투 순서</h4>
       <ol>
-        <li>매 턴 9장짜리 덱에서 손패를 채웁니다. 적도 자기 덱에서 카드를 뽑아 미리 공개합니다.</li>
-        <li>턴당 코스트(기본 9) 안에서 카드를 슬롯에 배치합니다. 같은 줄의 적 카드와 합을 겨룹니다.</li>
-        <li><b>전투 시작</b>을 누르면 전투 시작 효과(회복, 힘, 보호 등)가 먼저 적용되고, 줄마다 합이 진행됩니다.</li>
+        <li>매 턴 9장짜리 덱에서 5장을 뽑습니다. 적도 자기 덱에서 카드를 뽑고, 머리 위의 <b>의도</b>로 이번 턴에 낼 카드를 보여줍니다.</li>
+        <li>턴당 코스트(기본 9) 안에서 손패의 카드를 냅니다. 낸 카드는 합 대진의 줄로 들어가 같은 줄의 적 카드와 합을 겨룹니다. 대진의 카드를 누르면 손패로 돌아옵니다.</li>
+        <li><b>턴 종료</b>를 누르면 전투 시작 효과(회복, 힘, 보호 등)가 먼저 적용되고, 줄마다 합이 진행됩니다.</li>
+        <li>턴이 끝나면 남은 손패는 모두 버리고, 다음 턴에 새로 5장을 뽑습니다.</li>
       </ol>
       <h4>운명 주사위 합</h4>
       <ul>
@@ -925,6 +992,7 @@
         break;
       }
       case 'enemyInfo': openEnemyInfo(); break;
+      case 'pile': openPile(el.dataset.which); break;
       case 'reward': pickReward(Number(el.dataset.i)); break;
       case 'skipReward': afterReward(); break;
       case 'buy': buyEntry(el.dataset.key); break;
@@ -960,7 +1028,8 @@
     if (ev.key === 'Enter') { ev.preventDefault(); fight(); return; }
     const n = Number(ev.key);
     if (n >= 1 && n <= 9) {
-      const c = S.battle.player.hand[n - 1];
+      const b = S.battle;
+      const c = b.player.hand.filter(h => b.plan.indexOf(h.uid) < 0)[n - 1];
       if (c) onAction('card', { dataset: { uid: String(c.uid) } });
     }
   });

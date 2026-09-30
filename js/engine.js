@@ -11,7 +11,7 @@
  *                    합이 끝나기 전에는 피해가 없다. 한쪽 주사위가 모두 파괴되면
  *                    남은 쪽이 남은 공격 주사위를 다시 굴려 그 값만큼 공격한다.
  *                    상대가 없는 줄의 카드는 곧바로 모든 공격 주사위로 공격한다.
- *   4) 턴 종료     : 화상 처리 후, 어느 한쪽 체력이 0이 될 때까지 반복.
+ *   4) 턴 종료     : 남은 손패를 모두 버리고 화상 처리. 어느 한쪽 체력이 0이 될 때까지 반복.
  */
 (function (root) {
   'use strict';
@@ -465,17 +465,8 @@
       });
     }
 
-    // 사용한 카드는 버린 카드 더미로
-    b.plan.forEach(uid => {
-      if (uid == null) return;
-      const idx = p.hand.findIndex(h => h.uid === uid);
-      if (idx >= 0) p.discard.push(p.hand.splice(idx, 1)[0]);
-    });
-    b.enemyPlan.forEach(c => {
-      if (c.sig) return;
-      const idx = e.hand.indexOf(c);
-      if (idx >= 0) e.discard.push(e.hand.splice(idx, 1)[0]);
-    });
+    // 턴이 끝나면 손패를 모두 버린다 (다음 턴에 새로 뽑는다)
+    [p, e].forEach(c => { c.discard.push(...c.hand); c.hand = []; });
 
     // 턴 종료: 화상, 재생
     if (!dead()) {

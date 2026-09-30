@@ -1,11 +1,13 @@
 /*
  * Fate Five Dungeon — 화면 / 입력 처리
  * 규칙은 engine.js(window.FFD), 데이터는 data.js(window.FFD_DATA)에 있다.
+ * 이미지는 assets/manifest.js(window.FFD_ASSETS)에 등록된 것만 쓰고, 없으면 아이콘으로 대신한다.
  */
 (function () {
   'use strict';
   const D = window.FFD_DATA;
   const G = window.FFD;
+  const ASSETS = window.FFD_ASSETS || {};
   const rng = Math.random;
 
   const $app = document.getElementById('app');
@@ -29,11 +31,14 @@
     speed: store.get('speed', 1),
     targetRow: null,
     confirmEmpty: false,
+    classId: null,
     light: [],
     rewards: null,
+    shop: null,
     pendingBoss: false,
     regions: null,
     logs: [],
+    pick: null, // 카드 선택 모달 진행 중인 { opt, done }
   };
 
   const sleep = ms => new Promise(r => setTimeout(r, ms / S.speed));
@@ -48,9 +53,10 @@
     toast.t = setTimeout(() => $toast.classList.remove('show'), 1800);
   }
 
-  function typeTag(type) {
-    const t = D.TYPES[type];
-    return `<span class="type t-${type}" title="${t.name}">${t.icon} ${t.name}</span>`;
+  // 그림: 등록된 이미지가 있으면 이미지, 없으면 아이콘
+  function art(kind, id, fallback, cls) {
+    const src = ASSETS[`${kind}/${id}`];
+    return `<span class="art ${cls || ''}">${src ? `<img src="${src}" alt="">` : `<span class="art-fb">${fallback}</span>`}</span>`;
   }
 
   function resTag(mul, always) {
@@ -59,14 +65,18 @@
     return `<span class="res ${cls}">${D.RES_NAME[mul] || ''} ×${mul}</span>`;
   }
 
-  const coinsHtml = n => '<i class="coin"></i>'.repeat(n);
+  function dieHtml(d, i, vs) {
+    const info = D.DICE[d.t];
+    const res = vs && info.atk ? vs.res[D.TYPE_OF[d.t]] : 1;
+    const mark = res > 1 ? ' good' : res < 1 ? ' bad' : '';
+    return `<span class="die d-${d.t}${mark}" data-i="${i}" title="${info.name} ${d.min}~${d.max}${res !== 1 ? ` (${D.RES_NAME[res]} ×${res})` : ''}"><i>${info.icon}</i><b>${d.min}~${d.max}</b></span>`;
+  }
+  const diceHtml = (dice, vs) => dice.map((d, i) => dieHtml(d, i, vs)).join('');
 
   function cardHtml(c, owner, o) {
     o = o || {};
     const s = G.cardStats(c);
-    const v = owner ? G.effective(owner, c) : { base: s.base, cp: s.cp, coins: s.coins, min: s.base, max: s.base + s.coins * s.cp };
-    const baseCls = v.base > s.base ? 'up' : v.base < s.base ? 'down' : '';
-    const cpCls = v.cp > s.cp ? 'up' : '';
+    const dice = owner ? G.effective(owner, c).dice : s.dice.map(d => Object.assign({ atk: D.DICE[d.t].atk }, d));
     const fx = G.fxText(s.fx);
     const attrs = [
       o.act ? `data-act="${o.act}" data-uid="${c.uid}"` : '',
@@ -75,27 +85,19 @@
     return `<div class="card ${s.rarity} ${o.cls || ''}" ${attrs}>
       <div class="card-cost">${s.sig ? '★' : s.cost}</div>
       <div class="card-name">${s.name}${s.upgraded ? ' <span class="plus">+</span>' : ''}</div>
-      <div class="card-meta">${typeTag(s.type)}${o.vs ? resTag(o.vs.res[s.type]) : ''}</div>
-      <div class="card-stats">
-        <div><b class="${baseCls}">${v.base}</b><small>기본</small></div>
-        <div><b>${v.coins}</b><small>코인</small></div>
-        <div><b class="${cpCls}">+${v.cp}</b><small>코인당</small></div>
-      </div>
-      <div class="coins">${coinsHtml(v.coins)}</div>
+      <div class="card-dice">${diceHtml(dice, o.vs)}</div>
       <div class="card-fx">${fx || '&nbsp;'}</div>
-      <div class="card-range">합 위력 ${v.min} ~ ${v.max}</div>
     </div>`;
   }
 
   function chipHtml(c, owner, target) {
     const s = G.cardStats(c);
-    const v = G.effective(owner, c, { target });
+    const dice = G.effective(owner, c).dice;
     const fx = G.fxText(s.fx);
     return `<div class="chip ${s.rarity}">
-      <div class="chip-name">${s.sig ? '★ ' : ''}${s.name}</div>
-      <div class="chip-stats">${typeTag(s.type)} ${v.base} + ${v.coins}×${v.cp} ${resTag(target.res[s.type])}</div>
+      <div class="chip-name">${s.sig ? '★ ' : ''}${s.name} <small>${s.sig ? '고유' : `코스트 ${s.cost}`}</small></div>
+      <div class="dice-row">${diceHtml(dice, target)}</div>
       ${fx ? `<div class="chip-fx">${fx}</div>` : ''}
-      <div class="coins">${coinsHtml(v.coins)}</div>
     </div>`;
   }
 
@@ -105,11 +107,9 @@
       const info = D.STATUS_INFO[k];
       return `<span class="st${next ? ' next' : ''}" title="${info.name}: ${info.desc}">${info.icon} ${info.name} ${val}${next ? ' (다음 턴)' : ''}</span>`;
     };
-    ['bleed', 'burn', 'rupture', 'poise'].forEach(k => {
-      const s = c.status[k];
-      if (s.c > 0) out.push(tag(k, `${s.p}<small>/${s.c}회</small>`));
-    });
-    ['paralyze', 'weak', 'might', 'fragile'].forEach(k => {
+    if (c.status.bleed) out.push(tag('bleed', c.status.bleed));
+    if (c.status.burn) out.push(tag('burn', c.status.burn));
+    ['might', 'weak', 'endure', 'protect', 'fragile'].forEach(k => {
       if (c.status[k]) out.push(tag(k, c.status[k]));
       if (c.status[k + 'Next']) out.push(tag(k, c.status[k + 'Next'], true));
     });
@@ -122,8 +122,12 @@
   }
 
   function resRow(c) {
-    return `<div class="res-row">${D.TYPE_ORDER.map(t => `<span>${D.TYPES[t].icon} ${D.TYPES[t].name} ${resTag(c.res[t], true)}</span>`).join('')}</div>`;
+    return `<div class="res-row">${D.ATK_TYPES.map(t => `<span>${D.TYPES[t].icon} ${D.TYPES[t].name} ${resTag(c.res[t], true)}</span>`).join('')}</div>`;
   }
+
+  const goldHtml = () => `<span class="gold-tag" title="은화">🪙 ${S.run ? S.run.gold : 0}</span>`;
+
+  function itemArt(it) { return art('items', it.id, it.icon, 'item-art'); }
 
   // ───────── 화면 전환 ─────────
   function go(screen) {
@@ -133,7 +137,10 @@
   }
 
   function render() {
-    const fn = { title: renderTitle, light: renderLight, battle: renderBattle, reward: renderReward, region: renderRegion, over: renderOver }[S.screen];
+    const fn = {
+      title: renderTitle, cls: renderClass, light: renderLight, battle: renderBattle,
+      reward: renderReward, shop: renderShop, region: renderRegion, over: renderOver,
+    }[S.screen];
     $app.innerHTML = fn();
     if (S.screen === 'battle') afterBattleRender();
   }
@@ -144,12 +151,37 @@
     return `<div class="screen title-screen">
       <div class="title-emblem">✦</div>
       <h1 class="logo">FATE FIVE<span>DUNGEON</span></h1>
-      <p class="tagline">운명의 코인을 던져라.<br>다섯 개의 저주받은 땅이 순례자를 기다린다.</p>
+      <p class="tagline">운명의 주사위를 굴려라.<br>다섯 개의 저주받은 땅이 순례자를 기다린다.</p>
       <div class="title-actions">
         <button class="btn primary big" data-act="new">새로운 순례</button>
         <button class="btn" data-act="howto">게임 방법</button>
       </div>
-      <div class="record">${best ? `최고 기록: <b>${best.floor}층</b> (${best.region})` : '아직 기록이 없습니다'}</div>
+      <div class="record">${best ? `최고 기록: <b>${best.floor}층</b> (${best.cls ? best.cls + ' · ' : ''}${best.region})` : '아직 기록이 없습니다'}</div>
+    </div>`;
+  }
+
+  // ───────── 직업 선택 ─────────
+  function renderClass() {
+    const cards = D.CLASSES.map(c => {
+      const starter = c.starter.map(id => D.CARDS[id].name);
+      return `<div class="class-card${S.classId === c.id ? ' sel' : ''}" data-act="pickClass" data-id="${c.id}">
+        ${art('classes', c.id, c.icon, 'class-art')}
+        <div class="class-name">${c.name}</div>
+        <div class="class-role">${c.role} · ${c.weapon}</div>
+        <p class="class-desc">${c.desc}</p>
+        <div class="class-stats"><span>체력 <b>${c.hp}</b></span><span>특성 <b>${c.trait.name}</b></span></div>
+        <div class="class-trait">${c.trait.desc}</div>
+        <div class="class-deck">시작 덱: ${starter.join(', ')}</div>
+      </div>`;
+    }).join('');
+    return `<div class="screen class-screen">
+      <h2 class="screen-title">직업 선택</h2>
+      <p class="screen-sub">순례를 떠날 자를 고르세요. 직업마다 쓰는 무기와 얻는 카드가 다릅니다.</p>
+      <div class="class-grid">${cards}</div>
+      <div class="bottom-actions">
+        <button class="btn" data-act="title">뒤로</button>
+        <button class="btn primary big" data-act="toLight" ${S.classId ? '' : 'disabled'}>다음 — 빛의 선택</button>
+      </div>
     </div>`;
   }
 
@@ -167,14 +199,15 @@
         <div class="p-desc">${p.desc}</div>
       </button>`;
     }).join('');
+    const cls = D.CLASS_MAP[S.classId];
     return `<div class="screen light-screen">
       <h2 class="screen-title">빛의 선택</h2>
-      <p class="screen-sub">순례를 떠나기 전, 빛 ${D.LIGHT_POINTS}을 나누어 가호를 고르세요. 강한 가호일수록 많은 빛이 듭니다.</p>
+      <p class="screen-sub">${cls.icon} ${cls.name} — 빛 ${D.LIGHT_POINTS}을 나누어 가호를 고르세요. 강한 가호일수록 많은 빛이 듭니다.</p>
       <div class="light-meter">${pips}</div>
       <div class="light-left">남은 빛 ${left} / ${D.LIGHT_POINTS}</div>
       <div class="passive-grid">${cards}</div>
       <div class="bottom-actions">
-        <button class="btn" data-act="title">뒤로</button>
+        <button class="btn" data-act="new">뒤로</button>
         <button class="btn primary big" data-act="begin">순례 시작</button>
       </div>
     </div>`;
@@ -186,22 +219,20 @@
     return Array.from({ length: 5 }, (_, i) => {
       const f = start + i;
       const k = G.floorKind(f);
-      return `<span class="ft ${k}${f < floor ? ' done' : ''}${f === floor ? ' cur' : ''}" title="${f}층 · ${KIND_NAME[k]}">${KIND_ICON[k]}</span>`;
+      const shop = G.isShopFloor(f) ? ' 후 상점' : '';
+      return `<span class="ft ${k}${f < floor ? ' done' : ''}${f === floor ? ' cur' : ''}" title="${f}층 · ${KIND_NAME[k]}${shop}">${KIND_ICON[k]}</span>`;
     }).join('');
   }
 
   function oddsHtml(b, i) {
-    const pCard = b.plan[i] != null;
-    const eCard = !!b.enemyPlan[i];
-    if (pCard && eCard) {
-      const o = G.clashOdds(b, i, 300);
-      const cls = o >= 0.6 ? 'adv' : o <= 0.4 ? 'dis' : 'even';
-      const word = o >= 0.6 ? '우세' : o <= 0.4 ? '열세' : '균형';
-      return `<div class="odds ${cls}">${word}<br>${Math.round(o * 100)}%</div>`;
-    }
-    if (pCard) return '<div class="odds adv">일방<br>공격</div>';
-    if (eCard) return '<div class="odds dis">무방비</div>';
-    return '';
+    const pc = b.plan[i] != null;
+    const ec = !!b.enemyPlan[i];
+    if (!pc && !ec) return '';
+    const o = G.rowOdds(b, i, 250);
+    const diff = o.dealt - o.taken;
+    const cls = !ec ? 'adv' : !pc ? 'dis' : diff > 3 ? 'adv' : diff < -3 ? 'dis' : 'even';
+    const word = !ec ? '일방 공격' : !pc ? '무방비' : diff > 3 ? '우세' : diff < -3 ? '열세' : '균형';
+    return `<div class="odds ${cls}">${word}<small>가함 ${Math.round(o.dealt)}<br>받음 ${Math.round(o.taken)}</small></div>`;
   }
 
   function renderBattle() {
@@ -218,11 +249,11 @@
       const pc = uid != null ? p.hand.find(h => h.uid === uid) : null;
       const ec = b.enemyPlan[i] || null;
       const target = S.targetRow === i;
-      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '슬롯 없음' : target ? '여기에 배치할 카드를 고르세요' : '빈 슬롯<br><small>눌러서 대상 지정</small>'}</div>`;
+      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '슬롯 없음' : target ? '여기에 놓을 카드를 고르세요' : '빈 슬롯<br><small>눌러서 대상 지정</small>'}</div>`;
       const eSlot = ec ? chipHtml(ec, e, p) : '<div class="empty">—</div>';
       return `<div class="row${target ? ' target' : ''}" data-row="${i}">
         <div class="slot p" data-act="slot" data-row="${i}">${pSlot}</div>
-        <div class="clash-mid"><div class="pow p"></div>${oddsHtml(b, i)}<div class="pow e"></div></div>
+        <div class="clash-mid">${oddsHtml(b, i)}</div>
         <div class="slot e">${eSlot}</div>
       </div>`;
     }).join('');
@@ -245,6 +276,7 @@
             <span class="floor-no">${run.floor}F</span>
             <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span>
             <span class="turn-no">${b.turn}턴</span>
+            ${goldHtml()}
           </div>
           <div class="floor-track">${floorTrack(run.floor)}</div>
           <div class="hud-right">
@@ -255,7 +287,7 @@
         </header>
 
         <section class="unit enemy" id="u-e">
-          <div class="portrait" data-act="enemyInfo" title="적 정보">${e.icon}</div>
+          <div class="portrait" data-act="enemyInfo" title="적 정보">${art('monsters', e.defId, e.icon, 'portrait-art')}</div>
           <div class="unit-info">
             <div class="unit-name">${e.name} <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span> <button class="btn small ghost" data-act="enemyInfo">덱 보기</button></div>
             ${hpBar(e, 'e')}
@@ -267,13 +299,13 @@
         </section>
 
         <section class="arena">
-          <div class="arena-head"><span>순례자의 스킬</span><span>합</span><span>${e.name}의 스킬</span></div>
+          <div class="arena-head"><span>${p.name}의 카드</span><span>예상</span><span>${e.name}의 카드</span></div>
           ${rows}
         </section>
 
         <div class="player-bar">
           <section class="unit player" id="u-p">
-            <div class="portrait">🕯️</div>
+            <div class="portrait">${art('classes', p.classId, p.icon, 'portrait-art')}</div>
             <div class="unit-info">
               <div class="unit-name">${p.name}</div>
               ${hpBar(p, 'p')}
@@ -282,7 +314,7 @@
           </section>
           <section class="resources">
             <div class="energy-row"><span class="energy-label">코스트</span><div class="pips">${energyPips}</div><span class="energy-num">${p.energy - spent}/${p.energy}</span></div>
-            <div class="piles">스킬 ${planned}/${p.slots} · 뽑을 카드 ${p.drawPile.length} · 버린 카드 ${p.discard.length} · 앞면 확률 ${Math.round(Math.min(0.95, p.headChance) * 100)}%</div>
+            <div class="piles">카드 ${planned}/${p.slots} · 뽑을 카드 ${p.drawPile.length} · 버린 카드 ${p.discard.length}</div>
           </section>
         </div>
 
@@ -357,102 +389,96 @@
   }
 
   const rowEl = i => document.querySelector(`.row[data-row="${i}"]`);
-  const coinEls = (row, side) => (row ? Array.from(row.querySelectorAll(`.slot.${side} .coin`)) : []);
+  const dieEl = (row, side, i) => (row && i >= 0 ? row.querySelector(`.slot.${side} .die[data-i="${i}"]`) : null);
 
-  function paintFlips(row, side, flips, alive) {
-    coinEls(row, side).forEach((el, i) => {
-      el.classList.remove('h', 't', 'z', 'flip');
-      if (i >= alive) { el.classList.add('x'); return; }
-      void el.offsetWidth;
-      el.classList.add('flip', flips[i] === 'H' ? 'h' : flips[i] === 'Z' ? 'z' : 't');
-    });
+  function showRoll(el, value, state) {
+    if (!el) return;
+    el.classList.remove('win', 'lose', 'even', 'roll');
+    void el.offsetWidth;
+    el.classList.add('roll', state);
+    el.querySelector('b').textContent = value;
   }
+  function markUsed(el) { if (el) el.classList.add('used'); }
 
-  function setPow(row, side, val, state) {
-    if (!row) return;
-    const el = row.querySelector('.pow.' + side);
-    el.textContent = val == null ? '' : val;
-    el.classList.remove('win', 'lose');
-    if (state) el.classList.add(state);
-  }
+  const DIE_WORD = t => `${D.DICE[t].icon}${D.DICE[t].name}`;
+  const RESULT_TEXT = {
+    p: '승리', e: '패배', tie: '무승부', none: '방어끼리 — 무효', 'p-evade': '회피 성공 (주사위 재사용)', 'e-evade': '적이 회피 (적 주사위 재사용)',
+  };
 
   async function play(events) {
     let row = null;
+    let rowP = null;
+    let rowE = null;
     for (const ev of events) {
       switch (ev.t) {
+        case 'start':
+          log(ev.side, `✧ ${nm(ev.side)}의 「${ev.name}」 전투 시작 효과`);
+          await sleep(200);
+          break;
         case 'row': {
           document.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
           row = rowEl(ev.row);
+          rowP = ev.p;
+          rowE = ev.e;
           if (row) { row.classList.add('active'); row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-          log('sys', `— ${ev.row + 1}번 줄 —`);
+          log('sys', `— ${ev.row + 1}번 줄: ${ev.p ? `「${ev.p.name}」` : '없음'} vs ${ev.e ? `「${ev.e.name}」` : '없음'} —`);
           await sleep(300);
           break;
         }
         case 'selfDmg':
           floatText(ev.side, '-' + ev.amount, 'dmg');
           setHp(ev.hp);
-          log(ev.side, `${nm(ev.side)}: 체력 ${ev.amount} 소모`);
+          log(ev.side, `${nm(ev.side)}: 「${ev.name}」 사용으로 체력 ${ev.amount} 소모`);
           await sleep(250);
           break;
         case 'status': {
           const info = D.STATUS_INFO[ev.key];
-          const val = ev.c != null ? `${ev.amount} → ${ev.p}/${ev.c}회` : ev.amount;
-          log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}에게 ${info.name} ${val}${ev.next ? ' (다음 턴)' : ''}`);
+          log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}에게 ${info.name} ${ev.amount}${ev.next ? ' (다음 턴)' : ''}`);
           await sleep(60);
           break;
         }
         case 'clash': {
-          paintFlips(row, 'p', ev.pf, ev.pc);
-          paintFlips(row, 'e', ev.ef, ev.ec);
-          setPow(row, 'p', ev.pp, ev.win === 'p' ? 'win' : ev.win === 'e' ? 'lose' : '');
-          setPow(row, 'e', ev.ep, ev.win === 'e' ? 'win' : ev.win === 'p' ? 'lose' : '');
-          const res = ev.win === 'tie' ? '무승부 — 다시 합' : ev.win === 'p' ? '승리' : '패배';
-          log('sys', `합 ${ev.pp} : ${ev.ep} → ${res}`);
-          await sleep(700);
-          break;
-        }
-        case 'break': {
-          const el = coinEls(row, ev.side)[ev.left];
-          if (el) { el.classList.remove('h', 't', 'z'); el.classList.add('x'); }
-          await sleep(220);
-          break;
-        }
-        case 'fate':
-          log('good', `✦ 운명 역행! ${nm(ev.side)}의 코인 파괴를 막았습니다`);
-          await sleep(300);
-          break;
-        case 'clashWin':
-          log(ev.side === 'p' ? 'big' : 'bad', `${nm(ev.side)} 합 승리! (${ev.rounds}합) 남은 코인 ${ev.left}개로 공격`);
-          await sleep(300);
-          break;
-        case 'attack': {
-          setPow(row, other(ev.side), null);
-          coinEls(row, ev.side).forEach(el => el.classList.remove('h', 't', 'z', 'flip'));
-          log(ev.side, `${nm(ev.side)}의 「${ev.name}」 ${D.TYPES[ev.type].name} 공격 (코인 ${ev.coins}개)`);
-          await sleep(250);
+          const pe = dieEl(row, 'p', ev.pi);
+          const ee = dieEl(row, 'e', ev.ei);
+          if (ev.result === 'p-free' || ev.result === 'e-free') {
+            const side = ev.result[0];
+            showRoll(side === 'p' ? pe : ee, side === 'p' ? ev.pv : ev.ev, 'win');
+            const d = (side === 'p' ? rowP : rowE).dice[side === 'p' ? ev.pi : ev.ei];
+            log(side, `${nm(side)} 일방 공격 ${DIE_WORD(d.t)} ${side === 'p' ? ev.pv : ev.ev}`);
+            await sleep(380);
+            markUsed(side === 'p' ? pe : ee);
+            break;
+          }
+          const pw = ev.result === 'p' || ev.result === 'p-evade';
+          const ew = ev.result === 'e' || ev.result === 'e-evade';
+          showRoll(pe, ev.pv, pw ? 'win' : ew ? 'lose' : 'even');
+          showRoll(ee, ev.ev, ew ? 'win' : pw ? 'lose' : 'even');
+          const pd = rowP.dice[ev.pi];
+          const ed = rowE.dice[ev.ei];
+          log('sys', `${DIE_WORD(pd.t)} ${ev.pv} : ${ev.ev} ${DIE_WORD(ed.t)} → ${RESULT_TEXT[ev.result]}`);
+          await sleep(620);
+          if (ev.result !== 'p-evade') markUsed(pe);
+          if (ev.result !== 'e-evade') markUsed(ee);
           break;
         }
         case 'hit': {
-          const el = coinEls(row, ev.side)[ev.k];
-          if (el) { el.classList.remove('h', 't', 'z', 'flip'); void el.offsetWidth; el.classList.add('flip', ev.face === 'H' ? 'h' : ev.face === 'Z' ? 'z' : 't'); }
-          setPow(row, ev.side, ev.power, 'win');
           const tgt = other(ev.side);
           shake(tgt);
-          floatText(tgt, (ev.crit ? '치명! ' : '') + '-' + ev.dmg, 'dmg');
+          floatText(tgt, '-' + ev.dmg, 'dmg');
           setHp(ev.hp);
-          const extra = [ev.face === 'Z' ? '마비' : ev.face === 'H' ? '앞면' : '뒷면'];
+          const extra = [];
+          if (ev.counter) extra.push('방어 반격');
           if (ev.res !== 1) extra.push(`${D.RES_NAME[ev.res]} ×${ev.res}`);
-          if (ev.crit) extra.push('치명타');
-          log(ev.side, `  코인 ${ev.k + 1}: 위력 ${ev.power} → <b>${ev.dmg}</b> 피해 (${extra.join(', ')})`);
-          await sleep(430);
+          log(ev.side, `  ${nm(tgt)}에게 <b>${ev.dmg}</b> 피해${extra.length ? ` (${extra.join(', ')})` : ''}`);
+          await sleep(330);
           break;
         }
         case 'proc': {
           const info = D.STATUS_INFO[ev.key];
           floatText(ev.side, `${info.icon}-${ev.amount}`, 'proc');
           setHp(ev.hp);
-          log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}: ${info.name} 발동, ${ev.amount} 피해`);
-          await sleep(300);
+          log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}: ${info.name}으로 ${ev.amount} 피해`);
+          await sleep(280);
           break;
         }
         case 'heal':
@@ -484,7 +510,7 @@
     if (S.busy || !b || b.outcome) return;
     if (G.planCount(b) === 0 && b.enemyPlan.length && !S.confirmEmpty) {
       S.confirmEmpty = true;
-      toast('스킬을 배치하지 않았습니다. 한 번 더 누르면 그대로 진행합니다.');
+      toast('카드를 배치하지 않았습니다. 한 번 더 누르면 그대로 진행합니다.');
       return;
     }
     S.confirmEmpty = false;
@@ -499,7 +525,9 @@
     if (b.outcome === 'win') {
       log('big', `${b.enemy.name} 처치!`);
       await banner('VICTORY', 'win');
-      S.pendingBoss = G.finishBattle(S.run, b);
+      const res = G.finishBattle(S.run, b, rng);
+      S.pendingBoss = res.boss;
+      S.lastGold = res.gold;
       S.rewards = G.rollRewards(S.run, b.kind, rng);
       go('reward');
     } else if (b.outcome === 'lose') {
@@ -513,17 +541,15 @@
   }
 
   // 자동 배치: 코스트 안에서 가능한 카드 조합과 줄 배치를 모두 따져
-  // (합 승률 × 내 기대 피해 − 패배 확률 × 적 기대 피해)가 가장 큰 배치를 고른다.
+  // (가하는 피해 − 받는 피해) 기대값이 가장 큰 배치를 고른다.
   function autoPlan() {
     const b = S.battle;
     const p = b.player;
-    const e = b.enemy;
     const hand = p.hand;
     const rows = b.rows;
-    const mine = hand.map(c => G.expectedDamage(p, c, e));
-    const theirs = Array.from({ length: rows }, (_, r) => (b.enemyPlan[r] ? G.expectedDamage(e, b.enemyPlan[r], p) : 0));
-    const odds = hand.map(c => Array.from({ length: rows }, (_, r) => (b.enemyPlan[r] ? G.pairOdds(b, c, b.enemyPlan[r], null, 120) : null)));
-    let best = { v: -theirs.reduce((a, x) => a + x, 0), pick: [] };
+    const table = hand.map(c => Array.from({ length: rows }, (_, r) => G.pairOdds(b, c, b.enemyPlan[r] || null, null, 80)));
+    const idle = Array.from({ length: rows }, (_, r) => (b.enemyPlan[r] ? G.pairOdds(b, null, b.enemyPlan[r], null, 80).taken : 0));
+    let best = { v: -Infinity, pick: [] };
     const used = new Array(hand.length).fill(false);
     const pick = new Array(rows).fill(-1);
     (function rec(r, count, cost) {
@@ -531,9 +557,7 @@
         let v = 0;
         for (let i = 0; i < rows; i++) {
           const h = pick[i];
-          if (h < 0) v -= theirs[i];
-          else if (odds[h][i] == null) v += mine[h];
-          else v += odds[h][i] * mine[h] - (1 - odds[h][i]) * theirs[i];
+          v += h < 0 ? -idle[i] : table[h][i].dealt - table[h][i].taken;
         }
         if (v > best.v) best = { v, pick: pick.slice() };
         return;
@@ -555,42 +579,49 @@
   }
 
   // ───────── 보상 ─────────
+  function rewardBody(o) {
+    return o.item.type === 'card'
+      ? `<div class="reward-card">${cardHtml(G.makeCard(o.cardId), null, { cls: 'static' })}</div>`
+      : itemArt(o.item);
+  }
+
   function renderReward() {
     const p = S.run.player;
-    const opts = S.rewards.map((o, i) => {
-      const it = o.item;
-      const body = it.type === 'card'
-        ? `<div class="reward-card">${cardHtml(G.makeCard(o.cardId), null, { cls: 'static' })}</div>`
-        : `<div class="reward-icon">${it.icon}</div>`;
-      return `<div class="reward ${it.rarity}" data-act="reward" data-i="${i}">
-        <span class="rarity-tag ${it.rarity}">${D.RARITY_NAME[it.rarity]}</span>
-        ${body}
-        <div class="reward-name">${it.name}</div>
-        <div class="reward-desc">${it.desc}</div>
-      </div>`;
-    }).join('');
+    const opts = S.rewards.map((o, i) => `<div class="reward ${o.item.rarity}" data-act="reward" data-i="${i}">
+        <span class="rarity-tag ${o.item.rarity}">${D.RARITY_NAME[o.item.rarity]}</span>
+        ${rewardBody(o)}
+        <div class="reward-name">${o.item.name}</div>
+        <div class="reward-desc">${o.item.desc}</div>
+      </div>`).join('');
+    const next = G.isShopFloor(S.run.floor) ? ' 다음은 상점입니다.' : '';
     return `<div class="screen reward-screen">
       <h2 class="screen-title">전리품</h2>
-      <p class="screen-sub">${S.run.floor}층 돌파. 하나를 선택하세요.${S.pendingBoss ? ' 보스를 쓰러뜨려 체력을 회복했습니다.' : ''}</p>
+      <p class="screen-sub">${S.run.floor}층 돌파 · 은화 +${S.lastGold}. 하나를 선택하세요.${S.pendingBoss ? ' 보스를 쓰러뜨려 체력을 회복했습니다.' : ''}${next}</p>
       <div class="reward-grid">${opts}</div>
-      <p class="status-line">체력 <b>${p.hp} / ${p.maxHp}</b> · 코스트 <b>${p.energy}</b> · 슬롯 <b>${p.slots}</b></p>
+      <p class="status-line">체력 <b>${p.hp} / ${p.maxHp}</b> · ${goldHtml()} · 코스트 <b>${p.energy}</b> · 슬롯 <b>${p.slots}</b></p>
       <div class="bottom-actions"><button class="btn small" data-act="deck">덱 · 유물 보기</button><button class="btn small" data-act="skipReward">건너뛰기</button></div>
     </div>`;
   }
 
   function pickReward(i) {
     const opt = S.rewards[i];
-    if (G.needsCardTarget(opt)) {
-      openDeckPicker(opt);
-      return;
-    }
+    const done = () => { toast(`${opt.item.name} 획득`); afterReward(); };
+    if (G.needsCardTarget(opt)) { openDeckPicker(opt, uid => { G.applyReward(S.run, opt, uid); done(); }); return; }
     G.applyReward(S.run, opt);
-    toast(`${opt.item.name} 획득`);
-    afterReward();
+    done();
   }
 
   function afterReward() {
     closeModal();
+    if (G.isShopFloor(S.run.floor)) {
+      S.shop = G.rollShop(S.run, rng);
+      go('shop');
+    } else {
+      afterShop();
+    }
+  }
+
+  function afterShop() {
     if (S.pendingBoss) {
       S.regions = G.regionChoices(S.run, rng);
       go('region');
@@ -613,6 +644,47 @@
     go('battle');
   }
 
+  // ───────── 상점 ─────────
+  function shopItem(entry, key) {
+    const it = entry.item;
+    const afford = S.run.gold >= entry.price;
+    const sold = entry.sold;
+    return `<div class="shop-item ${it.rarity}${sold ? ' sold' : ''}">
+      <span class="rarity-tag ${it.rarity}">${D.RARITY_NAME[it.rarity]}</span>
+      ${rewardBody(entry)}
+      <div class="reward-name">${it.name}</div>
+      <div class="reward-desc">${it.desc}</div>
+      <button class="btn small${afford && !sold ? ' primary' : ''}" data-act="buy" data-key="${key}" ${sold || !afford ? 'disabled' : ''}>${sold ? '판매 완료' : `🪙 ${entry.price}`}</button>
+    </div>`;
+  }
+
+  function renderShop() {
+    const p = S.run.player;
+    return `<div class="screen shop-screen">
+      <h2 class="screen-title">떠돌이 상인</h2>
+      <p class="screen-sub">5층마다 나타나는 상인입니다. 은화로 물건을 사세요. 층이 높을수록 좋은 물건이 들어옵니다.</p>
+      <p class="status-line">${goldHtml()} · 체력 <b>${p.hp} / ${p.maxHp}</b></p>
+      <h3 class="shop-head">기본 물품 <small>언제나 있음 · 여러 번 구매 가능</small></h3>
+      <div class="shop-grid fixed">${S.shop.fixed.map((e, i) => shopItem(e, 'f' + i)).join('')}</div>
+      <h3 class="shop-head">오늘의 물건 <small>일반 ~ 전설 · 각 1개</small></h3>
+      <div class="shop-grid">${S.shop.random.map((e, i) => shopItem(e, 'r' + i)).join('')}</div>
+      <div class="bottom-actions"><button class="btn small" data-act="deck">덱 · 유물 보기</button><button class="btn primary big" data-act="leaveShop">상점 떠나기</button></div>
+    </div>`;
+  }
+
+  function buyEntry(key) {
+    const entry = key[0] === 'f' ? S.shop.fixed[Number(key.slice(1))] : S.shop.random[Number(key.slice(1))];
+    if (entry.sold || S.run.gold < entry.price) { toast(entry.sold ? '이미 판매된 물건입니다.' : '은화가 부족합니다.'); return; }
+    const done = uid => {
+      const res = G.buy(S.run, entry, uid);
+      closeModal();
+      toast(res.ok ? `${entry.item.name} 구매` : res.msg);
+      render();
+    };
+    if (G.needsCardTarget(entry)) openDeckPicker(entry, done);
+    else done();
+  }
+
   // ───────── 지역 선택 ─────────
   function renderRegion() {
     const cards = S.regions.map(r => `<div class="region-card" style="--rc:${r.color}" data-act="region" data-id="${r.id}">
@@ -624,7 +696,7 @@
     </div>`).join('');
     return `<div class="screen region-screen">
       <h2 class="screen-title">다음 지역</h2>
-      <p class="screen-sub">보스를 쓰러뜨렸습니다. 순례를 이어갈 땅을 고르세요. (${S.run.floor + 1}층부터)</p>
+      <p class="screen-sub">순례를 이어갈 땅을 고르세요. (${S.run.floor + 1}층부터)</p>
       <div class="region-grid">${cards}</div>
     </div>`;
   }
@@ -634,21 +706,23 @@
     const best = store.get('best', null);
     const region = D.REGION_MAP[S.run.regionId].name;
     S.newRecord = !best || S.run.floor > best.floor;
-    if (S.newRecord) store.set('best', { floor: S.run.floor, region });
+    if (S.newRecord) store.set('best', { floor: S.run.floor, region, cls: D.CLASS_MAP[S.run.classId].name });
   }
 
   function renderOver() {
     const run = S.run;
     const region = D.REGION_MAP[run.regionId];
+    const cls = D.CLASS_MAP[run.classId];
     return `<div class="screen over-screen">
       <div class="title-emblem">✝</div>
       <h2 class="over-title">순례의 끝</h2>
-      <p class="screen-sub">${region.icon} ${region.name}, ${run.floor}층에서 빛이 꺼졌습니다.${S.newRecord ? '<br><b class="gold">새로운 최고 기록!</b>' : ''}</p>
+      <p class="screen-sub">${cls.name} — ${region.icon} ${region.name}, ${run.floor}층에서 빛이 꺼졌습니다.${S.newRecord ? '<br><b class="gold">새로운 최고 기록!</b>' : ''}</p>
       <dl class="over-stats">
         <dt>도달 층</dt><dd>${run.floor}층</dd>
         <dt>처치한 적</dt><dd>${run.kills}</dd>
         <dt>쓰러뜨린 보스</dt><dd>${run.bossKills}</dd>
         <dt>모은 유물</dt><dd>${run.player.relics.length}개</dd>
+        <dt>남은 은화</dt><dd>${run.gold}</dd>
       </dl>
       <div class="title-actions">
         <button class="btn primary big" data-act="new">다시 순례하기</button>
@@ -661,44 +735,44 @@
   function openModal(html) {
     $modal.innerHTML = `<div class="modal-back" data-act="closeModal"><div class="modal" data-stop>${html}</div></div>`;
   }
-  function closeModal() { $modal.innerHTML = ''; }
+  function closeModal() { $modal.innerHTML = ''; S.pick = null; }
 
-  function openDeckPicker(opt) {
+  function openDeckPicker(opt, done) {
     const p = S.run.player;
     const isCard = opt.item.type === 'card';
-    S.pickOpt = opt;
     const newCard = isCard ? `<section><h4>새 카드</h4><div class="hand">${cardHtml(G.makeCard(opt.cardId), null, { cls: 'static' })}</div></section>` : '';
     openModal(`<button class="btn small modal-close" data-act="closeModal">취소</button>
       <h3>${opt.item.icon} ${opt.item.name}</h3>
       <p class="sub">${isCard ? '덱에서 교체할 카드를 고르세요. (덱은 항상 9장)' : `${opt.item.desc} — 강화할 카드를 고르세요.`}</p>
       ${newCard}
       <section><h4>현재 덱</h4><div class="hand">${p.deck.map(c => cardHtml(c, null, { act: 'pickCard', cls: 'pickable' })).join('')}</div></section>`);
+    S.pick = { opt, done };
   }
 
   function openDeck() {
     const p = S.run.player;
+    const cls = D.CLASS_MAP[S.run.classId];
     const relics = p.relics.map(id => D.ITEMS.find(i => i.id === id)).map(it => `<span class="tag">${it.icon} ${it.name} <small>${it.desc}</small></span>`).join('') || '<span class="tag">없음</span>';
     const passives = p.passives.map(id => D.PASSIVES.find(x => x.id === id)).map(x => `<span class="tag">✦ ${x.name} <small>${x.desc}</small></span>`).join('') || '<span class="tag">없음</span>';
     const stat = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
     openModal(`<button class="btn small modal-close" data-act="closeModal">닫기</button>
-      <h3>순례자</h3>
-      <p class="sub">${S.run.floor}층 · ${D.REGION_MAP[S.run.regionId].name}</p>
+      <h3>${cls.icon} ${cls.name}</h3>
+      <p class="sub">${S.run.floor}층 · ${D.REGION_MAP[S.run.regionId].name} · 특성 「${cls.trait.name}」 ${cls.trait.desc}</p>
       <section><h4>능력치</h4><div class="stat-grid">
-        ${stat('체력', `${p.hp}/${p.maxHp}`)}${stat('턴당 코스트', p.energy)}${stat('스킬 슬롯', p.slots)}${stat('손패', p.handSize)}
-        ${stat('앞면 확률', Math.round(Math.min(0.95, p.headChance) * 100) + '%')}${stat('기본 위력', '+' + p.basePower)}${stat('코인 위력', '+' + p.coinPower)}
+        ${stat('체력', `${p.hp}/${p.maxHp}`)}${stat('은화', S.run.gold)}${stat('턴당 코스트', p.energy)}${stat('카드 슬롯', p.slots)}${stat('손패', p.handSize)}
+        ${stat('주사위 위력', '+' + p.basePower)}${stat('최소값', '+' + p.diceMin)}${stat('최대값', '+' + p.diceMax)}
         ${stat('피해 감소', p.dmgReduce)}${stat('흡혈', Math.round(p.lifesteal * 100) + '%')}${stat('승리 회복', p.winHeal)}
       </div></section>
       <section><h4>빛의 가호</h4><div class="tag-list">${passives}</div></section>
       <section><h4>유물</h4><div class="tag-list">${relics}</div></section>
-      <section><h4>덱 (9장)</h4><div class="hand">${p.deck.map(c => cardHtml(c, S.battle && S.screen === 'battle' ? p : null, { cls: 'static' })).join('')}</div></section>`);
+      <section><h4>덱 (9장)</h4><div class="hand">${p.deck.map(c => cardHtml(c, p, { cls: 'static' })).join('')}</div></section>`);
   }
 
   function openEnemyInfo() {
     const e = S.battle.enemy;
     openModal(`<button class="btn small modal-close" data-act="closeModal">닫기</button>
-      <h3>${e.icon} ${e.name}</h3>
-      <p class="sub">${e.desc}</p>
-      <section><h4>내성 — 해당 유형으로 공격하면 피해 배율이 적용됩니다</h4>${resRow(e)}</section>
+      <div class="enemy-head">${art('monsters', e.defId, e.icon, 'enemy-art')}<div><h3>${e.name}</h3><p class="sub">${e.desc}</p></div></div>
+      <section><h4>내성 — 해당 유형의 공격 주사위로 때리면 피해 배율이 적용됩니다</h4>${resRow(e)}</section>
       ${e.signature ? `<section><h4>고유 스킬 (3턴마다 추가 사용)</h4><div class="hand">${cardHtml(e.signature, e, { cls: 'static' })}</div></section>` : ''}
       <section><h4>덱 (9장)</h4><div class="hand">${e.deck.map(c => cardHtml(c, e, { cls: 'static' })).join('')}</div></section>`);
   }
@@ -708,43 +782,49 @@
     openModal(`<button class="btn small modal-close" data-act="closeModal">닫기</button>
       <div class="howto">
       <h3>게임 방법</h3>
-      <p>카드를 뽑아 스킬을 얻고, <b>림버스 컴퍼니식 합</b>으로 적을 쓰러뜨리며 층을 오르는 다크 판타지 로그라이크입니다.</p>
+      <p>카드를 뽑아 스킬을 얻고, <b>운명 주사위</b>로 합을 겨뤄 층을 오르는 다크 판타지 로그라이크입니다.</p>
       <h4>전투 순서</h4>
       <ol>
-        <li>매 턴 9장짜리 덱에서 손패를 채웁니다. 적도 자기 덱에서 스킬을 뽑아 공개합니다.</li>
-        <li>턴당 코스트(기본 9) 안에서 스킬 카드를 슬롯에 배치합니다. 같은 줄의 적 스킬과 합을 겨룹니다.</li>
-        <li><b>전투 시작</b>을 누르면 줄마다 합이 진행됩니다.</li>
+        <li>매 턴 9장짜리 덱에서 손패를 채웁니다. 적도 자기 덱에서 카드를 뽑아 미리 공개합니다.</li>
+        <li>턴당 코스트(기본 9) 안에서 카드를 슬롯에 배치합니다. 같은 줄의 적 카드와 합을 겨룹니다.</li>
+        <li><b>전투 시작</b>을 누르면 전투 시작 효과(회복, 힘, 보호 등)가 먼저 적용되고, 줄마다 합이 진행됩니다.</li>
       </ol>
-      <h4>합 (Clash)</h4>
+      <h4>운명 주사위 합</h4>
       <ul>
-        <li>합 위력 = 기본 위력 + (앞면이 나온 코인 수 × 코인 위력). 코인 앞면 확률은 기본 50%입니다.</li>
-        <li>위력이 낮은 쪽은 코인 1개가 파괴됩니다. 한쪽 코인이 모두 파괴될 때까지 반복합니다.</li>
-        <li>합에서 이긴 쪽은 <b>남은 코인</b>으로 일방 공격합니다. 코인을 하나씩 다시 던지며 앞면마다 위력이 누적되고, 코인마다 그 위력만큼 피해를 줍니다.</li>
-        <li>상대 스킬이 없는 줄은 곧바로 일방 공격합니다. 적 스킬을 막지 않으면 그대로 맞습니다.</li>
-        <li>코인이 많을수록 합에서 오래 버팁니다. 줄 가운데의 <b>우세/균형/열세</b>는 예상 합 승률입니다.</li>
+        <li>카드마다 주사위가 1~5개 있습니다. 두 카드의 주사위를 앞에서부터 하나씩 굴려 맞붙입니다.</li>
+        <li><b>공격(⚔참격 ➶관통 ⚒타격) vs 공격</b>: 높은 쪽이 굴린 값만큼 피해를 줍니다.</li>
+        <li><b>공격 vs ⛨방어</b>: 공격이 높으면 차이만큼 피해, 방어가 높으면 차이만큼 반격합니다.</li>
+        <li><b>공격 vs ↯회피</b>: 회피가 높으면 공격을 피하고 회피 주사위를 다시 씁니다. 공격이 높으면 전부 맞습니다.</li>
+        <li>한쪽 주사위가 먼저 떨어지면 남은 공격 주사위는 그대로 일방 공격합니다. 적 카드를 막지 않은 줄도 일방 공격을 받습니다.</li>
+        <li>줄 가운데의 <b>우세/균형/열세</b>와 가함/받음 수치는 그 줄의 예상 피해입니다.</li>
       </ul>
       <h4>공격 유형과 내성</h4>
-      <p>스킬은 ⚔ 참격 / ➶ 관통 / ⚒ 타격 중 하나입니다. 적마다 내성이 달라 피해에 배율이 붙습니다: 치명 ×2, 약점 ×1.5, 보통 ×1, 인내 ×0.5.</p>
+      <p>적마다 참격·관통·타격 내성이 다릅니다: 치명 ×2, 약점 ×1.5, 보통 ×1, 인내 ×0.5. 손패의 주사위 테두리가 초록이면 약점, 빨강이면 인내입니다.</p>
+      <h4>직업</h4>
+      <ul>${D.CLASSES.map(c => `<li>${c.icon} <b>${c.name}</b> (${c.weapon}) — ${c.trait.name}: ${c.trait.desc}</li>`).join('')}</ul>
       <h4>상태이상</h4>
       <ul>${st}</ul>
-      <h4>층과 지역</h4>
+      <h4>층, 지역, 상점</h4>
       <ul>
-        <li>전투에서 이길 때마다 전리품 3개 중 하나를 고릅니다.</li>
+        <li>전투에서 이길 때마다 은화를 얻고, 전리품 3개 중 하나를 고릅니다.</li>
         <li>3층에 중간 보스, 이후 5층마다(8, 13, …) 중간 보스가 나옵니다.</li>
-        <li>5층마다(5, 10, …) 지역 보스가 나오고, 보스를 쓰러뜨리면 다음 지역을 고릅니다.</li>
-        <li>중간 보스와 보스는 전용 카드 3장과, 3턴마다 추가로 쓰는 강력한 고유 스킬을 가집니다.</li>
+        <li>5층마다(5, 10, …) 지역 보스가 나옵니다. 보스를 쓰러뜨리면 <b>상점</b>이 열리고, 이어서 다음 지역을 고릅니다.</li>
+        <li>상점 위쪽에는 최하급 기본 물품 3개가 늘 있고, 아래쪽에는 일반~전설 물건 5개가 무작위로 나옵니다. 층이 높을수록 높은 등급이 잘 나옵니다.</li>
+        <li>중간 보스와 보스는 전용 카드 3장과, 3턴마다 추가로 쓰는 고유 스킬을 가집니다.</li>
       </ul>
       <h4>빛</h4>
-      <p>순례를 시작할 때 빛 15로 가호(패시브)를 고릅니다. 가호의 비용은 1~4입니다.</p>
+      <p>순례를 시작할 때 빛 ${D.LIGHT_POINTS}로 가호(패시브)를 고릅니다. 가호의 비용은 1~4입니다.</p>
       </div>`);
   }
 
   // ───────── 입력 ─────────
   function onAction(act, el) {
     switch (act) {
-      case 'new': S.light = []; go('light'); break;
+      case 'new': S.classId = S.classId || null; go('cls'); break;
       case 'title': go('title'); break;
       case 'howto': openHowto(); break;
+      case 'pickClass': S.classId = el.dataset.id; render(); break;
+      case 'toLight': if (S.classId) { S.light = []; go('light'); } break;
       case 'light': {
         const id = el.dataset.id;
         if (S.light.includes(id)) S.light = S.light.filter(x => x !== id);
@@ -757,7 +837,7 @@
         break;
       }
       case 'begin':
-        S.run = G.createRun(S.light);
+        S.run = G.createRun(S.classId, S.light);
         startBattle();
         break;
       case 'card': {
@@ -789,11 +869,13 @@
       case 'enemyInfo': openEnemyInfo(); break;
       case 'reward': pickReward(Number(el.dataset.i)); break;
       case 'skipReward': afterReward(); break;
+      case 'buy': buyEntry(el.dataset.key); break;
+      case 'leaveShop': afterShop(); break;
       case 'pickCard': {
-        const opt = S.pickOpt;
-        G.applyReward(S.run, opt, Number(el.dataset.uid));
-        toast(opt.item.type === 'card' ? '카드를 교체했습니다.' : '카드를 강화했습니다.');
-        afterReward();
+        if (!S.pick) return;
+        const { done } = S.pick;
+        S.pick = null;
+        done(Number(el.dataset.uid));
         break;
       }
       case 'region':

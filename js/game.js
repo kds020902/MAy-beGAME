@@ -127,6 +127,27 @@
 
   const goldHtml = () => `<span class="gold-tag" title="은화">🪙 ${S.run ? S.run.gold : 0}</span>`;
 
+  // 전투 자세 스프라이트 (assets/sprites/<id>/<idle|attack|defend|hit>.png)
+  const sprite = (id, pose) => ASSETS[`sprites/${id}/${pose}`];
+  function portraitHtml(kind, id, icon, attrs) {
+    const idle = sprite(id, 'idle');
+    if (idle) return `<div class="portrait sprite" data-sprite="${id}" ${attrs || ''}><img src="${idle}" alt=""></div>`;
+    return `<div class="portrait" ${attrs || ''}>${art(kind, id, icon, 'portrait-art')}</div>`;
+  }
+  function preloadSprites(id) {
+    ['idle', 'attack', 'defend', 'hit'].forEach(pose => { const src = sprite(id, pose); if (src) new Image().src = src; });
+  }
+  const poseTimers = {};
+  function setPose(side, pose) {
+    const box = document.querySelector(`#u-${side} .portrait.sprite`);
+    if (!box) return;
+    const id = box.dataset.sprite;
+    const img = box.querySelector('img');
+    img.src = sprite(id, pose) || sprite(id, 'idle');
+    clearTimeout(poseTimers[side]);
+    if (pose !== 'idle') poseTimers[side] = setTimeout(() => { img.src = sprite(id, 'idle'); }, 650 / S.speed);
+  }
+
   function itemArt(it) { return art('items', it.id, it.icon, 'item-art'); }
 
   // ───────── 화면 전환 ─────────
@@ -287,7 +308,7 @@
         </header>
 
         <section class="unit enemy" id="u-e">
-          <div class="portrait" data-act="enemyInfo" title="적 정보">${art('monsters', e.defId, e.icon, 'portrait-art')}</div>
+          ${portraitHtml('monsters', e.defId, e.icon, 'data-act="enemyInfo" title="적 정보"')}
           <div class="unit-info">
             <div class="unit-name">${e.name} <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span> <button class="btn small ghost" data-act="enemyInfo">덱 보기</button></div>
             ${hpBar(e, 'e')}
@@ -305,7 +326,7 @@
 
         <div class="player-bar">
           <section class="unit player" id="u-p">
-            <div class="portrait">${art('classes', p.classId, p.icon, 'portrait-art')}</div>
+            ${portraitHtml('classes', p.classId, p.icon)}
             <div class="unit-info">
               <div class="unit-name">${p.name}</div>
               ${hpBar(p, 'p')}
@@ -447,8 +468,8 @@
           const text = pw ? `${nm('e')}의 주사위 파괴` : ew ? `${nm('p')}의 주사위 파괴` : '무승부 — 다시 굴림';
           log('sys', `합 ${DIE_WORD(pd.t)} ${ev.pv} : ${ev.ev} ${DIE_WORD(ed.t)} → ${text}`);
           await sleep(600);
-          if (pw) markBroken(ee);
-          if (ew) markBroken(pe);
+          if (pw) { markBroken(ee); setPose('p', D.DICE[pd.t].atk ? 'attack' : 'defend'); }
+          if (ew) { markBroken(pe); setPose('e', D.DICE[ed.t].atk ? 'attack' : 'defend'); }
           break;
         }
         case 'attack': {
@@ -465,6 +486,7 @@
         case 'strike': {
           const el = dieEl(row, ev.side, ev.k);
           showRoll(el, ev.value, 'win');
+          setPose(ev.side, 'attack');
           const d = (ev.side === 'p' ? rowP : rowE).dice[ev.k];
           log(ev.side, `  ${DIE_WORD(d.t)} ${ev.value}`);
           await sleep(300);
@@ -474,6 +496,7 @@
         case 'hit': {
           const tgt = other(ev.side);
           shake(tgt);
+          setPose(tgt, 'hit');
           floatText(tgt, '-' + ev.dmg, 'dmg');
           setHp(ev.hp);
           const extra = [];
@@ -646,6 +669,8 @@
 
   function startBattle() {
     S.battle = G.startBattle(S.run, rng);
+    preloadSprites(S.run.classId);
+    preloadSprites(S.battle.enemy.defId);
     S.logs = [];
     S.targetRow = null;
     const e = S.battle.enemy;

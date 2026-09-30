@@ -86,9 +86,20 @@ function writeManifest() {
       map[`${kind}/${f.replace(/\.[^.]+$/, '')}`] = `assets/${kind}/${f}`;
     });
   });
+  // 전투 자세 스프라이트: assets/sprites/<직업 또는 몬스터 id>/<idle|attack|defend|hit>.png
+  const spr = path.join(ASSETS, 'sprites');
+  if (fs.existsSync(spr)) {
+    fs.readdirSync(spr).sort().forEach(id => {
+      const dir = path.join(spr, id);
+      if (!fs.statSync(dir).isDirectory()) return;
+      fs.readdirSync(dir).filter(f => /\.(png|webp|jpg)$/i.test(f)).sort().forEach(f => {
+        map[`sprites/${id}/${f.replace(/\.[^.]+$/, '')}`] = `assets/sprites/${id}/${f}`;
+      });
+    });
+  }
   const body = [
     '// 게임이 사용할 이미지 목록. tools/generate-images.js 가 이미지를 만든 뒤 자동으로 다시 쓴다.',
-    "// 키: '<종류>/<id>' (classes / monsters / items), 값: index.html 기준 경로",
+    "// 키: '<종류>/<id>' (classes / monsters / items) 또는 'sprites/<id>/<자세>', 값: index.html 기준 경로",
     `window.FFD_ASSETS = ${JSON.stringify(map, null, 2)};`,
     '',
   ].join('\n');

@@ -1,5 +1,5 @@
 /*
- * Fate Five Dungeon — 화면 / 입력 처리
+ * 오푸스덜스 — 화면 / 입력 처리
  * 규칙은 engine.js(window.FFD), 데이터는 data.js(window.FFD_DATA)에 있다.
  * 이미지는 assets/manifest.js(window.FFD_ASSETS)에 등록된 것만 쓰고, 없으면 아이콘으로 대신한다.
  */
@@ -195,7 +195,7 @@
     const best = store.get('best', null);
     return `<div class="screen title-screen">
       <div class="title-emblem">✦</div>
-      <h1 class="logo">FATE FIVE<span>DUNGEON</span></h1>
+      <h1 class="logo">오푸스덜스</h1>
       <p class="tagline">운명의 주사위를 굴려라.<br>다섯 개의 저주받은 땅이 순례자를 기다린다.</p>
       <div class="title-actions">
         <button class="btn primary big" data-act="new">새로운 순례</button>

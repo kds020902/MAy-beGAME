@@ -8,6 +8,7 @@
  *   node tools/generate-images.js --force      이미 있는 이미지도 다시 만든다
  *   node tools/generate-images.js --list       만들 목록과 프롬프트만 출력
  *   node tools/generate-images.js --manifest   이미지 생성 없이 assets/manifest.js 만 갱신
+ *   node tools/generate-images.js --markdown   직접 만들 때 볼 프롬프트 목록 IMAGE_PROMPTS.md 작성
  *   node tools/generate-images.js --codex "exec --full-auto"   codex 에 넘길 인자 (기본값)
  *
  * 이미지는 assets/<종류>/<id>.png 로 저장되고, 끝나면 assets/manifest.js 에 등록된다.
@@ -25,32 +26,47 @@ const args = process.argv.slice(2);
 const flag = name => args.includes(name);
 const opt = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 
-const STYLE = [
-  'dark fantasy illustration for a roguelike card game',
-  'painterly, muted desaturated palette with one warm accent color',
-  'dramatic rim lighting, subject centered and filling most of the frame',
-  'plain dark vignette background, square composition',
-  'no text, no letters, no border, no watermark',
-].join('; ');
+const { promptFor } = require('./image-prompts.js');
 
 function targets() {
   const out = [];
-  D.CLASSES.forEach(c => out.push({
-    kind: 'classes', id: c.id, name: c.name,
-    prompt: `Portrait of a playable hero, the "${c.name}" (${c.role}, weapon: ${c.weapon}). ${c.desc} Waist-up heroic pose. ${STYLE}.`,
-  }));
-  D.REGIONS.forEach(r => {
-    const mobs = [...r.monsters.map(m => [m, 'monster']), [r.midboss, 'mid-boss'], [r.boss, 'boss']];
-    mobs.forEach(([m, role]) => out.push({
-      kind: 'monsters', id: m.id, name: m.name,
-      prompt: `A ${role} enemy "${m.name}" from the region "${r.name}" (${r.desc}). ${m.desc} Menacing, facing the viewer.${role === 'boss' ? ' Imposing and grand.' : ''} ${STYLE}.`,
-    }));
-  });
-  D.ITEMS.forEach(it => out.push({
-    kind: 'items', id: it.id, name: it.name,
-    prompt: `Game item icon of "${it.name}" (the object suggested by the emoji ${it.icon}). A single object shown alone, centered, clean silhouette readable at small size. ${STYLE}.`,
-  }));
+  const add = (kind, id, name) => {
+    const prompt = promptFor(kind, id);
+    if (!prompt) throw new Error(`tools/image-prompts.js 에 ${id} 묘사가 없습니다`);
+    out.push({ kind, id, name, prompt });
+  };
+  D.CLASSES.forEach(c => add('classes', c.id, c.name));
+  D.REGIONS.forEach(r => [...r.monsters, r.midboss, r.boss].forEach(m => add('monsters', m.id, `${m.name} (${r.name})`)));
+  D.ITEMS.forEach(it => add('items', it.id, it.name));
   return out;
+}
+
+// 사람이 직접 이미지를 만들 때 보는 프롬프트 목록
+function writeMarkdown() {
+  const KIND = { classes: '직업', monsters: '몬스터', items: '아이템' };
+  const list = targets();
+  const lines = [
+    '# 이미지 생성 프롬프트',
+    '',
+    '`node tools/generate-images.js --markdown` 으로 다시 만들 수 있습니다. 프롬프트는 `tools/image-prompts.js` 에서 고칩니다.',
+    '',
+    '## 규칙',
+    '',
+    '- 정사각형 PNG (1024×1024 또는 512×512)',
+    '- 각 항목의 **저장 경로** 그대로 저장합니다. 파일 이름이 다르면 게임이 인식하지 못합니다.',
+    '- 저장한 뒤 `node tools/generate-images.js --manifest` 를 실행하면 `assets/manifest.js` 가 갱신되어 게임에 나타납니다.',
+    '- 그다음 `git add assets && git commit -m "이미지 추가" && git push` 로 올립니다.',
+    '',
+  ];
+  ['classes', 'monsters', 'items'].forEach(kind => {
+    const items = list.filter(t => t.kind === kind);
+    lines.push(`## ${KIND[kind]} (${items.length}개)`, '');
+    items.forEach(t => {
+      lines.push(`### ${t.name}`, '', `저장 경로: \`assets/${kind}/${t.id}.png\``, '', '```text', t.prompt, '```', '');
+    });
+  });
+  fs.writeFileSync(path.join(ROOT, 'IMAGE_PROMPTS.md'), lines.join('\n'));
+  console.log(`IMAGE_PROMPTS.md 작성: ${list.length}개`);
 }
 
 function existing(kind, id) {
@@ -82,6 +98,7 @@ function writeManifest() {
 
 function main() {
   if (flag('--manifest')) { writeManifest(); return; }
+  if (flag('--markdown')) { writeMarkdown(); return; }
   let list = targets();
   const only = opt('--only');
   const id = opt('--id');

@@ -217,7 +217,6 @@ h2.screen-title {
 }
 .fig-img { position: relative; display: block; max-width: 100%; }
 .fig-img.sprite { height: 100%; object-fit: contain; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, .7)); }
-.enemy .fig-img.sprite { transform: scaleX(-1); }
 .fig-img.portrait-img {
   height: 92%; aspect-ratio: 1; width: auto; object-fit: cover;
   -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 50%, transparent 70%);

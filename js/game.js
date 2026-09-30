@@ -38,6 +38,7 @@
     pendingBoss: false,
     regions: null,
     logs: [],
+    logOpen: false,
     pick: null, // 카드 선택 모달 진행 중인 { opt, done }
   };
 
@@ -129,23 +130,33 @@
 
   // 전투 자세 스프라이트 (assets/sprites/<id>/<idle|attack|defend|hit>.png)
   const sprite = (id, pose) => ASSETS[`sprites/${id}/${pose}`];
-  function portraitHtml(kind, id, icon, attrs) {
+  // 전투 무대의 인물: 스프라이트 > 초상화 > 아이콘 순서로 쓴다
+  function figureHtml(kind, id, icon) {
     const idle = sprite(id, 'idle');
-    if (idle) return `<div class="portrait sprite" data-sprite="${id}" ${attrs || ''}><img src="${idle}" alt=""></div>`;
-    return `<div class="portrait" ${attrs || ''}>${art(kind, id, icon, 'portrait-art')}</div>`;
+    if (idle) return `<img class="fig-img sprite" data-sprite="${id}" src="${idle}" alt="">`;
+    const src = ASSETS[`${kind}/${id}`];
+    if (src) return `<img class="fig-img portrait-img" src="${src}" alt="">`;
+    return `<span class="fig-emoji">${icon}</span>`;
   }
   function preloadSprites(id) {
     ['idle', 'attack', 'defend', 'hit'].forEach(pose => { const src = sprite(id, pose); if (src) new Image().src = src; });
   }
   const poseTimers = {};
   function setPose(side, pose) {
-    const box = document.querySelector(`#u-${side} .portrait.sprite`);
-    if (!box) return;
-    const id = box.dataset.sprite;
-    const img = box.querySelector('img');
+    const img = document.querySelector(`#u-${side} .fig-img.sprite`);
+    if (!img) return;
+    const id = img.dataset.sprite;
     img.src = sprite(id, pose) || sprite(id, 'idle');
     clearTimeout(poseTimers[side]);
     if (pose !== 'idle') poseTimers[side] = setTimeout(() => { img.src = sprite(id, 'idle'); }, 650 / S.speed);
+  }
+  // 공격 시 상대 쪽으로 돌진하는 움직임
+  function lunge(side) {
+    const fig = document.querySelector(`#u-${side} .figure`);
+    if (!fig) return;
+    fig.classList.remove('lunge');
+    void fig.offsetWidth;
+    fig.classList.add('lunge');
   }
 
   function itemArt(it) { return art('items', it.id, it.icon, 'item-art'); }
@@ -265,12 +276,12 @@
     const spent = G.planCost(b);
     const planned = G.planCount(b);
 
-    const rows = Array.from({ length: b.rows }, (_, i) => {
+    const lanes = Array.from({ length: b.rows }, (_, i) => {
       const uid = b.plan[i];
       const pc = uid != null ? p.hand.find(h => h.uid === uid) : null;
       const ec = b.enemyPlan[i] || null;
       const target = S.targetRow === i;
-      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '슬롯 없음' : target ? '여기에 놓을 카드를 고르세요' : '빈 슬롯<br><small>눌러서 대상 지정</small>'}</div>`;
+      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '슬롯 없음' : target ? '놓을 카드를 고르세요' : '빈 슬롯'}</div>`;
       const eSlot = ec ? chipHtml(ec, e, p) : '<div class="empty">—</div>';
       return `<div class="row${target ? ' target' : ''}" data-row="${i}">
         <div class="slot p" data-act="slot" data-row="${i}">${pSlot}</div>
@@ -288,69 +299,73 @@
     const energyPips = Array.from({ length: p.energy }, (_, i) => `<i class="pip ${i < p.energy - spent ? 'on' : 'spent'}"></i>`).join('');
     const sigSoon = e.signature && G.isSigTurn(b, b.turn + 1);
     const sigNow = e.signature && G.isSigTurn(b, b.turn);
+    const sig = sigNow ? `<div class="sig-warn">★ 이번 턴 고유 스킬 「${e.signature.sig.name}」</div>`
+      : sigSoon ? `<div class="sig-warn soon">⚠ 다음 턴 고유 스킬 「${e.signature.sig.name}」 준비 중</div>` : '';
+    const last = S.logs.length ? S.logs[S.logs.length - 1].t : '';
 
     return `<div class="screen battle-screen" style="--region:${region.color}">
-      <div class="battle-main">
-        <header class="hud">
-          <div class="hud-left">
-            <span class="region-name">${region.icon} ${region.name}</span>
-            <span class="floor-no">${run.floor}F</span>
-            <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span>
-            <span class="turn-no">${b.turn}턴</span>
-            ${goldHtml()}
-          </div>
-          <div class="floor-track">${floorTrack(run.floor)}</div>
-          <div class="hud-right">
-            <button class="btn small" data-act="deck">덱 · 유물</button>
-            <button class="btn small" data-act="speed">속도 ×${S.speed}</button>
-            <button class="btn small" data-act="howto">?</button>
-          </div>
-        </header>
+      <header class="topbar">
+        <div class="tb-stage">
+          <span class="region-name">${region.icon} ${region.name}</span>
+          <span class="floor-no">${run.floor}F</span>
+          <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span>
+        </div>
+        <div class="floor-track" title="이번 구간 5개 층">${floorTrack(run.floor)}</div>
+        <div class="tb-meta"><span class="turn-no">${b.turn}턴</span>${goldHtml()}</div>
+        <div class="tb-menu">
+          <button class="btn small" data-act="deck">덱 · 유물</button>
+          <button class="btn small" data-act="log">기록</button>
+          <button class="btn small" data-act="speed">속도 ×${S.speed}</button>
+          <button class="btn small" data-act="howto" aria-label="게임 방법">?</button>
+        </div>
+      </header>
 
-        <section class="unit enemy" id="u-e">
-          ${portraitHtml('monsters', e.defId, e.icon, 'data-act="enemyInfo" title="적 정보"')}
-          <div class="unit-info">
-            <div class="unit-name">${e.name} <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span> <button class="btn small ghost" data-act="enemyInfo">덱 보기</button></div>
+      <main class="stage">
+        <section class="fighter player" id="u-p">
+          <div class="fighter-hud">
+            <div class="unit-name">${p.icon} ${p.name}</div>
+            ${hpBar(p, 'p')}
+            <div class="statuses" id="st-p">${statusHtml(p)}</div>
+          </div>
+          <div class="figure">${figureHtml('classes', p.classId, p.icon)}</div>
+        </section>
+
+        <section class="lanes">
+          ${sig}
+          <div class="arena-head"><span>나의 카드</span><span>합</span><span>적의 카드</span></div>
+          ${lanes}
+        </section>
+
+        <section class="fighter enemy" id="u-e">
+          <div class="fighter-hud">
+            <div class="unit-name">${e.name} <span class="badge ${b.kind}">${KIND_NAME[b.kind]}</span></div>
             ${hpBar(e, 'e')}
             ${resRow(e)}
             <div class="statuses" id="st-e">${statusHtml(e)}</div>
-            <div class="unit-desc">${e.desc}</div>
-            ${sigNow ? `<div class="sig-warn">★ 이번 턴 고유 스킬 「${e.signature.sig.name}」 사용!</div>` : sigSoon ? `<div class="sig-warn">⚠ 다음 턴 고유 스킬 「${e.signature.sig.name}」 준비 중</div>` : ''}
           </div>
+          <div class="figure" data-act="enemyInfo" title="적 정보 보기">${figureHtml('monsters', e.defId, e.icon)}</div>
         </section>
 
-        <section class="arena">
-          <div class="arena-head"><span>${p.name}의 카드</span><span>예상</span><span>${e.name}의 카드</span></div>
-          ${rows}
-        </section>
+        <div class="ticker" id="ticker" data-act="log" title="전체 기록 보기">${last}</div>
+      </main>
 
-        <div class="player-bar">
-          <section class="unit player" id="u-p">
-            ${portraitHtml('classes', p.classId, p.icon)}
-            <div class="unit-info">
-              <div class="unit-name">${p.name}</div>
-              ${hpBar(p, 'p')}
-              <div class="statuses" id="st-p">${statusHtml(p)}</div>
-            </div>
-          </section>
-          <section class="resources">
-            <div class="energy-row"><span class="energy-label">코스트</span><div class="pips">${energyPips}</div><span class="energy-num">${p.energy - spent}/${p.energy}</span></div>
-            <div class="piles">카드 ${planned}/${p.slots} · 뽑을 카드 ${p.drawPile.length} · 버린 카드 ${p.discard.length}</div>
-          </section>
+      <footer class="dock">
+        <div class="dock-info">
+          <div class="energy-row"><span class="energy-label">코스트</span><div class="pips">${energyPips}</div><span class="energy-num">${p.energy - spent}/${p.energy}</span></div>
+          <div class="piles">카드 ${planned}/${p.slots} · 덱 ${p.drawPile.length} · 버림 ${p.discard.length}<span class="kbd-hint"> · 숫자키 1~9, Enter</span></div>
         </div>
-
-        <section class="hand-wrap">
-          <div class="hand-title"><span>손패 — 카드를 눌러 슬롯에 배치 (다시 누르면 해제)</span><span class="kbd-hint">숫자키 1~9 · Enter 전투 시작</span></div>
-          <div class="hand">${hand || '<div class="empty">손패가 없습니다</div>'}</div>
-        </section>
-
-        <div class="battle-actions">
+        <div class="hand">${hand || '<div class="empty">손패가 없습니다</div>'}</div>
+        <div class="dock-actions">
           <button class="btn" data-act="auto" ${S.busy ? 'disabled' : ''}>자동 배치</button>
           <button class="btn" data-act="clear" ${S.busy ? 'disabled' : ''}>초기화</button>
           <button class="btn primary big" data-act="fight" ${S.busy ? 'disabled' : ''}>전투 시작</button>
         </div>
-      </div>
-      <aside class="log"><div class="log-title">전투 기록</div><div class="log-lines" id="log-lines"></div></aside>
+      </footer>
+
+      <aside class="log-drawer${S.logOpen ? ' open' : ''}" id="log-drawer" aria-label="전투 기록">
+        <div class="log-title"><span>전투 기록</span><button class="btn small" data-act="log">닫기</button></div>
+        <div class="log-lines" id="log-lines"></div>
+      </aside>
     </div>`;
   }
 
@@ -371,6 +386,8 @@
       box.appendChild(div);
       box.scrollTop = box.scrollHeight;
     }
+    const tk = document.getElementById('ticker');
+    if (tk) { tk.className = 'ticker l-' + c; tk.innerHTML = t; }
   }
 
   // ───────── 전투 연출 ─────────
@@ -391,7 +408,7 @@
   }
 
   function floatText(side, text, cls) {
-    const unit = document.getElementById('u-' + side);
+    const unit = document.querySelector(`#u-${side} .figure`) || document.getElementById('u-' + side);
     if (!unit) return;
     const f = document.createElement('div');
     f.className = 'float ' + cls;
@@ -402,7 +419,7 @@
   }
 
   function shake(side) {
-    const unit = document.getElementById('u-' + side);
+    const unit = document.querySelector(`#u-${side} .figure`) || document.getElementById('u-' + side);
     if (!unit) return;
     unit.classList.remove('shake');
     void unit.offsetWidth;
@@ -487,6 +504,7 @@
           const el = dieEl(row, ev.side, ev.k);
           showRoll(el, ev.value, 'win');
           setPose(ev.side, 'attack');
+          lunge(ev.side);
           const d = (ev.side === 'p' ? rowP : rowE).dice[ev.k];
           log(ev.side, `  ${DIE_WORD(d.t)} ${ev.value}`);
           await sleep(300);
@@ -900,6 +918,12 @@
         el.textContent = `속도 ×${S.speed}`;
         break;
       case 'deck': openDeck(); break;
+      case 'log': {
+        S.logOpen = !S.logOpen;
+        const d = document.getElementById('log-drawer');
+        if (d) { d.classList.toggle('open', S.logOpen); const box = document.getElementById('log-lines'); box.scrollTop = box.scrollHeight; }
+        break;
+      }
       case 'enemyInfo': openEnemyInfo(); break;
       case 'reward': pickReward(Number(el.dataset.i)); break;
       case 'skipReward': afterReward(); break;

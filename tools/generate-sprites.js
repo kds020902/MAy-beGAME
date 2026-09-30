@@ -6,6 +6,9 @@
  *   node tools/generate-sprites.js ghoul werewolf  특정 캐릭터만
  *   node tools/generate-sprites.js --force ghoul   이미 있는 그림도 다시 만든다
  *   node tools/generate-sprites.js --list          캐릭터 목록만 출력
+ *   node tools/generate-sprites.js --force --pose=attack   모든 캐릭터의 공격 자세만 다시 만든다 (쉼표로 여러 개)
+ *
+ * 그림에는 이펙트(휘두르는 궤적, 섬광, 불꽃, 피 튀김 등)를 넣지 않는다. 이펙트는 게임이 VFX로 따로 그린다.
  *
  * 캐릭터마다 idle(대기) 를 먼저 만들고, 그 그림을 참고 이미지로 넣어 attack(공격) / defend(방어·회피) / hit(피격) 을 만든다.
  * 새 캐릭터의 idle 은 방랑검사 idle 을 화풍 참고로 넣어 화풍을 맞춘다.
@@ -20,7 +23,7 @@ const ROOT = path.resolve(__dirname, '..');
 const SPRITES = path.join(ROOT, 'assets', 'sprites');
 const STYLE_REF = path.join(SPRITES, 'swordsman', 'idle.png');
 
-const STYLE = 'Pixel art battle sprite for a dark fantasy roguelike, 16-bit style with clearly visible chunky square pixels, crisp hard pixel edges, no blur, limited muted desaturated palette with one warm accent color, dark outline around the character. Whole body shown, side view, character fills most of the square 1:1 frame with small margin. Background must be fully transparent (alpha); if transparency is impossible use a flat solid pure #FF00FF magenta background with no shadows or gradients. No text, no letters, no border, no watermark, no ground, no scenery, no throne, no background objects.';
+const STYLE = 'Pixel art battle sprite for a dark fantasy roguelike, 16-bit style with clearly visible chunky square pixels, crisp hard pixel edges, no blur, limited muted desaturated palette with one warm accent color, dark outline around the character. Whole body shown, side view, character fills most of the square 1:1 frame with small margin. Background must be fully transparent (alpha); if transparency is impossible use a flat solid pure #FF00FF magenta background with no shadows or gradients. No text, no letters, no border, no watermark, no ground, no scenery, no throne, no background objects. Draw only the character itself: no visual effects of any kind — no motion trails, swooshes, slash arcs, speed lines, sparks, impact flashes, glowing auras, magic particles, fire, smoke or blood splashes (the game adds all effects separately).';
 
 // id → [바라보는 방향, 묘사]. 플레이어는 오른쪽, 적은 왼쪽을 본다.
 const CHARS = {
@@ -56,7 +59,7 @@ const CHARS = {
 
 const POSES = {
   idle: 'Pose: battle-ready idle stance, poised to fight.',
-  attack: 'Pose: dynamic attack in mid-motion, lunging toward the direction it faces and striking with its weapon, claws, fangs, tentacles or dark magic, with a bright motion swoosh or energy trail.',
+  attack: 'Pose: dynamic attack in mid-motion, lunging toward the direction it faces and striking with its weapon, claws, fangs or tentacles. The body and weapon alone show the motion; no swoosh, trail or energy effect.',
   defend: 'Pose: defensive guard and evasion, pulling back and bracing, blocking or shielding itself.',
   hit: 'Pose: taking a hit, recoiling backwards away from the direction it faces and staggering in pain.',
 };
@@ -64,6 +67,8 @@ const POSES = {
 const args = process.argv.slice(2);
 const force = args.includes('--force');
 const ids = args.filter(a => !a.startsWith('--'));
+const poseArg = args.find(a => a.startsWith('--pose='));
+const onlyPoses = poseArg ? poseArg.slice('--pose='.length).split(',').filter(Boolean) : null;
 
 function generate(id, pose) {
   const [facing, desc] = CHARS[id];
@@ -92,11 +97,14 @@ function main() {
   if (args.includes('--list')) { Object.keys(CHARS).forEach(id => console.log(id)); return; }
   const list = ids.length ? ids : Object.keys(CHARS);
   const unknown = list.filter(id => !CHARS[id]);
+  const badPose = (onlyPoses || []).filter(p => !POSES[p]);
+  if (badPose.length) { console.error(`모르는 자세: ${badPose.join(', ')} (idle / attack / defend / hit)`); process.exitCode = 1; return; }
   if (unknown.length) { console.error(`모르는 id: ${unknown.join(', ')}`); process.exitCode = 1; return; }
   let made = 0;
   const missing = [];
   for (const id of list) {
     for (const pose of Object.keys(POSES)) {
+      if (onlyPoses && !onlyPoses.includes(pose)) continue;
       const out = path.join(SPRITES, id, `${pose}.png`);
       if (force) fs.rmSync(out, { force: true });
       if (fs.existsSync(out)) continue;

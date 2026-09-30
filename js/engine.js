@@ -120,6 +120,8 @@
     p.name = cls.name;
     p.icon = cls.icon;
     p.maxHp = p.hp = cls.hp;
+    p.energy = cls.energy;
+    p.slots = cls.slots;
     p.passives = passiveIds.slice();
     p.relics = [];
     p.deck = cls.starter.map(makeCard);

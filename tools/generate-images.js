@@ -86,11 +86,11 @@ function writeManifest() {
       map[`${kind}/${f.replace(/\.[^.]+$/, '')}`] = `assets/${kind}/${f}`;
     });
   });
-  // 전투 자세 그림: assets/sprites/<id>/<pose>.png → 'sprites/<id>/<pose>'
-  const sprites = path.join(ASSETS, 'sprites');
-  if (fs.existsSync(sprites)) {
-    fs.readdirSync(sprites).sort().forEach(id => {
-      const dir = path.join(sprites, id);
+  // 전투 자세 스프라이트: assets/sprites/<직업 또는 몬스터 id>/<idle|attack|defend|hit>.png
+  const spr = path.join(ASSETS, 'sprites');
+  if (fs.existsSync(spr)) {
+    fs.readdirSync(spr).sort().forEach(id => {
+      const dir = path.join(spr, id);
       if (!fs.statSync(dir).isDirectory()) return;
       fs.readdirSync(dir).filter(f => /\.(png|webp|jpg)$/i.test(f)).sort().forEach(f => {
         map[`sprites/${id}/${f.replace(/\.[^.]+$/, '')}`] = `assets/sprites/${id}/${f}`;

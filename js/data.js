@@ -7,8 +7,10 @@
  *   코스트  : 0~5, 강할수록 높다.
  *   주사위  : [종류, 최소, 최대]
  *     공격 주사위  S 참격 / P 관통 / B 타격 — 적의 내성에 따라 피해 배율이 달라진다.
- *     방어 주사위  G 방어 (막은 만큼 피해를 줄이고, 이기면 차이만큼 반격)
- *                 E 회피 (이기면 공격을 피하고 같은 주사위를 다시 쓴다)
+ *     방어 주사위  G 방어 / E 회피 — 합에서 상대 주사위를 부수는 데 쓰고 피해는 주지 않는다.
+ *                 회피는 합에서 비기면 이긴다.
+ *   합: 맨 앞 주사위끼리 굴려 진 주사위만 파괴, 이긴 주사위는 남아 다음 주사위와 다시 굴린다.
+ *       한쪽 주사위가 모두 파괴되면 남은 쪽이 남은 공격 주사위로 공격한다.
  *
  * 효과(fx)
  *   bleed n     공격 주사위가 적중할 때마다 출혈 n
@@ -51,17 +53,17 @@
   // ───────── 직업 ─────────
   const CLASSES = [
     {
-      id: 'swordsman', name: '방랑검사', icon: '🗡️', hp: 130,
+      id: 'swordsman', name: '방랑검사', icon: '🗡️', hp: 145,
       role: '딜러', weapon: '검',
       desc: '검 한 자루로 떠도는 검객. 참격 주사위와 회피만으로 싸우며, 방어 대신 먼저 베어 넘긴다.',
-      trait: { name: '검의 길', desc: '참격 주사위 위력 +2', mods: { slashPower: 2 } },
+      trait: { name: '검의 길', desc: '참격 주사위 위력 +1', mods: { slashPower: 1 } },
       starter: ['s_quick', 's_slash', 's_parry', 's_cross', 's_draw', 's_bloody', 's_flurry', 's_moon', 's_final'],
     },
     {
-      id: 'herald', name: '전령', icon: '🕊️', hp: 125,
+      id: 'herald', name: '전령', icon: '🕊️', hp: 130,
       role: '회복 · 지원', weapon: '창과 성령',
       desc: '성령의 말씀을 전하는 순례 전령. 창으로 꿰뚫고, 기도로 상처를 치유한다.',
-      trait: { name: '성령의 숨결', desc: '매 턴 종료 시 체력 1 회복', mods: { regen: 1 } },
+      trait: { name: '성령의 숨결', desc: '매 턴 종료 시 체력 2 회복', mods: { regen: 2 } },
       starter: ['h_jab', 'h_thrust', 'h_pray', 'h_lunge', 'h_blessing', 'h_sweep', 'h_hymn', 'h_holyspear', 'h_judgment'],
     },
     {
@@ -429,7 +431,7 @@
   REGIONS.forEach(r => { REGION_MAP[r.id] = r; });
 
   const STATUS_INFO = {
-    bleed: { name: '출혈', icon: '🩸', desc: '공격 주사위를 굴릴 때마다 수치만큼 피해를 받고, 수치가 1/3 줄어든다.' },
+    bleed: { name: '출혈', icon: '🩸', desc: '공격 주사위로 공격할 때마다 수치만큼 피해를 받고, 수치가 1/3 줄어든다.' },
     burn: { name: '화상', icon: '🔥', desc: '턴 종료 시 수치만큼 피해를 받고, 수치가 절반이 된다.' },
     might: { name: '힘', icon: '🔺', desc: '이번 턴 공격 주사위 위력 +수치.' },
     weak: { name: '허약', icon: '🔻', desc: '이번 턴 공격 주사위 위력 -수치.' },
@@ -441,7 +443,7 @@
   // 밸런스 조정값
   const BALANCE = {
     enemyHpMul: { normal: 1, midboss: 1, boss: 1 },
-    enemyPower: { normal: -1, midboss: -3, boss: -3 }, // 적 주사위 위력 보정
+    enemyPower: { normal: 2, midboss: -1, boss: -2 }, // 적 주사위 위력 보정
     hpPerFloor: 0.18,       // 층마다 적 체력 +18%
     powerEveryFloors: 2.5,  // n층마다 적 주사위 위력 +1
     extraSlotFloor: 11,     // 이 층부터 일반 몬스터 스킬 슬롯 +1

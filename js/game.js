@@ -269,59 +269,75 @@
     }
   }
 
-  // 합: 두 캐릭터가 주사위 종류에 맞는 자세로 달려가 부딪히고, 이긴 쪽이 진 쪽을 밀어낸다.
-  // 밀려나는 거리는 두 주사위 값의 차이에 비례한다.
+  // 한 줄(카드 한 쌍)의 합과 공격이 모두 끝날 때까지 두 캐릭터는 제자리로 돌아가지 않는다.
+  let engaged = false;
+  const MAX_BACK = 120; // 연타로 밀려도 무대 밖으로 나가지 않도록 뒤로 밀리는 한계(px)
+  const backClamp = (side, x) => (side === 'p' ? Math.max(-MAX_BACK, x) : Math.min(MAX_BACK, x));
+  // side 가 상대에게 붙으려면 가야 할 위치 (두 캐릭터가 맞닿는 간격은 meetDistance 의 두 배)
+  const contactPos = (side, depth) => {
+    const gap2 = meetDistance() * 2 * (depth || 1);
+    return side === 'p' ? stagePos.e + gap2 : stagePos.p - gap2;
+  };
+
+  // 합: 주사위 종류에 맞는 자세로 부딪히고, 이긴 쪽이 진 쪽을 밀어낸다 (주사위 값 차이에 비례)
   async function clashMotion(pd, ed, ev) {
     if (!moverEl('p') || !moverEl('e')) { await sleep(600); return; }
-    const g = meetDistance();
     setPose('p', D.DICE[pd.t].atk ? 'attack' : 'defend', true);
     setPose('e', D.DICE[ed.t].atk ? 'attack' : 'defend', true);
+    // 지금 서 있는 곳에서 두 사람의 중간 지점으로 달려가 맞붙는다
+    const g = meetDistance();
+    const mid = (stagePos.p + stagePos.e) / 2;
     const rush = 'cubic-bezier(.55, 0, 1, .55)';
-    await Promise.all([move('p', g, 200, rush), move('e', -g, 200, rush)]);
+    await Promise.all([move('p', mid + g, engaged ? 150 : 200, rush), move('e', mid - g, engaged ? 150 : 200, rush)]);
+    engaged = true;
     spark();
     const win = ev.result;
     popDie('p', pd.t, ev.pv, win === 'p' ? 'win' : win === 'e' ? 'lose' : 'even');
     popDie('e', ed.t, ev.ev, win === 'e' ? 'win' : win === 'p' ? 'lose' : 'even');
     if (win === 'tie') {
-      await Promise.all([move('p', g - 34, 180), move('e', -g + 34, 180)]);
+      await Promise.all([move('p', stagePos.p - 34, 180), move('e', stagePos.e + 34, 180)]);
     } else {
       const lose = other(win);
-      const push = Math.min(190, 26 + Math.abs(ev.pv - ev.ev) * 17);
       const winDie = win === 'p' ? pd : ed;
+      const push = Math.min(190, 26 + Math.abs(ev.pv - ev.ev) * 17);
       setPose(lose, 'hit', true);
       flashHurt(lose);
       if (winDie.t === 'E') { hop(win); evadeVfx(win); }
       else if (winDie.t === 'G') guardVfx(win);
       else hitVfx(winDie.t, lose);
       await Promise.all([
-        move(lose, stagePos[lose] - DIR[lose] * push, 300, 'cubic-bezier(.15, .85, .3, 1)'),
+        move(lose, backClamp(lose, stagePos[lose] - DIR[lose] * push), 300, 'cubic-bezier(.15, .85, .3, 1)'),
         move(win, stagePos[win] + DIR[win] * 14, 300),
       ]);
     }
-    await sleep(140);
-    setPose('p', 'idle');
-    setPose('e', 'idle');
-    await Promise.all([move('p', 0, 300, 'ease-in-out'), move('e', 0, 300, 'ease-in-out')]);
+    await sleep(120);
   }
 
-  // 공격: 공격하는 쪽이 상대에게 달려든다
+  // 공격: 상대가 서 있는 곳으로 붙어서 친다. 첫 주사위는 돌진, 이후는 밀려난 상대를 따라가며 연타.
   async function strikeMotion(side) {
     setPose(side, 'attack', true);
     if (!moverEl(side)) { await sleep(250); return; }
-    const reach = meetDistance() * 1.7;
-    await move(side, DIR[side] * reach, 170, 'cubic-bezier(.55, 0, 1, .55)');
+    const to = contactPos(side, 0.85);
+    const dist = Math.abs(to - stagePos[side]);
+    await move(side, to, Math.max(110, Math.min(200, dist * 0.8)), 'cubic-bezier(.55, 0, 1, .55)');
+    engaged = true;
   }
-  // 피격: 맞은 쪽이 피해만큼 밀려났다가 둘 다 제자리로
+  // 피격: 맞은 쪽이 피해만큼 밀려난다 (제자리로 돌아가지 않음)
   async function hitMotion(tgt, dmg, die) {
-    const att = other(tgt);
     if (die) hitVfx(die, tgt);
     setPose(tgt, 'hit', true);
     flashHurt(tgt);
-    const push = Math.min(140, 14 + dmg * 4);
-    await move(tgt, stagePos[tgt] - DIR[tgt] * push, 260, 'cubic-bezier(.15, .85, .3, 1)');
-    setPose(tgt, 'idle');
-    setPose(att, 'idle');
-    await Promise.all([move(tgt, 0, 260, 'ease-in-out'), move(att, 0, 260, 'ease-in-out')]);
+    const push = Math.min(90, 10 + dmg * 3);
+    await move(tgt, backClamp(tgt, stagePos[tgt] - DIR[tgt] * push), 220, 'cubic-bezier(.15, .85, .3, 1)');
+  }
+  // 한 줄의 주사위를 다 쓰면 둘 다 제자리로
+  async function resetStage() {
+    if (!engaged) return;
+    engaged = false;
+    await sleep(160);
+    setPose('p', 'idle');
+    setPose('e', 'idle');
+    await Promise.all([move('p', 0, 320, 'ease-in-out'), move('e', 0, 320, 'ease-in-out')]);
   }
 
   function itemArt(it) { return art('items', it.id, it.icon, 'item-art'); }
@@ -460,6 +476,7 @@
     const eSpent = b.enemyPlan.reduce((t, c) => t + (c.sig ? 0 : G.cardDef(c).cost), 0);
     stagePos.p = 0;
     stagePos.e = 0;
+    engaged = false;
 
     const lanes = Array.from({ length: b.rows }, (_, i) => {
       const uid = b.plan[i];
@@ -638,6 +655,7 @@
           await sleep(200);
           break;
         case 'row': {
+          await resetStage();
           document.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
           row = rowEl(ev.row);
           rowP = ev.p;
@@ -726,10 +744,14 @@
           log('good', `✦ 불굴! ${nm(ev.side)}이(가) 체력 1로 버텼습니다`);
           await sleep(400);
           break;
+        case 'end':
+          await resetStage();
+          break;
         default:
           break;
       }
     }
+    await resetStage();
   }
 
   function banner(text, cls, ms, sub) {

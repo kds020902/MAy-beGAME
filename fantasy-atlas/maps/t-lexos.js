@@ -1,13 +1,13 @@
-// 타르코프 거리 · LEXOS — 클리모프 거리변 자동차 대리점: 유리 전시장과 「LEXOS」 간판, 휘어 오르는 차량 경사로, 정비동 차고,
-// 카반 일당이 요새로 바꾼 마당(모래주머니·콘크리트 블록·NSV 기관총·망루), 트롤리 전선과 전차 선로, 북·서쪽 패널 아파트 (144칸)
+// 타르코프 거리 · LEXOS — 프리모르스키 대로(동)와 체칸나야 거리(북) 모퉁이의 자동차 대리점: 남쪽 끝에 원통형 유리탑을 얹은 유리 전시장,
+// 동쪽 벽의 「LEXOS」 간판, 서쪽 정비동 차고, 카반 일당이 요새로 바꾼 마당(모래주머니·NSV·망루), 대로의 전차 선로·군 차량 검문·버려진 탱크 (144칸)
 (function () {
   'use strict';
   const { hash3 } = VX;
   const W = 144, D = 144, Hh = 112, G = 20, TAU = Math.PI * 2;
   MAPS.push({
     id: 'lexos', cat: 'tarkov', name: '타르코프 거리', en: 'Streets of Tarkov · LEXOS', color: '#5a8ac8', seed: 601, base: G, time: 'night', size: [W, D, Hh],
-    desc: '타르코프 거리, 클리모프 거리변의 LEXOS 자동차 대리점. 전쟁이 터지자 카반의 부하들은 수상할 만큼 재빨리 무장해 유리 전시장과 정비동을 요새로 바꿨다. 옥상에는 저격 둥지, 출입구마다 망루와 기관총, 풀밭에는 클레이모어가 숨어 있다.',
-    info: { title: '구역 정보', en: 'STREETS OF TARKOV', rows: [['자리', '타르코프 거리 · 클리모프 거리변'], ['주인', '보스 카반과 경호대 (바스마치 · 구스)'], ['방비', 'NSV 기관총 · AGS 유탄발사기 · 옥상 저격수 · 클레이모어'], ['소문', '전쟁 전부터 경찰과 손잡은 회색지대 사업가']] },
+    desc: '타르코프 거리, 프리모르스키 대로와 체칸나야 거리 모퉁이의 LEXOS 자동차 대리점. 남쪽 끝에는 깨진 유리띠가 층층이 감긴 원통형 탑이 솟아 있다. 전쟁이 터지자 카반의 부하들은 수상할 만큼 재빨리 무장해 유리 전시장과 정비동을 요새로 바꿨다. 옥상에는 저격 둥지, 출입구마다 망루와 기관총, 풀밭에는 클레이모어가 숨어 있다.',
+    info: { title: '구역 정보', en: 'STREETS OF TARKOV', rows: [['자리', '프리모르스키 대로(동) · 체칸나야 거리(북)'], ['이웃', '서쪽 스파르야 식료품점 · 남쪽 라즈베드치코프 거리'], ['주인', '보스 카반과 경호대 (바스마치 · 구스)'], ['방비', 'NSV 기관총 · AGS 유탄발사기 · 옥상 저격수 · 클레이모어'], ['소문', '전쟁 전부터 경찰과 손잡은 회색지대 사업가']] },
     sky: ['#5a4050', '#141824', '#e07850'], stars: false,
     hemi: ['#b4bcd4', '#1c1c22', 0.6], sun: ['#ffb488', 0.5, [0.7, 0.8, 0.5]],
     day: { sky: ['#c8ccd0', '#7a8696', '#ece4d4'], stars: false, hemi: ['#eceef4', '#4a4a48', 0.6], sun: ['#f4eee0', 0.62, [0.5, 1, 0.6]], haze: '#a0a6ae' },
@@ -38,7 +38,10 @@
       lampY: { c: '#ffd080', glow: true }, sodium: { c: '#ffb060', night: true, day: '#d8c8a0' }, green: { c: '#3aff6a', glow: true }, greenD: { c: '#2a5a34', v: 0.03 },
       contR: { c: '#8a3a2a', v: 0.05, pat: 'plank' }, contB: { c: '#2a5470', v: 0.05, pat: 'plank' }, contG: { c: '#4a5e3a', v: 0.05, pat: 'plank' },
       wood: { c: '#7a5a3a', v: 0.06, pat: 'plank' }, crate: { c: '#4a5636', v: 0.05, pat: 'plank' }, barrelB: { c: '#2a4a7a', v: 0.05, pat: 'log' }, barrelR: { c: '#8a2a22', v: 0.05, pat: 'log' },
-      gun: { c: '#222426', v: 0.02 }, gunG: { c: '#3e4630', v: 0.03 }, clay: { c: '#4a5a30', v: 0.03 }, busY: { c: '#c8a040', v: 0.05 }, busW: { c: '#cfcbc0', v: 0.04 }, trunk: { c: '#3a2e26', v: 0.05 },
+      gun: { c: '#222426', v: 0.02 }, gunG: { c: '#3e4630', v: 0.03 }, clay: { c: '#4a5a30', v: 0.03 }, 
+      tramB: { c: '#2a62b0', v: 0.04 }, tramW: { c: '#d8dce0', v: 0.03 }, median: { c: '#8a8880', top: '#9e9c94', v: 0.05, pat: 'floor' }, brickP: { c: '#8a4e3a', top: '#a05c44', v: 0.06, pat: 'check', alt: '#8e5440' },
+      plasterY: { c: '#c4ae8a', v: 0.04 }, plasterP: { c: '#b89486', v: 0.04 }, store: { c: '#d4d2cc', v: 0.03 }, olive: { c: '#4e5636', v: 0.05 }, canvas: { c: '#5a6040', v: 0.06 }, taxi: { c: '#e0b020', v: 0.03 }, tank: { c: '#4a5034', v: 0.06 },
+      tower: { c: '#c4c2ba', v: 0.03 }, tGlass: { c: '#262a30', v: 0.03 }, trunk: { c: '#3a2e26', v: 0.05 },
     },
     build(w) {
       const B = w.id;
@@ -57,10 +60,13 @@
           if (eastRd && !southRd && (x === 126) && z % 8 < 4) b = B.lane;
           if (southRd && !eastRd && z === 126 && x % 8 < 4) b = B.lane;
           if (southRd && !eastRd && x >= 100 && x <= 110 && z % 3 !== 0 && z > RZ0 && z < RZ1) b = B.lane;        // 횡단보도
+          if (eastRd && !southRd && x >= 120 && x <= 132) b = (x === 120 || x === 132) ? B.curb : B.median;          // 전차 선로 중앙 분리대
           if (eastRd && (x === 122 || x === 125 || x === 127 || x === 130)) b = B.rail;
-        } else if ((x >= 110 && x <= 112) || (x >= 140) || (z >= 111 && z <= 114) || z >= 138) b = (x === 112 || z === 114 || x === 140 || z === 138) ? B.curb : B.walk;
+        } else if ((x >= 110 && x <= 112) || (z >= 111 && z <= 114)) b = (x === 112 || z === 114) ? B.curb : B.brickP;  // 전시장 앞 벽돌 광장
+        else if (x >= 140 || z >= 138) b = (x === 140 || z === 138) ? B.curb : B.walk;
         else if (x >= 23 && x <= 108 && z >= 26 && z <= 109) b = B.slab;
-        else if (x >= 19 && x <= 22 || (z >= 19 && z <= 25)) b = B.walk;
+        else if (z >= 14 && z <= 25) b = (z === 14 || z === 24) ? B.curb : z === 25 ? B.walk : (z === 19 && x % 8 < 4 ? B.lane : B.asph);   // 체칸나야 거리
+        else if (x >= 19 && x <= 22) b = B.walk;
         S(x, G, z, b);
       }
       for (let z = 0; z < D; z += 3) for (const x of [122, 125, 127, 130]) if (!(z >= RZ0 && z <= RZ1)) S(x, G - 1, z, B.sleeper);
@@ -69,6 +75,25 @@
         const cx = k < 8 ? w.ri(114, 138) : w.ri(4, 108), cz = k < 8 ? w.ri(4, 110) : w.ri(117, 136), r = w.r(1.2, 2.6);
         for (let z = cz - 3; z <= cz + 3; z++) for (let x = cx - 3; x <= cx + 3; x++) if (Math.hypot(x - cx, (z - cz) * 1.4) <= r && w.get(x, G, z) !== B.rail) { S(x, G, z, 0); S(x, G - 1, z, B.asphW); w.liquid(x, z, G - 1); }
       }
+
+      // ── 차: 축 방향 길이 9, 폭 4. o = { axis:'x'|'z', dir, col, wreck, low } ──
+      const car = (t, x0, z0, o) => {
+        const P = (u, v) => o.axis === 'x' ? [x0 + (o.dir > 0 ? u : 8 - u), z0 + v] : [x0 + v, z0 + (o.dir > 0 ? u : 8 - u)];
+        const col = o.wreck ? B.char : o.col, y0 = o.y || G + 1;
+        for (let u = 0; u <= 8; u++) for (let v = 0; v <= 3; v++) {
+          const [X, Z] = P(u, v), wheel = (u === 1 || u === 2 || u === 6 || u === 7) && (v === 0 || v === 3);
+          t.set(X, y0, Z, wheel ? (o.wreck && u > 5 ? 0 : B.tire) : (v === 0 || v === 3 ? 0 : col));
+          if (wheel && !(o.wreck && u > 5)) continue;
+          t.set(X, y0 + 1, Z, o.wreck && H2(X, 9, Z) > 0.7 ? B.rust : col);
+          if (u >= 2 && u <= 6) {
+            const pillar = u === 4 && (v === 0 || v === 3);
+            t.set(X, y0 + 2, Z, pillar ? col : (o.wreck ? (H2(X, 8, Z) > 0.6 ? col : 0) : B.carGl));
+            if (!o.low && u >= 3 && u <= 5 && !(o.wreck && H2(X, 7, Z) > 0.5)) t.set(X, y0 + 3, Z, col);
+          }
+        }
+        if (!o.wreck) { for (const v of [0, 3]) { const [hx, hz] = P(8, v), [tx, tz] = P(0, v); t.set(hx, y0 + 1, hz, B.headL); t.set(tx, y0 + 1, tz, B.tailL); } }
+        return P;
+      };
 
       // ── 패널 아파트: 북·서쪽의 높은 벽. face 's' = 남쪽(z1)을 향함, 'e' = 동쪽(x1)을 향함 ──
       const apt = (x0, z0, x1, z1, top, face, wall, salt) => {
@@ -90,17 +115,18 @@
             if (fy === 2 && h > 0.6) S(X + OX, y, Z + OZ, B.panelB);
           }
         }
-        w.walls(x0, top + 1, z0, x1, top + 1, z1, B.concDk);
+        w.walls(x0 - 1, top, z0 - 1, x1 + 1, top, z1 + 1, B.trimW); w.walls(x0, top + 1, z0, x1, top + 1, z1, B.concDk);
         for (let k = 0; k < 3; k++) { const vx = w.ri(x0 + 2, x1 - 5), vz = w.ri(z0 + 2, z1 - 4); w.box(vx, top + 1, vz, vx + 2, top + 3, vz + 2, B.concDk); }
         const ax = face === 's' ? w.ri(x0 + 4, x1 - 4) : x0 + 4, az = face === 's' ? z0 + 4 : w.ri(z0 + 4, z1 - 4);
         w.box(ax, top + 1, az, ax, top + 9, az, B.iron); S(ax + 1, top + 7, az, B.iron); S(ax - 1, top + 7, az, B.iron); S(ax, top + 10, az, B.redG);
       };
-      apt(2, 2, 52, 17, G + 34, 's', B.panel, 1);
-      apt(57, 4, 108, 17, G + 40, 's', B.panelB, 2);
-      apt(113, 0, 143, 3, G + 30, 's', B.panel, 3);
-      apt(2, 24, 17, 108, G + 26, 'e', B.panelR, 4);
-      // 서쪽 아파트 북쪽 모서리가 무너진 자리
-      LB.crumble(w, 2, G + 18, 24, 17, G + 26, 40, 0.6, 3, 7);
+      apt(2, 2, 52, 13, G + 30, 's', B.plasterY, 1);
+      apt(57, 2, 108, 13, G + 34, 's', B.plasterP, 2);
+      apt(113, 0, 143, 3, G + 30, 's', B.plasterY, 3);
+      // 서쪽 스파르야 식료품점: 낮은 흰 상자, 동쪽 통유리와 빨간 간판
+      w.box(2, G + 1, 28, 17, G + 9, 106, B.store); w.walls(2, G + 10, 28, 17, G + 10, 106, B.concDk); w.box(2, G + 1, 28, 17, G + 1, 106, B.concDk);
+      for (let z = 30; z <= 104; z++) { for (let y = G + 2; y <= G + 5; y++) S(17, y, z, z % 6 === 0 ? B.mull : (H2(z >> 2, 3, 9) > 0.8 ? B.winDk : B.winS)); S(18, G + 7, z, B.red); S(18, G + 8, z, B.red); if (z % 14 < 9 && z % 2 === 0) S(19, G + 7 + (z % 4 === 0 ? 1 : 0), z, B.white); }
+      for (const [x, z] of [[6, 40], [10, 70], [6, 95]]) w.box(x, G + 11, z, x + 3, G + 12, z + 3, B.steel);
 
       // ── LEXOS 정비동: 골함석 벽, 동쪽 마당을 향한 셔터 차고 셋, 평지붕 ──
       const MX0 = 24, MX1 = 47, MZ0 = 30, MZ1 = 84, MT = G + 13;
@@ -134,25 +160,6 @@
       w.box(MX1 + 1, G + 11, 40, MX1 + 1, G + 12, 76, B.signBd);
       for (let z = 44; z < 74; z += 3) S(MX1 + 1, G + 11 + (z % 2), z, B.white);
       landmarks.push({ name: 'LEXOS 정비동', note: '셔터 차고 셋 · 옥상 저격 둥지', p: [36, MT + 10, 57] });
-
-      // ── 차: 축 방향 길이 9, 폭 4. o = { axis:'x'|'z', dir, col, wreck, low } ──
-      const car = (t, x0, z0, o) => {
-        const P = (u, v) => o.axis === 'x' ? [x0 + (o.dir > 0 ? u : 8 - u), z0 + v] : [x0 + v, z0 + (o.dir > 0 ? u : 8 - u)];
-        const col = o.wreck ? B.char : o.col, y0 = o.y || G + 1;
-        for (let u = 0; u <= 8; u++) for (let v = 0; v <= 3; v++) {
-          const [X, Z] = P(u, v), wheel = (u === 1 || u === 2 || u === 6 || u === 7) && (v === 0 || v === 3);
-          t.set(X, y0, Z, wheel ? (o.wreck && u > 5 ? 0 : B.tire) : (v === 0 || v === 3 ? 0 : col));
-          if (wheel && !(o.wreck && u > 5)) continue;
-          t.set(X, y0 + 1, Z, o.wreck && H2(X, 9, Z) > 0.7 ? B.rust : col);
-          if (u >= 2 && u <= 6) {
-            const pillar = u === 4 && (v === 0 || v === 3);
-            t.set(X, y0 + 2, Z, pillar ? col : (o.wreck ? (H2(X, 8, Z) > 0.6 ? col : 0) : B.carGl));
-            if (!o.low && u >= 3 && u <= 5 && !(o.wreck && H2(X, 7, Z) > 0.5)) t.set(X, y0 + 3, Z, col);
-          }
-        }
-        if (!o.wreck) { for (const v of [0, 3]) { const [hx, hz] = P(8, v), [tx, tz] = P(0, v); t.set(hx, y0 + 1, hz, B.headL); t.set(tx, y0 + 1, tz, B.tailL); } }
-        return P;
-      };
 
       // ── LEXOS 전시장: 남·동쪽은 통유리, 남동 모서리는 둥글게. 1층 유리는 불 켜진 전시장, 2층은 짙은 유리 ──
       const SX0 = 66, SX1 = 99, SZ0 = 32, SZ1 = 78, CR = 9, CCX = SX1 - CR, CCZ = SZ1 - CR, R = G + 17;
@@ -192,42 +199,44 @@
       w.box(70, R + 1, 40, 74, R + 3, 44, B.steel); w.box(78, R + 1, 40, 82, R + 3, 44, B.steel);
       w.box(92, R + 1, 36, 92, R + 14, 36, B.iron); S(92, R + 15, 36, B.redG); S(91, R + 11, 36, B.iron); S(93, R + 11, 36, B.iron);
       for (const [cx, cz] of [[70, 36], [95, 50]]) { w.ring(cx, cz, R + 1, 1.5, 3, B.sand); w.ring(cx, cz, R + 2, 1.5, 3, B.sand); w.box(cx, R + 1, cz, cx + 1, R + 1, cz, B.crate); }
-      // 「LEXOS」 간판: 지붕 위 다리 달린 남색 판, 꺼진 글자는 판에 박히고 켜진 글자는 앞에 부품으로
+      // 「LEXOS」 글꼴: 꺼진 글자는 판에 박히고 켜진 글자는 앞에 부품으로
       const FONT = {
         L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'], E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
         X: ['10001', '10001', '01010', '00100', '01010', '10001', '10001'], O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
         S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
       };
-      const BZ = 74, BX0 = 65, BX1 = 99, LY = R + 4;
-      w.box(BX0, R + 2, BZ, BX1, R + 12, BZ, B.signBd);
-      w.box(BX0, R + 2, BZ, BX1, R + 2, BZ, B.red); w.box(BX0, R + 12, BZ, BX1, R + 12, BZ, B.trimW);
-      for (let x = BX0 + 2; x <= BX1; x += 8) { w.box(x, R + 1, BZ, x, R + 1, BZ, B.iron); w.line(x, R + 1, BZ - 4, x, R + 10, BZ - 1, B.iron); }
-      const sign = w.prop({ name: 'signL', pivot: [82, LY, BZ + 1.5] });
+      // 동쪽(대로 쪽) 2층 벽에 남색 간판 띠. 남쪽에서 북쪽으로 읽힌다
+      const BXs = SX1 + 1, LY = G + 10, BZ0s = 33, BZ1s = 67;
+      w.box(BXs, G + 9, BZ0s, BXs, G + 17, BZ1s, B.signBd); w.box(BXs, G + 9, BZ0s, BXs, G + 9, BZ1s, B.red); w.box(BXs, G + 17, BZ0s, BXs, G + 17, BZ1s, B.trimW);
+      const sign = w.prop({ name: 'signL', pivot: [BXs + 1.5, LY, 50] });
       const letterPx = [];
       'LEXOS'.split('').forEach((ch, k) => {
-        const x0 = BX0 + 2 + k * 6 + (k > 0 ? 1 : 0) - (k > 3 ? 1 : 0);
-        FONT[ch].forEach((row, r) => { for (let c = 0; c < 5; c++) if (row[c] === '1') { const x = x0 + c, y = LY + 6 - r; S(x, y, BZ, B.signDk); sign.set(x, y, BZ + 1, B.signLit); letterPx.push([x + 0.5, y + 0.5, BZ + 1.5]); } });
+        const z0 = BZ1s - 1 - k * 7;
+        FONT[ch].forEach((row, r) => { for (let c = 0; c < 5; c++) if (row[c] === '1') { const z = z0 - c, y = LY + 6 - r; S(BXs, y, z, B.signDk); sign.set(BXs + 1, y, z, B.signLit); letterPx.push([BXs + 1.5, y + 0.5, z + 0.5]); } });
       });
-      lights.push({ name: 'sign', p: [82.5, LY + 3, BZ + 3], c: '#bfe0ff', i: 0.9, d: 34, flicker: 0.04, srcR: 4 });
-      landmarks.push({ name: 'LEXOS 전시장', note: '카반의 본거지 · 통유리 자동차 전시장', p: [82, R + 22, 56], boss: true });
+      lights.push({ name: 'sign', p: [BXs + 2.5, LY + 3, 50], c: '#bfe0ff', i: 0.9, d: 34, flicker: 0.04, srcR: 4 });
+      landmarks.push({ name: 'LEXOS 전시장', note: '카반의 본거지 · 통유리 자동차 전시장', p: [92, G + 30, 44], boss: true });
 
-      // ── 차량 경사로: 동쪽을 따라 지붕까지 오르고, 북쪽 끝은 둥글게 휘어 지붕에 닿는다 ──
-      const PX0 = 101, PX1 = 106, PZ0 = 41, PZ1 = 90;
-      const rampY = z => G + Math.round((PZ1 - z) * (R - G) / (PZ1 - PZ0));
-      for (let z = PZ0; z <= PZ1; z++) {
-        const y = rampY(z);
-        for (let x = PX0; x <= PX1; x++) { S(x, y, z, x === PX0 || x === PX1 ? B.trimW : B.concDk); if (y > G) S(x, y - 1, z, B.conc); }
-        if (y > G) for (const x of [PX0, PX1]) S(x, y + 1, z, z % 2 ? B.trimW : B.steel);
-        if (z % 9 === 0 && y > G + 2) w.box(103, G + 1, z, 104, y - 2, z, B.conc);
+      // ── 원통형 유리탑: 전시장 남쪽 끝 둥근 모서리 위. 층마다 튀어나온 흰 띠와 깨진 검은 유리띠, 꼭대기 쇠 테 ──
+      const TCX = 86, TCZ = 64, TRr = 11, TF = 9, TTOP = R + TF * 4;
+      for (let y = R + 1; y <= TTOP; y++) {
+        const fy = (y - R - 1) % 4, fl = (y - R - 1) >> 2;
+        for (let dz = -TRr - 1; dz <= TRr + 1; dz++) for (let dx = -TRr - 1; dx <= TRr + 1; dx++) {
+          const d = Math.hypot(dx, dz), x = TCX + dx, z = TCZ + dz;
+          if (fy === 0) { if (d <= TRr + 0.7) S(x, y, z, d > TRr - 0.6 ? B.tower : B.concDk); continue; }
+          if (d > TRr || d <= TRr - 1) continue;
+          const col = Math.round((Math.atan2(dz, dx) / TAU + 1) * 48) % 48, h = H2(col >> 1, fl, 11);
+          S(x, y, z, col % 4 === 0 ? B.mull : (h > 0.82 ? 0 : h > 0.68 ? B.win : B.tGlass));
+        }
       }
-      for (let z = 28; z <= PZ0; z++) for (let x = SX1 + 1; x <= PX1 + 1; x++) {
-        const d = Math.hypot(x - SX1, z - PZ0);
-        if (d > PX1 - SX1 + 0.5 || (x <= SX1 + 1 && z >= SZ0)) continue;
-        S(x, R, z, d > PX1 - SX1 - 0.6 ? B.trimW : B.concDk); S(x, R - 1, z, B.conc);
-        if (d > PX1 - SX1 - 0.6) S(x, R + 1, z, B.trimW);
+      w.cyl(TCX, TCZ, TTOP + 1, TTOP + 1, TRr, B.roofM);
+      for (let dz = -TRr - 1; dz <= TRr + 1; dz++) for (let dx = -TRr - 1; dx <= TRr + 1; dx++) {
+        const d = Math.hypot(dx, dz); if (d > TRr + 0.7 || d <= TRr - 0.4) continue;
+        S(TCX + dx, TTOP + 2, TCZ + dz, B.steel); S(TCX + dx, TTOP + 5, TCZ + dz, B.steel);
+        if ((dx + dz) % 3 === 0) { S(TCX + dx, TTOP + 3, TCZ + dz, B.steel); S(TCX + dx, TTOP + 4, TCZ + dz, B.steel); }
       }
-      w.box(102, G + 1, 33, 104, R - 2, 35, B.conc);
-      landmarks.push({ name: '휘어 오르는 경사로', note: '전시장 지붕으로 오르는 차량 경사로', p: [103.5, R + 8, 50] });
+      w.box(TCX - 2, TTOP + 2, TCZ - 2, TCX + 1, TTOP + 4, TCZ + 1, B.steel); w.box(TCX, TTOP + 5, TCZ, TCX, TTOP + 12, TCZ, B.iron); S(TCX, TTOP + 13, TCZ, B.redG);
+      landmarks.push({ name: 'LEXOS 원통형 탑', note: '유리띠가 감긴 원통 사무동 · 깨진 창', p: [TCX + 0.5, TTOP + 16, TCZ + 0.5] });
 
       // ── 옥상 사이 구름다리(저격수만 오가는 길) ──
       for (let x = MX1 + 1; x <= SX0 - 1; x++) {
@@ -288,8 +297,8 @@
       car(w, 50, 38, { axis: 'z', dir: 1, col: B.carG });
       container(58, 40, 12, 'z', B.contG);
       for (const [x, z] of [[50, 86], [53, 88], [62, 84], [92, 82], [96, 83]]) { S(x, G + 1, z, w.pick([B.barrelB, B.barrelR])); S(x, G + 2, z, w.pick([B.barrelB, B.barrelR])); }
-      for (const [x, z] of [[49, 94], [50, 95], [49, 96], [63, 93]]) { S(x, G + 1, z, B.tire); S(x, G + 2, z, B.tire); }
-      for (const [x, z] of [[57, 84], [58, 84], [57, 85], [70, 96], [71, 96]]) S(x, G + 1, z, B.crate);
+      for (const [x, z] of [[49, 94], [50, 95], [49, 96], [58, 93]]) { S(x, G + 1, z, B.tire); S(x, G + 2, z, B.tire); }
+      for (const [x, z] of [[57, 84], [58, 84], [57, 85], [76, 102], [77, 102]]) S(x, G + 1, z, B.crate);
       // 전시차: 앞마당에 세워 둔 차들, 경보가 울릴 빨간 스포츠카(부품)
       car(w, 67, 84, { axis: 'x', dir: 1, col: B.carW });
       const AX0 = 85, AZ0 = 89;
@@ -298,6 +307,15 @@
       w.box(AX0 - 1, G, AZ0 - 1, AX0 + 9, G, AZ0 + 4, B.tileW);
       S(AX0 + 10, G + 1, AZ0 - 1, B.iron); S(AX0 + 10, G + 2, AZ0 - 1, B.lampY);
       lights.push({ name: 'alarm', p: [AX0 + 9.5, G + 2.5, AZ0 + 1.5], c: '#ff9a3a', i: 0.5, d: 16, flicker: 0, srcR: 3 });
+      // 전시장 남쪽 작은 2층 사무동(아스펙트 사무실)
+      w.box(62, G + 1, 89, 72, G + 9, 101, B.conc); w.walls(62, G + 10, 89, 72, G + 10, 101, B.concDk);
+      for (let y of [G + 2, G + 3, G + 6, G + 7]) for (let u = 63; u <= 71; u++) if (u % 3) { S(u, y, 101, H2(u, y, 1) > 0.75 ? B.win : B.winDk); }
+      for (let y of [G + 2, G + 3, G + 6, G + 7]) for (let u = 90; u <= 100; u++) if (u % 3) S(72, y, u, H2(u, y, 2) > 0.75 ? B.win : B.winDk);
+      w.box(72, G + 1, 94, 72, G + 4, 96, B.iron); w.box(73, G + 5, 93, 74, G + 5, 97, B.trimW);
+      // 동쪽 띠: 대로를 향한 전시차 줄과 클레이모어 풀밭
+      car(w, 101, 36, { axis: 'z', dir: 1, col: B.carS }); car(w, 101, 52, { axis: 'z', dir: -1, col: B.carB });
+      for (let z = 30; z <= 104; z++) for (const x of [106, 107]) S(x, G, z, B.grassD);
+      for (let z = 33; z < 104; z += 7) S(106 + (z & 1), G + 1, z, B.clay);
       // 클레이모어가 숨은 풀밭(남쪽 담 안쪽)
       for (let z = 106; z <= 108; z++) for (let x = 66; x <= 99; x++) S(x, G, z, B.grassD);
       for (let x = 68; x < 99; x += 5) S(x, G + 1, 107, B.clay);
@@ -329,7 +347,7 @@
       bags(44, 110, 49, 111, 2);
       landmarks.push({ name: '남쪽 검문소', note: '차단기와 초소 · 체크포인트', p: [60, G + 14, 112] });
 
-      // ── 클리모프 거리: 트롤리 전선, 불탄 트롤리버스, 버려진 차, 가로등, 앙상한 나무 ──
+      // ── 프리모르스키 대로: 전차 선로와 가선, 부서진 파란 전차, 군 트럭 검문, 버려진 탱크, 버려진 차, 가로등, 앙상한 나무 ──
       const WY = G + 13;
       for (let z = 2; z < D; z += 16) {
         if (z >= RZ0 - 1 && z <= RZ1 + 1) continue;
@@ -337,23 +355,40 @@
         for (let x = 112; x <= 140; x++) S(x, WY + 1, z, B.iron);
       }
       for (const x of [123, 129]) for (let z = 0; z < D; z++) if (!(z > RZ0 + 1 && z < RZ1 - 1)) S(x, WY, z, B.iron);
-      // 트롤리버스: 길이 22, 폭 5
-      const BX = 126, BZ0 = 30;
-      for (let z = BZ0; z < BZ0 + 22; z++) for (let x = BX; x <= BX + 4; x++) for (let y = G + 1; y <= G + 7; y++) {
-        const edge = x === BX || x === BX + 4 || z === BZ0 || z === BZ0 + 21;
+      // 저상 전차(파란 차체, 검은 띠창): 길이 26, 폭 5, 선로 위에서 앞이 부서졌다
+      const TX0 = 126, TZ0 = 26, TL = 26;
+      for (let z = TZ0; z < TZ0 + TL; z++) for (let x = TX0; x <= TX0 + 4; x++) for (let y = G + 1; y <= G + 7; y++) {
+        const edge = x === TX0 || x === TX0 + 4 || z === TZ0 || z === TZ0 + TL - 1, nose = z >= TZ0 + TL - 2;
         if (!edge && y < G + 7 && y > G + 1) continue;
-        let b = y <= G + 3 ? B.busY : B.busW;
-        if (y === G + 1) b = ((z - BZ0) % 15 < 3 && (x === BX || x === BX + 4)) ? B.tire : B.iron;
-        if (y >= G + 4 && y <= G + 5 && edge && (z + x) % 4 !== 0) b = H2(x, y, z) > 0.4 ? 0 : B.carGl;
-        if (H2(x >> 1, y >> 1, z >> 1) > 0.78) b = b ? B.char : 0;
+        let b = y === G + 1 ? B.iron : y <= G + 3 ? B.tramB : y === G + 7 ? B.tramW : (nose ? B.carGl : ((z - TZ0) % 5 === 0 ? B.tramB : B.carGl));
+        if (y >= G + 4 && y <= G + 6 && edge && H2(x, y, z) > 0.75) b = 0;
+        if (nose && y >= G + 5 && x !== TX0 && x !== TX0 + 4 && H2(x, y, 3) > 0.4) b = 0;
         S(x, y, z, b);
       }
-      w.line(BX + 1, G + 8, BZ0 + 4, BX - 2, WY, BZ0 + 14, B.iron); w.line(BX + 3, G + 8, BZ0 + 4, BX + 2, WY, BZ0 + 14, B.iron);
+      for (const z of [TZ0 + 4, TZ0 + 20]) { w.line(TX0 + 2, G + 8, z, TX0 + 3, WY - 1, z + 3, B.steel); }
+      for (let k = 0; k < 14; k++) S(w.ri(TX0 - 1, TX0 + 5), G + 1, w.ri(TZ0 + TL, TZ0 + TL + 3), w.pick([B.concDk, B.tramB, B.carGl, B.wood]));
+      // 군 트럭(우랄): 길이 13, 폭 5. 짐칸에 국방색 포장
+      const truck = (x0, z0, axis, dir) => {
+        const P = (u, v) => axis === 'x' ? [x0 + (dir > 0 ? u : 12 - u), z0 + v] : [x0 + v, z0 + (dir > 0 ? u : 12 - u)];
+        for (let u = 0; u <= 12; u++) for (let v = 0; v <= 4; v++) {
+          const [X, Z] = P(u, v), wheel = [1, 2, 4, 5, 10, 11].includes(u) && (v === 0 || v === 4);
+          w.box(X, G + 1, Z, X, G + 2, Z, wheel ? B.tire : (v === 0 || v === 4 ? 0 : B.iron));
+          if (u <= 8) { S(X, G + 3, Z, B.olive); const ry = G + 4 + (v === 0 || v === 4 ? 0 : v === 2 ? 3 : 2); for (let y = G + 4; y <= ry; y++) if (v === 0 || v === 4 || y === ry || u === 0) S(X, y, Z, B.canvas); }
+          else if (u <= 11) { w.box(X, G + 3, Z, X, G + 5, Z, B.olive); if (u === 11 && v > 0 && v < 4) S(X, G + 5, Z, B.carGl); S(X, G + 6, Z, u >= 10 ? 0 : B.olive); }
+          else S(X, G + 3, Z, B.olive);
+        }
+      };
+      truck(114, 60, 'x', -1); truck(133, 66, 'z', 1);
+      car(w, 115, 54, { axis: 'z', dir: -1, col: B.carK });
+      // 버려진 탱크: 차체와 포탑, 북서쪽을 겨눈 긴 포신
+      w.box(131, G + 1, 88, 137, G + 2, 100, B.iron); w.box(132, G + 3, 87, 136, G + 3, 100, B.tank); w.box(131, G + 3, 89, 137, G + 3, 99, B.tank);
+      w.box(132, G + 4, 91, 136, G + 5, 96, B.tank); w.box(133, G + 6, 92, 135, G + 6, 95, B.tank); S(135, G + 7, 93, B.iron);
+      for (const [x, z] of [[132, 91], [136, 91], [132, 96], [136, 96]]) S(x, G + 5, z, B.olive);
+      w.line(134, G + 5, 90, 127, G + 6, 81, B.iron);
+      for (let k = 0; k < 10; k++) S(w.ri(131, 137), G + 3, w.ri(88, 100), B.rust);
       car(w, 115, 84, { axis: 'z', dir: 1, col: B.carB });
-      car(w, 134, 62, { axis: 'z', dir: -1, wreck: true });
-      car(w, 118, 100, { axis: 'z', dir: -1, col: B.carS });
       car(w, 88, 130, { axis: 'x', dir: -1, col: B.carW });
-      jersey(116, 66, 'x'); jersey(132, 76, 'x'); hedgehog(121, 92); hedgehog(136, 96); hedgehog(104, 98); hedgehog(104, 102);
+      jersey(116, 72, 'x'); jersey(124, 58, 'x'); hedgehog(121, 92); hedgehog(104, 98); hedgehog(104, 102);
       // 불타는 차(남쪽 거리)
       car(w, 14, 121, { axis: 'x', dir: 1, wreck: true });
       for (const [x, y, z] of [[17, G + 3, 122], [18, G + 3, 123], [19, G + 4, 122], [16, G + 2, 121]]) S(x, y, z, x % 2 ? B.fire : B.fireY);
@@ -365,17 +400,19 @@
       for (const [x, z] of [[111, 30], [111, 62], [111, 96], [20, 113], [78, 113], [141, 40], [141, 80], [21, 40], [21, 80]]) bare(x, z, 7);
       // 거리 잡동사니: 잔해 더미
       for (let k = 0; k < 26; k++) { const x = w.ri(2, 141), z = w.ri(2, 141); if (MH.g(w, x, z) !== G || w.get(x, G + 1, z) || w.get(x, G, z) === B.rail) continue; if (!(x > 110 || z > 110 || (x > 18 && x < 23) || (z > 18 && z < 26))) continue; S(x, G + 1, z, w.pick([B.concDk, B.conc, B.panelR])); if (w.chance(0.5) && !w.get(x + 1, G + 1, z)) S(x + 1, G + 1, z, B.concDk); }
-      landmarks.push({ name: '클리모프 거리', note: '트롤리 전선 · 전차 선로 · 불탄 트롤리버스', p: [128, G + 16, 70] });
+      landmarks.push({ name: '프리모르스키 대로', note: '전차 선로 · 군 트럭 검문 · 버려진 탱크', p: [128, G + 16, 70] });
 
-      // ── 탈출구: 남쪽 거리 서쪽 끝, 초록 표지판 ──
-      const EXX = 36, EXZ = 117;
-      w.box(EXX, G + 1, EXZ, EXX, G + 6, EXZ, B.steel); w.box(EXX + 6, G + 1, EXZ, EXX + 6, G + 6, EXZ, B.steel);
-      w.box(EXX - 1, G + 7, EXZ, EXX + 7, G + 11, EXZ, B.greenD);
-      for (const [u, v] of [[6, 2], [5, 1], [5, 2], [5, 3], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [3, 2], [2, 2], [1, 2], [0, 2]]) S(EXX + u, G + 7 + v, EXZ + 1, B.green);   // 동쪽을 가리키는 화살표
-      for (let x = EXX - 2; x <= EXX + 8; x++) S(x, G + 1, EXZ + 4, (x & 1) ? B.hazard : B.black);
-      S(EXX + 3, G + 1, EXZ + 6, B.greenD);
-      lights.push({ name: 'flare', p: [EXX + 3, G + 10, EXZ + 2], c: '#6aff8a', i: 0.5, d: 18, flicker: 0.1, srcR: 3 });
-      landmarks.push({ name: '탈출구', note: '클리모프 거리 탈출 지점', p: [EXX + 3, G + 15, EXZ] });
+      // ── 탈출: 프리모르스키 대로 택시(대로 남쪽, 승강장 표지판과 노란 택시 부품) ──
+      w.box(111, G + 1, 106, 111, G + 7, 106, B.steel);
+      for (let z = 104; z <= 108; z++) { S(111, G + 7, z, (z & 1) ? B.black : B.taxi); S(111, G + 6, z, (z & 1) ? B.taxi : B.black); }
+      S(111, G + 8, 106, B.lampY);
+      lights.push({ name: 'taxi', p: [111.5, G + 8, 106.5], c: '#ffd060', i: 0.5, d: 18, flicker: 0.05, srcR: 3 });
+      const QX = 114, QZ = 95;
+      w.box(QX, G + 1, QZ, QX + 3, G + 6, QZ + 21, 0);                                              // 택시 길을 비운다
+      const taxi = w.prop({ name: 'taxi', pivot: [QX + 2, G + 1, QZ + 4.5] });
+      const tp = car(taxi, QX, QZ, { axis: 'z', dir: 1, col: B.taxi });
+      for (const v of [1, 2]) { const [x, z] = tp(4, v); taxi.set(x, G + 5, z, B.lampY); }
+      landmarks.push({ name: '프리모르스키 대로 택시', note: '돈을 내고 타는 탈출 지점', p: [QX + 2, G + 12, QZ + 4] });
 
       // ───── 상호작용 ─────
       const SM = ['#7a7a80', '#9a9aa0', '#5a5a62', '#b4b4b8'];
@@ -435,7 +472,7 @@
         },
       });
       acts.push({
-        name: 'LEXOS 간판 점등', hint: '지붕 위 LEXOS 간판이 지지직 깜빡이다가 환하게 켜져요', hit: [BX0, R + 2, BZ, BX1, R + 12, BZ + 1],
+        name: 'LEXOS 간판 점등', hint: '대로 쪽 벽의 LEXOS 간판이 지지직 깜빡이다가 환하게 켜져요', hit: [BXs, G + 9, BZ0s, BXs + 1, G + 17, BZ1s],
         run: async a => {
           for (const [on, t] of [[0, 0.6], [1, 0.08], [0, 0.25], [1, 0.06], [0, 0.4], [1, 0.12], [0, 0.12]]) {
             await a.tween('signL', { scl: [1, on ? 1 : 0.02, 1] }, 0.04);
@@ -470,14 +507,20 @@
         },
       });
       acts.push({
-        name: '탈출 신호탄', hint: '탈출구에서 초록 신호탄이 솟아 하늘에서 터지고, 초록 연기가 피어올라요', hit: [EXX - 1, G + 1, EXZ, EXX + 7, G + 11, EXZ + 7],
+        name: '대로 택시 탈출', hint: '대로 남쪽 승강장에 노란 택시가 비상등을 깜빡이며 와서 서고, 탈출하는 손님을 태워 떠나요', hit: [QX, G + 1, QZ, QX + 3, G + 5, QZ + 8],
         run: async a => {
-          const fx = EXX + 3.5, fz = EXZ + 6.5;
-          a.flash('flare', 6, 7);
-          for (let k = 0; k < 14; k++) { a.burst([fx + k * 0.3, G + 2 + k * 2.6, fz - k * 0.2], { n: 6, colors: ['#ffffff', '#c0ffc8', '#6aff8a'], speed: 0.4, up: -0.5, life: 0.7, gravity: 1, spread: 0.3 }); await a.wait(0.07); }
-          a.burst([fx + 4.2, G + 39, fz - 2.8], { n: 90, colors: ['#3aff6a', '#c0ffc8', '#ffffff'], speed: 9, up: 1.5, life: 2.4, gravity: 1.5, spread: 1 });
-          a.lightning(0.35); a.glow(1.6, 3);
-          for (let k = 0; k < 10; k++) { a.burst([fx, G + 1.5, fz], { n: 22, colors: ['#4ad86a', '#7ae890', '#3a9a52', '#b0f0c0'], speed: 1.4, up: 3, life: 2.6, gravity: -0.6, spread: 1.4 }); await a.wait(0.35); }
+          a.flash('taxi', 5, 6);
+          for (let k = 0; k < 6; k++) {
+            for (const [x, z] of [[QX + 0.5, QZ + 8.5], [QX + 3.5, QZ + 8.5], [QX + 0.5, QZ], [QX + 3.5, QZ]]) a.burst([x, G + 2.5, z], { n: 4, colors: ['#ffb040', '#ffe0a0'], speed: 1, up: 0.3, life: 0.3, gravity: 0, spread: 0.3 });
+            await a.wait(0.4);
+          }
+          a.burst([QX + 2, G + 3, QZ + 9], { n: 12, colors: ['#ffffff', '#fff0c0'], speed: 3, up: 0.5, life: 0.5, gravity: 0, spread: 0.5 });
+          const fume = async () => { for (let k = 0; k < 8; k++) { a.burst([QX + 2, G + 1.5, QZ - 0.5 + k * 1.6], { n: 6, colors: SM, speed: 0.6, up: 1, life: 1.2, gravity: -0.4, spread: 0.6 }); await a.wait(0.3); } };
+          await Promise.all([a.move('taxi', [0, 0, 13], 2.4), fume()]);
+          await a.tween('taxi', { scl: [0, 0, 0] }, 0.3);
+          await a.move('taxi', [0, 0, 0], 0.1);
+          await a.wait(0.8);
+          await a.tween('taxi', { scl: [1, 1, 1] }, 0.6);
         },
       });
 

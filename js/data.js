@@ -176,16 +176,18 @@
 
   // ───────── 아이템 ─────────
   // rarity: basic(최하급) < common(일반) < rare(희귀) < legendary(전설)
-  // type: relic(영구 효과) | heal(즉시 회복) | card(새 스킬 카드로 교체) | upgrade(카드 강화)
+  // type: relic(영구 효과) | potion(물약 벨트에 보관, 사용 시 효과) | card(새 스킬 카드로 교체) | upgrade(카드 강화)
   const ITEMS = [
-    { id: 'it_rag', icon: '🩹', name: '거친 붕대', rarity: 'basic', type: 'heal', desc: '즉시 체력 20 회복', mods: { heal: 20 } },
+    { id: 'it_rag', icon: '🩹', name: '거친 붕대', rarity: 'basic', type: 'potion', desc: '물약: 체력 20 회복', potion: { heal: 20 } },
     { id: 'it_chip', icon: '🪨', name: '숫돌 조각', rarity: 'basic', type: 'upgrade', desc: '카드 1장의 주사위 최대값 +1', upg: { umax: 1 } },
     { id: 'it_charm', icon: '🧶', name: '낡은 부적', rarity: 'basic', type: 'relic', desc: '최대 체력 +6', mods: { maxHp: 6 } },
 
     { id: 'it_bandage', icon: '🎗️', name: '성직자의 붕대', rarity: 'common', type: 'relic', desc: '전투 승리 시 체력 8 회복', mods: { winHeal: 8 } },
     { id: 'it_bone', icon: '🦴', name: '뼈 부적', rarity: 'common', type: 'relic', desc: '최대 체력 +12, 체력 12 회복', mods: { maxHp: 12, heal: 12 } },
     { id: 'it_feather', icon: '🪶', name: '까마귀 깃털', rarity: 'common', type: 'relic', desc: '모든 주사위 최소값 +1', mods: { diceMin: 1 } },
-    { id: 'it_potion', icon: '🧪', name: '치유 물약', rarity: 'common', type: 'heal', desc: '즉시 체력 40 회복', mods: { heal: 40 } },
+    { id: 'it_potion', icon: '🧪', name: '치유 물약', rarity: 'common', type: 'potion', desc: '물약: 체력 40 회복', potion: { heal: 40 } },
+    { id: 'it_might', icon: '🍶', name: '힘의 물약', rarity: 'common', type: 'potion', desc: '물약: 이번 턴 힘 3 (전투 중)', potion: { might: 3 } },
+    { id: 'it_ward', icon: '🫙', name: '수호의 물약', rarity: 'common', type: 'potion', desc: '물약: 이번 턴 보호 3 (전투 중)', potion: { protect: 3 } },
     { id: 'it_whetstone', icon: '⚙️', name: '숫돌', rarity: 'common', type: 'upgrade', desc: '카드 1장의 모든 주사위 +1', upg: { ub: 1 } },
     { id: 'it_purse', icon: '👝', name: '낡은 돈주머니', rarity: 'common', type: 'relic', desc: '전투 승리 시 은화 +6', mods: { goldBonus: 6 } },
     { id: 'it_newcard_c', icon: '📜', name: '낡은 두루마리', rarity: 'common', type: 'card', desc: '직업 스킬 카드를 얻고 덱의 카드 1장과 교체' },
@@ -198,7 +200,8 @@
     { id: 'it_ember', icon: '🔥', name: '꺼지지 않는 불씨', rarity: 'rare', type: 'relic', desc: '카드 첫 적중 시 화상 2 부여', mods: { firstHitBurn: 2 } },
     { id: 'it_loaded', icon: '🎲', name: '무게 추 주사위', rarity: 'rare', type: 'relic', desc: '모든 주사위 최대값 +2', mods: { diceMax: 2 } },
     { id: 'it_engrave', icon: '✒️', name: '룬 각인', rarity: 'rare', type: 'upgrade', desc: '카드 1장의 모든 주사위 최대값 +3', upg: { umax: 3 } },
-    { id: 'it_elixir', icon: '⚗️', name: '진홍의 영약', rarity: 'rare', type: 'heal', desc: '즉시 체력 70 회복', mods: { heal: 70 } },
+    { id: 'it_elixir', icon: '⚗️', name: '진홍의 영약', rarity: 'rare', type: 'potion', desc: '물약: 체력 70 회복', potion: { heal: 70 } },
+    { id: 'it_fury', icon: '🏺', name: '광전사의 물약', rarity: 'rare', type: 'potion', desc: '물약: 이번 턴 힘 5, 취약 2 (전투 중)', potion: { might: 5, fragile: 2 } },
     { id: 'it_newcard_r', icon: '📕', name: '금지된 마도서', rarity: 'rare', type: 'card', desc: '희귀 직업 스킬 카드를 얻고 덱의 카드 1장과 교체' },
 
     { id: 'it_grail', icon: '🏆', name: '성배', rarity: 'legendary', type: 'relic', desc: '최대 체력 +30, 전투 승리 시 체력 12 회복', mods: { maxHp: 30, heal: 30, winHeal: 12 } },
@@ -232,6 +235,74 @@
 
   // 전투 승리 시 은화
   const GOLD = { normal: [12, 18], midboss: [30, 40], boss: [55, 70] };
+
+  const POTION_SLOTS = 3;
+
+  // ───────── 지도 ─────────
+  // 지역(막)마다 5층. 1·2·4층은 갈림길에서 고르고, 3층은 중간 보스, 5층은 보스로 고정.
+  const NODES = {
+    battle: { name: '전투', icon: '⚔', desc: '이 지역의 몬스터와 싸웁니다.' },
+    event: { name: '사건', icon: '?', desc: '무슨 일이 벌어질지 모릅니다.' },
+    rest: { name: '모닥불', icon: '🔥', desc: '쉬면서 체력을 회복하거나 카드를 단련합니다.' },
+    treasure: { name: '보물', icon: '📦', desc: '유물 하나를 고릅니다.' },
+    midboss: { name: '중간 보스', icon: '☠', desc: '전용 카드와 고유 스킬을 가진 강적.' },
+    boss: { name: '보스', icon: '♛', desc: '이 지역의 주인. 쓰러뜨리면 상점이 열리고 다음 지역으로 갑니다.' },
+  };
+  const MAP = {
+    restHeal: 0.3,        // 모닥불 휴식 회복량 (최대 체력 대비)
+    restUpgrade: { ub: 1 }, // 모닥불 단련 효과
+    treasureWeights: { rare: 70, legendary: 30 },
+  };
+
+  // ───────── 사건 ─────────
+  // choice.fx: hp(±), hpPct(±최대 체력 비율), maxHp(±), gold(±), relic(희귀도), card(희귀도), potion(id), upgrade, chance{p, win, lose}
+  const EVENTS = [
+    { id: 'altar', icon: '🕯️', name: '버려진 제단', text: '피 묻은 제단 위에 무언가 반짝입니다. 제단은 피를 원하는 듯합니다.',
+      choices: [
+        { label: '피를 바친다', hint: '체력 -18, 희귀 유물 획득', fx: { hp: -18, relic: 'rare' } },
+        { label: '지나친다', hint: '아무 일도 없음', fx: {} },
+      ] },
+    { id: 'spring', icon: '💧', name: '성수의 샘', text: '맑은 샘이 희미하게 빛납니다. 물에서는 기도 소리가 들리는 것 같습니다.',
+      choices: [
+        { label: '물을 마신다', hint: '체력 전부 회복', fx: { hpPct: 1 } },
+        { label: '물을 병에 담는다', hint: '치유 물약 획득', fx: { potion: 'it_potion' } },
+      ] },
+    { id: 'gamble', icon: '🎲', name: '망자의 도박판', text: '해골들이 주사위 놀이를 하고 있습니다. 한 판 끼라고 손짓합니다.',
+      choices: [
+        { label: '은화 30을 건다', hint: '50%: 은화 80 / 50%: 잃음', fx: { gold: -30, chance: { p: 0.5, win: { gold: 80 }, lose: {} } }, need: { gold: 30 } },
+        { label: '목숨을 건다', hint: '50%: 전설 유물 / 50%: 체력 -35', fx: { chance: { p: 0.5, win: { relic: 'legendary' }, lose: { hp: -35 } } } },
+        { label: '거절한다', hint: '아무 일도 없음', fx: {} },
+      ] },
+    { id: 'smith', icon: '⚒️', name: '떠돌이 대장장이', text: '화로를 끌고 다니는 대장장이가 무기를 손봐 주겠다고 합니다.',
+      choices: [
+        { label: '은화 40을 낸다', hint: '카드 1장 모든 주사위 +1', fx: { gold: -40, upgrade: { ub: 1 } }, need: { gold: 40 } },
+        { label: '직접 돕는다', hint: '체력 -10, 카드 1장 최대값 +2', fx: { hp: -10, upgrade: { umax: 2 } } },
+        { label: '거절한다', hint: '아무 일도 없음', fx: {} },
+      ] },
+    { id: 'grave', icon: '🪦', name: '순례자의 무덤', text: '먼저 떠난 순례자의 무덤입니다. 비석 옆에 낡은 짐이 놓여 있습니다.',
+      choices: [
+        { label: '짐을 뒤진다', hint: '은화 45, 체력 -8', fx: { gold: 45, hp: -8 } },
+        { label: '기도를 올린다', hint: '최대 체력 +8', fx: { maxHp: 8 } },
+      ] },
+    { id: 'ghost', icon: '👻', name: '거래하는 유령', text: '유령이 속삭입니다. "네 생명의 일부를 주면 잊힌 검술을 알려주지."',
+      choices: [
+        { label: '거래한다', hint: '최대 체력 -12, 전설 카드 획득', fx: { maxHp: -12, card: 'legendary' } },
+        { label: '은화로 달랜다', hint: '은화 -50, 희귀 카드 획득', fx: { gold: -50, card: 'rare' }, need: { gold: 50 } },
+        { label: '떠난다', hint: '아무 일도 없음', fx: {} },
+      ] },
+    { id: 'chest', icon: '🧰', name: '저주받은 상자', text: '쇠사슬로 감긴 상자가 있습니다. 안에서 무언가 긁는 소리가 납니다.',
+      choices: [
+        { label: '연다', hint: '70%: 은화 60 / 30%: 체력 -25', fx: { chance: { p: 0.7, win: { gold: 60 }, lose: { hp: -25 } } } },
+        { label: '부순다', hint: '수호의 물약 획득', fx: { potion: 'it_ward' } },
+        { label: '내버려 둔다', hint: '아무 일도 없음', fx: {} },
+      ] },
+    { id: 'beggar', icon: '🧎', name: '길가의 거지', text: '누더기를 걸친 노인이 손을 내밉니다. 눈빛이 예사롭지 않습니다.',
+      choices: [
+        { label: '은화 25를 준다', hint: '최대 체력 +10, 체력 10 회복', fx: { gold: -25, maxHp: 10, hp: 10 }, need: { gold: 25 } },
+        { label: '힘의 물약을 나눈다', hint: '힘의 물약 획득', fx: { potion: 'it_might' } },
+        { label: '무시한다', hint: '아무 일도 없음', fx: {} },
+      ] },
+  ];
 
   // ───────── 지역 / 몬스터 ─────────
   // 몬스터 덱은 반드시 9장. 중간 보스/보스는 지역 카드 6장 + 전용 카드 3장 + 고유 스킬 1개.
@@ -444,8 +515,8 @@
   const BALANCE = {
     enemyHpMul: { normal: 1, midboss: 1, boss: 1 },
     enemyPower: { normal: 2, midboss: -1, boss: -2 }, // 적 주사위 위력 보정
-    hpPerFloor: 0.18,       // 층마다 적 체력 +18%
-    powerEveryFloors: 2.5,  // n층마다 적 주사위 위력 +1
+    hpPerFloor: 0.21,       // 층마다 적 체력 +21%
+    powerEveryFloors: 2.3,  // n층마다 적 주사위 위력 +1
     extraSlotFloor: 11,     // 이 층부터 일반 몬스터 스킬 슬롯 +1
     bossHealPct: 0.3,       // 보스 처치 후 최대 체력 대비 회복량
   };
@@ -454,7 +525,7 @@
 
   const DATA = {
     CARDS, CLASSES, CLASS_MAP, DICE, ATK_TYPES, TYPE_OF, TYPES, RES_NAME, LIGHT_POINTS, PASSIVES, ITEMS,
-    RARITY_WEIGHTS, SHOP, GOLD, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
+    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = DATA;

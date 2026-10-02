@@ -40,10 +40,26 @@
     logs: [],
     logOpen: false,
     animateDraw: false,
+    autoBattle: false,
+    event: null,
+    eventResult: null,
+    rewardKind: 'battle',
     pick: null, // 카드 선택 모달 진행 중인 { opt, done }
   };
 
   const sleep = ms => new Promise(r => setTimeout(r, ms / S.speed));
+  const SFX = window.SFX || { play() {}, setMuted() {}, unlock() {}, muted: false };
+  SFX.setMuted(store.get('muted', false));
+  const sfx = name => SFX.play(name);
+
+  // ───────── 진행 저장 ─────────
+  // 지도·상점·지역 선택 화면에서 저장한다. 전투 중에 나가면 그 칸에 들어가기 전으로 돌아온다.
+  function saveRun(screen) {
+    if (!S.run) return;
+    store.set('run', { screen, json: G.serializeRun(S.run) });
+  }
+  const clearSave = () => store.set('run', null);
+  const hasSave = () => !!store.get('run', null);
   const KIND_NAME = { normal: '일반', midboss: '중간 보스', boss: '보스' };
   const KIND_ICON = { normal: '⚔', midboss: '☠', boss: '♛' };
 
@@ -229,6 +245,14 @@
     setTimeout(() => el.remove(), 900 / S.speed + 300);
     return el;
   }
+  function screenFlash() {
+    const st = document.querySelector('.stage');
+    if (!st) return;
+    const el = document.createElement('div');
+    el.className = 'flash';
+    st.appendChild(el);
+    setTimeout(() => el.remove(), 260);
+  }
   function stageShake(power) {
     const st = document.querySelector('.stage');
     if (!st) return;
@@ -291,6 +315,7 @@
     await Promise.all([move('p', mid + g, engaged ? 150 : 200, rush), move('e', mid - g, engaged ? 150 : 200, rush)]);
     engaged = true;
     spark();
+    sfx('clash');
     const win = ev.result;
     popDie('p', pd.t, ev.pv, win === 'p' ? 'win' : win === 'e' ? 'lose' : 'even');
     popDie('e', ed.t, ev.ev, win === 'e' ? 'win' : win === 'p' ? 'lose' : 'even');
@@ -302,9 +327,9 @@
       const push = Math.min(190, 26 + Math.abs(ev.pv - ev.ev) * 17);
       setPose(lose, 'hit', true);
       flashHurt(lose);
-      if (winDie.t === 'E') { hop(win); evadeVfx(win); }
-      else if (winDie.t === 'G') guardVfx(win);
-      else hitVfx(winDie.t, lose);
+      if (winDie.t === 'E') { hop(win); evadeVfx(win); sfx('evade'); }
+      else if (winDie.t === 'G') { guardVfx(win); sfx('guard'); }
+      else { hitVfx(winDie.t, lose); sfx('hit'); }
       await Promise.all([
         move(lose, backClamp(lose, stagePos[lose] - DIR[lose] * push), 300, 'cubic-bezier(.15, .85, .3, 1)'),
         move(win, stagePos[win] + DIR[win] * 14, 300),
@@ -325,6 +350,8 @@
   // 피격: 맞은 쪽이 피해만큼 밀려난다 (제자리로 돌아가지 않음)
   async function hitMotion(tgt, dmg, die) {
     if (die) hitVfx(die, tgt);
+    sfx(dmg >= 15 ? 'heavy' : 'hit');
+    if (dmg >= 15) screenFlash();
     setPose(tgt, 'hit', true);
     flashHurt(tgt);
     const push = Math.min(90, 10 + dmg * 3);
@@ -353,9 +380,11 @@
     const fn = {
       title: renderTitle, cls: renderClass, light: renderLight, battle: renderBattle,
       reward: renderReward, shop: renderShop, region: renderRegion, over: renderOver,
+      map: renderMap, rest: renderRest, event: renderEvent,
     }[S.screen];
     $app.innerHTML = fn();
     if (S.screen === 'battle') afterBattleRender();
+    if (S.screen === 'map') saveRun('map');
   }
 
   // ───────── 타이틀 ─────────
@@ -366,8 +395,10 @@
       <h1 class="logo">오푸스덜스</h1>
       <p class="tagline">운명의 주사위를 굴려라.<br>다섯 개의 저주받은 땅이 순례자를 기다린다.</p>
       <div class="title-actions">
-        <button class="btn primary big" data-act="new">새로운 순례</button>
+        ${hasSave() ? '<button class="btn primary big" data-act="continue">이어하기</button>' : ''}
+        <button class="btn ${hasSave() ? '' : 'primary '}big" data-act="new">새로운 순례</button>
         <button class="btn" data-act="howto">게임 방법</button>
+        <button class="btn small" data-act="mute">${SFX.muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐'}</button>
       </div>
       <div class="record">${best ? `최고 기록: <b>${best.floor}층</b> (${best.cls ? best.cls + ' · ' : ''}${best.region})` : '아직 기록이 없습니다'}</div>
     </div>`;
@@ -449,6 +480,44 @@
     return `<div class="odds ${cls}">${word}<small>가함 ${Math.round(o.dealt)}<br>받음 ${Math.round(o.taken)}</small></div>`;
   }
 
+  // 물약 벨트 (전투 중에는 모든 물약, 밖에서는 회복 물약만 쓸 수 있다)
+  function potionBelt(inBattle) {
+    const run = S.run;
+    const slots = [];
+    for (let i = 0; i < D.POTION_SLOTS; i++) {
+      const id = run.potions[i];
+      if (!id) { slots.push('<span class="potion empty" title="빈 물약 칸"></span>'); continue; }
+      const it = D.ITEMS.find(x => x.id === id);
+      const usable = inBattle || !!it.potion.heal;
+      slots.push(`<button class="potion${usable ? '' : ' dim'}" data-act="potion" data-i="${i}" title="${it.name}: ${it.desc}${usable ? ' (눌러서 사용)' : ''}">${art('items', it.id, it.icon, 'potion-art')}</button>`);
+    }
+    return `<div class="potion-belt" title="물약 벨트">${slots.join('')}</div>`;
+  }
+
+  // 무대 배경 장식: 안개, 떠다니는 불티, 기둥
+  function stageDecor(region) {
+    const embers = Array.from({ length: 14 }, (_, i) => `<i class="ember" style="--x:${(i * 71) % 100}%;--d:${(i * 37) % 9}s;--t:${7 + (i * 13) % 6}s"></i>`).join('');
+    return `<div class="decor" aria-hidden="true"><div class="fog a"></div><div class="fog b"></div><div class="pillars"></div>${embers}<div class="vignette"></div></div>`;
+  }
+
+  // 지도·보상·상점 등에서 쓰는 공통 상태줄
+  function runBar() {
+    const p = S.run.player;
+    const region = D.REGION_MAP[S.run.regionId];
+    const cls = D.CLASS_MAP[S.run.classId];
+    return `<div class="runbar">
+      <span class="tb-class">${cls.icon} ${cls.name}</span>
+      <span class="tb-hp">❤ <b>${p.hp}/${p.maxHp}</b></span>
+      ${goldHtml()}
+      <span class="region-name">${region.icon} ${region.name}</span>
+      <span class="floor-no">${S.run.floor}층</span>
+      ${potionBelt(false)}
+      <span class="runbar-sp"></span>
+      <button class="btn small" data-act="deck">🂠 덱 · 유물</button>
+      <button class="btn small" data-act="title" title="진행은 저장됩니다">타이틀</button>
+    </div>`;
+  }
+
   function relicBar(p) {
     const light = p.passives.map(id => D.PASSIVES.find(x => x.id === id))
       .map(x => `<span class="relic light" title="빛의 가호 · ${x.name}: ${x.desc}">✦</span>`);
@@ -525,14 +594,18 @@
           <div class="floor-track" title="이번 구간 5개 층">${floorTrack(run.floor)}</div>
         </div>
         <div class="tb-menu">
+          ${potionBelt(true)}
+          <button class="btn small${S.autoBattle ? ' on' : ''}" data-act="autoBattle" title="켜 두면 턴을 자동으로 진행합니다">${S.autoBattle ? '👁 관전 중' : '👁 관전'}</button>
           <button class="btn small" data-act="deck" title="덱 · 유물">🂠 덱</button>
           <button class="btn small" data-act="log">기록</button>
           <button class="btn small" data-act="speed">×${S.speed}</button>
+          <button class="btn small" data-act="mute" title="소리">${SFX.muted ? '🔇' : '🔊'}</button>
           <button class="btn small" data-act="howto" aria-label="게임 방법">?</button>
         </div>
       </header>
 
-      <main class="stage" aria-label="전투 무대">
+      <main class="stage r-${region.id}${b.kind !== 'normal' ? ' ' + b.kind : ''}" aria-label="전투 무대">
+        ${stageDecor(region)}
         <section class="fighter player" id="u-p">
           <div class="fig-mover"><div class="figure">${figureHtml('classes', p.classId, p.icon)}</div></div>
           ${fighterHud(p, 'p', p.energy - spent)}
@@ -734,6 +807,7 @@
           break;
         }
         case 'heal':
+          sfx('heal');
           floatText(ev.side, '+' + ev.amount, 'heal');
           particles(ev.side, 'heal', 7);
           setHp(ev.hp);
@@ -788,17 +862,35 @@
       S.pendingBoss = res.boss;
       S.lastGold = res.gold;
       S.rewards = G.rollRewards(S.run, b.kind, rng);
+      S.rewardKind = 'battle';
+      sfx('win');
       go('reward');
     } else if (b.outcome === 'lose') {
       await banner('YOU DIED', 'lose');
       saveRecord();
+      clearSave();
+      S.autoBattle = false;
       go('over');
     } else {
       G.startTurn(b, rng);
       S.animateDraw = true;
       render();
+      sfx('draw');
       turnBanner();
+      if (S.autoBattle) autoStep();
     }
+  }
+
+  // 관전: 자동 배치 후 턴을 자동으로 넘긴다
+  function autoStep() {
+    setTimeout(() => {
+      if (!S.autoBattle || S.screen !== 'battle' || S.busy || !S.battle || S.battle.outcome) return;
+      autoPlan();
+      S.targetRow = null;
+      S.confirmEmpty = true;
+      render();
+      setTimeout(() => { if (S.autoBattle && !S.busy) fight(); }, 500 / S.speed);
+    }, 900 / S.speed);
   }
 
   // 자동 배치: 코스트 안에서 가능한 카드 조합과 줄 배치를 모두 따져
@@ -839,6 +931,136 @@
     best.pick.forEach((h, r) => { if (h >= 0) b.plan[r] = hand[h].uid; });
   }
 
+  // ───────── 지도 ─────────
+  function renderMap() {
+    const run = S.run;
+    const m = run.map;
+    const region = D.REGION_MAP[run.regionId];
+    const choices = G.mapChoices(run);
+    const can = (c, i) => choices.some(x => x.col === c && x.idx === i);
+    const W = 760;
+    const H = 330;
+    const colX = c => 70 + c * ((W - 140) / 4);
+    const rowY = (n, i) => H / 2 + (i - (n - 1) / 2) * 92;
+    const pos = (c, i) => [colX(c), rowY(m.cols[c].length, i)];
+    const lines = [];
+    const link = (c1, i1, c2, i2, active, done) => {
+      const [x1, y1] = pos(c1, i1);
+      const [x2, y2] = pos(c2, i2);
+      lines.push(`<path class="mpath${active ? ' active' : ''}${done ? ' done' : ''}" d="M${x1} ${y1} C ${x1 + 60} ${y1}, ${x2 - 60} ${y2}, ${x2} ${y2}"/>`);
+    };
+    m.cols[0].forEach((_, i) => m.edges[i].forEach(j => link(0, i, 1, j, m.col === 0 && m.idx === i, m.col >= 1 && m.idx === j && m.cols[0][i].done)));
+    for (let c = 1; c < 4; c++) m.cols[c].forEach((_, i) => m.cols[c + 1].forEach((__, j) => link(c, i, c + 1, j, m.col === c && m.idx === i, m.cols[c][i].done && m.col > c && (c + 1 === m.col ? m.idx === j : true))));
+    const nodes = m.cols.map((col, c) => col.map((n, i) => {
+      const [x, y] = pos(c, i);
+      const info = D.NODES[n.kind];
+      const state = n.done ? 'done' : (m.col === c && m.idx === i) ? 'here' : can(c, i) ? 'open' : 'locked';
+      const big = n.kind === 'boss' || n.kind === 'midboss';
+      return `<g class="mnode ${n.kind} ${state}" transform="translate(${x} ${y})" ${state === 'open' ? `data-act="node" data-col="${c}" data-idx="${i}" role="button" tabindex="0"` : ''}>
+        <title>${info.name}${state === 'open' ? ' — 눌러서 이동' : ''}: ${info.desc}</title>
+        <circle r="${big ? 30 : 22}"/>
+        <text y="${big ? 10 : 8}" font-size="${big ? 28 : 20}">${info.icon}</text>
+      </g>`;
+    }).join('')).join('');
+    const floorLabels = m.cols.map((_, c) => `<text class="mfloor" x="${colX(c)}" y="${H - 8}">${m.startFloor + c}층</text>`).join('');
+    const hero = m.col >= 0 ? '' : `<text class="mfloor" x="${colX(0) - 48}" y="${H / 2 + 5}">출발 ▸</text>`;
+    const sub = choices.length ? '다음 칸을 고르세요. 열려 있는 칸만 갈 수 있습니다.' : '';
+    return `<div class="screen map-screen" style="--region:${region.color}">
+      ${runBar()}
+      <h2 class="screen-title">${region.icon} ${region.name}</h2>
+      <p class="screen-sub">${region.desc}<br>${sub}</p>
+      <div class="map-wrap"><svg class="map" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        <defs><pattern id="mgrid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="rgba(255,255,255,.035)"/></pattern></defs>
+        <rect width="${W}" height="${H}" fill="url(#mgrid)"/>
+        ${lines}${nodes}${floorLabels}${hero}
+      </svg></div>
+      <div class="map-legend">${Object.keys(D.NODES).map(k => `<span><i class="lg ${k}">${D.NODES[k].icon}</i> ${D.NODES[k].name}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  // 지도에서 칸을 고르면 그 칸의 내용으로 넘어간다
+  function goNode(col, idx) {
+    const node = G.enterNode(S.run, col, idx);
+    sfx('click');
+    if (node.kind === 'battle' || node.kind === 'midboss' || node.kind === 'boss') startBattle();
+    else if (node.kind === 'rest') go('rest');
+    else if (node.kind === 'treasure') { S.rewardKind = 'treasure'; S.rewards = G.rollTreasure(S.run, rng); S.pendingBoss = false; go('reward'); }
+    else if (node.kind === 'event') { S.event = G.rollEvent(S.run, rng); S.eventResult = null; go('event'); }
+  }
+
+  // 칸을 마치고 지도로 (보스였다면 상점 → 지역 선택)
+  function leaveNode() {
+    closeModal();
+    const boss = G.finishNode(S.run);
+    if (boss) {
+      S.shop = G.rollShop(S.run, rng);
+      saveRun('shop');
+      go('shop');
+    } else {
+      go('map');
+    }
+  }
+
+  // ───────── 모닥불 ─────────
+  function renderRest() {
+    const p = S.run.player;
+    const heal = Math.round(p.maxHp * D.MAP.restHeal);
+    return `<div class="screen rest-screen">
+      ${runBar()}
+      <div class="rest-fire">🔥</div>
+      <h2 class="screen-title">모닥불</h2>
+      <p class="screen-sub">불가에 앉아 숨을 고릅니다. 하나를 고르세요.</p>
+      <div class="reward-grid">
+        <div class="reward" data-act="restHeal"><div class="reward-icon">🛌</div><div class="reward-name">휴식</div><div class="reward-desc">체력 ${heal} 회복 (${p.hp} → ${Math.min(p.maxHp, p.hp + heal)})</div></div>
+        <div class="reward" data-act="restUpgrade"><div class="reward-icon">⚒️</div><div class="reward-name">단련</div><div class="reward-desc">카드 1장의 모든 주사위 +${D.MAP.restUpgrade.ub}</div></div>
+      </div>
+    </div>`;
+  }
+
+  // ───────── 사건 ─────────
+  function renderEvent() {
+    const ev = S.event;
+    const r = S.eventResult;
+    const body = r
+      ? `<div class="event-result">${r.lines.map(l => `<div>${l}</div>`).join('')}</div>
+         <div class="bottom-actions"><button class="btn primary big" data-act="eventDone">계속</button></div>`
+      : `<div class="event-choices">${ev.choices.map((c, i) => {
+          const ok = G.canChoose(S.run, c);
+          return `<button class="event-choice" data-act="eventChoice" data-i="${i}" ${ok ? '' : 'disabled'}><b>${c.label}</b><small>${c.hint}${ok ? '' : ' — 은화 부족'}</small></button>`;
+        }).join('')}</div>`;
+    return `<div class="screen event-screen">
+      ${runBar()}
+      <div class="event-card">
+        <div class="event-icon">${ev.icon}</div>
+        <h2 class="screen-title">${ev.name}</h2>
+        <p class="event-text">${ev.text}</p>
+        ${body}
+      </div>
+    </div>`;
+  }
+
+  function chooseEvent(i) {
+    const res = G.applyEventChoice(S.run, S.event, i, rng);
+    if (!res.ok) { toast(res.msg); return; }
+    sfx(res.lines.some(l => /획득|회복|\+/.test(l)) ? 'coin' : 'click');
+    S.eventResult = res;
+    render();
+    if (res.newCard) {
+      openDeckPicker({ item: { icon: '📜', name: '카드 교체', type: 'card', desc: '' }, cardId: res.newCard }, uid => {
+        G.swapEventCard(S.run, res.newCard, uid);
+        closeModal();
+        render();
+      }, true);
+    } else if (res.needCard === 'upgrade') {
+      openDeckPicker({ item: { icon: '⚒️', name: '단련', type: 'upgrade', desc: `카드 1장 강화` } }, uid => {
+        G.upgradeCard(S.run, uid, res.pendingUpgrade);
+        closeModal();
+        toast('카드를 단련했습니다.');
+        render();
+      });
+    }
+  }
+
   // ───────── 보상 ─────────
   function rewardBody(o) {
     return o.item.type === 'card'
@@ -854,46 +1076,33 @@
         <div class="reward-name">${o.item.name}</div>
         <div class="reward-desc">${o.item.desc}</div>
       </div>`).join('');
-    const next = G.isShopFloor(S.run.floor) ? ' 다음은 상점입니다.' : '';
+    const treasure = S.rewardKind === 'treasure';
+    const next = !treasure && G.isShopFloor(S.run.floor) ? ' 다음은 상점입니다.' : '';
     return `<div class="screen reward-screen">
-      <h2 class="screen-title">전리품</h2>
-      <p class="screen-sub">${S.run.floor}층 돌파 · 은화 +${S.lastGold}. 하나를 선택하세요.${S.pendingBoss ? ' 보스를 쓰러뜨려 체력을 회복했습니다.' : ''}${next}</p>
+      ${runBar()}
+      <h2 class="screen-title">${treasure ? '보물 상자' : '전리품'}</h2>
+      <p class="screen-sub">${treasure ? '먼지 쌓인 상자 안에 유물이 들어 있습니다. 하나를 고르세요.' : `${S.run.floor}층 돌파 · 은화 +${S.lastGold}. 하나를 선택하세요.${S.pendingBoss ? ' 보스를 쓰러뜨려 체력을 회복했습니다.' : ''}${next}`}</p>
       <div class="reward-grid">${opts}</div>
-      <p class="status-line">체력 <b>${p.hp} / ${p.maxHp}</b> · ${goldHtml()} · 코스트 <b>${p.energy}</b> · 슬롯 <b>${p.slots}</b></p>
-      <div class="bottom-actions"><button class="btn small" data-act="deck">덱 · 유물 보기</button><button class="btn small" data-act="skipReward">건너뛰기</button></div>
+      <div class="bottom-actions"><button class="btn small" data-act="skipReward">건너뛰기</button></div>
     </div>`;
   }
 
   function pickReward(i) {
     const opt = S.rewards[i];
-    const done = () => { toast(`${opt.item.name} 획득`); afterReward(); };
+    const done = () => { toast(`${opt.item.name} 획득`); sfx(opt.item.type === 'potion' ? 'potion' : 'coin'); afterReward(); };
     if (G.needsCardTarget(opt)) { openDeckPicker(opt, uid => { G.applyReward(S.run, opt, uid); done(); }); return; }
     G.applyReward(S.run, opt);
     done();
   }
 
   function afterReward() {
-    closeModal();
-    if (G.isShopFloor(S.run.floor)) {
-      S.shop = G.rollShop(S.run, rng);
-      go('shop');
-    } else {
-      afterShop();
-    }
+    leaveNode();
   }
 
   function afterShop() {
-    if (S.pendingBoss) {
-      S.regions = G.regionChoices(S.run, rng);
-      go('region');
-    } else {
-      nextFloor();
-    }
-  }
-
-  function nextFloor() {
-    S.run.floor++;
-    startBattle();
+    S.regions = G.regionChoices(S.run, rng);
+    saveRun('region');
+    go('region');
   }
 
   function startBattle() {
@@ -906,7 +1115,13 @@
     log('sys', `${S.run.floor}층 — ${KIND_NAME[S.battle.kind]} 「${e.name}」 출현`);
     S.animateDraw = true;
     go('battle');
-    turnBanner();
+    const begin = () => { turnBanner(); if (S.autoBattle) autoStep(); };
+    if (S.battle.kind !== 'normal') {
+      sfx('boss');
+      banner(e.name, 'boss', 1400, S.battle.kind === 'boss' ? `${D.REGION_MAP[S.run.regionId].name}의 주인` : '중간 보스').then(begin);
+    } else {
+      begin();
+    }
   }
 
   // ───────── 상점 ─────────
@@ -926,14 +1141,14 @@
   function renderShop() {
     const p = S.run.player;
     return `<div class="screen shop-screen">
+      ${runBar()}
       <h2 class="screen-title">떠돌이 상인</h2>
       <p class="screen-sub">5층마다 나타나는 상인입니다. 은화로 물건을 사세요. 층이 높을수록 좋은 물건이 들어옵니다.</p>
-      <p class="status-line">${goldHtml()} · 체력 <b>${p.hp} / ${p.maxHp}</b></p>
       <h3 class="shop-head">기본 물품 <small>언제나 있음 · 여러 번 구매 가능</small></h3>
       <div class="shop-grid fixed">${S.shop.fixed.map((e, i) => shopItem(e, 'f' + i)).join('')}</div>
       <h3 class="shop-head">오늘의 물건 <small>일반 ~ 전설 · 각 1개</small></h3>
       <div class="shop-grid">${S.shop.random.map((e, i) => shopItem(e, 'r' + i)).join('')}</div>
-      <div class="bottom-actions"><button class="btn small" data-act="deck">덱 · 유물 보기</button><button class="btn primary big" data-act="leaveShop">상점 떠나기</button></div>
+      <div class="bottom-actions"><button class="btn primary big" data-act="leaveShop">상점 떠나기</button></div>
     </div>`;
   }
 
@@ -943,6 +1158,7 @@
     const done = uid => {
       const res = G.buy(S.run, entry, uid);
       closeModal();
+      if (res.ok) sfx('coin');
       toast(res.ok ? `${entry.item.name} 구매` : res.msg);
       render();
     };
@@ -1002,15 +1218,16 @@
   }
   function closeModal() { $modal.innerHTML = ''; S.pick = null; }
 
-  function openDeckPicker(opt, done) {
+  function openDeckPicker(opt, done, excludeNew) {
     const p = S.run.player;
     const isCard = opt.item.type === 'card';
+    const newUid = excludeNew ? Math.max(...p.deck.map(c => c.uid)) : -1;
     const newCard = isCard ? `<section><h4>새 카드</h4><div class="hand">${cardHtml(G.makeCard(opt.cardId), null, { cls: 'static' })}</div></section>` : '';
     openModal(`<button class="btn small modal-close" data-act="closeModal">취소</button>
       <h3>${opt.item.icon} ${opt.item.name}</h3>
       <p class="sub">${isCard ? '덱에서 교체할 카드를 고르세요. (덱은 항상 9장)' : `${opt.item.desc} — 강화할 카드를 고르세요.`}</p>
       ${newCard}
-      <section><h4>현재 덱</h4><div class="hand">${p.deck.map(c => cardHtml(c, null, { act: 'pickCard', cls: 'pickable' })).join('')}</div></section>`);
+      <section><h4>현재 덱</h4><div class="hand">${p.deck.filter(c => c.uid !== newUid).map(c => cardHtml(c, null, { act: 'pickCard', cls: 'pickable' })).join('')}</div></section>`);
     S.pick = { opt, done };
   }
 
@@ -1080,6 +1297,14 @@
       <ul>${D.CLASSES.map(c => `<li>${c.icon} <b>${c.name}</b> (${c.weapon}) — ${c.trait.name}: ${c.trait.desc}</li>`).join('')}</ul>
       <h4>상태이상</h4>
       <ul>${st}</ul>
+      <h4>지도</h4>
+      <ul>
+        <li>지역마다 5층짜리 지도가 있습니다. 1·2·4층은 갈림길에서 칸을 고르고, 3층은 중간 보스, 5층은 보스입니다.</li>
+        <li>⚔ 전투 / ? 사건(선택지가 있는 짧은 사건) / 🔥 모닥불(회복 또는 카드 단련) / 📦 보물(유물 1개)</li>
+        <li>물약은 벨트에 3개까지 보관하고, 전투 중에는 상단 바에서 눌러 씁니다. 회복 물약은 지도에서도 쓸 수 있습니다.</li>
+        <li>진행은 지도 화면에서 자동 저장됩니다. 타이틀의 <b>이어하기</b>로 이어갑니다.</li>
+        <li>👁 관전을 켜면 턴이 자동으로 진행되어 전투를 지켜볼 수 있습니다.</li>
+      </ul>
       <h4>층, 지역, 상점</h4>
       <ul>
         <li>전투에서 이길 때마다 은화를 얻고, 전리품 3개 중 하나를 고릅니다.</li>
@@ -1114,12 +1339,15 @@
       }
       case 'begin':
         S.run = G.createRun(S.classId, S.light);
-        startBattle();
+        G.startRegion(S.run, rng);
+        sfx('click');
+        go('map');
         break;
       case 'card': {
         if (S.busy) return;
         const res = G.assignCard(S.battle, Number(el.dataset.uid), S.targetRow);
         if (!res.ok) { toast(res.msg); return; }
+        sfx('card');
         S.targetRow = null;
         S.confirmEmpty = false;
         render();
@@ -1164,7 +1392,55 @@
       case 'region':
         G.chooseRegion(S.run, el.dataset.id);
         S.pendingBoss = false;
-        nextFloor();
+        G.startRegion(S.run, rng);
+        sfx('click');
+        go('map');
+        break;
+      case 'node': goNode(Number(el.dataset.col), Number(el.dataset.idx)); break;
+      case 'restHeal': { const r = G.rest(S.run, 'heal'); sfx('heal'); toast(`체력 ${r.amount} 회복`); leaveNode(); break; }
+      case 'restUpgrade':
+        openDeckPicker({ item: { icon: '⚒️', name: '단련', type: 'upgrade', desc: `카드 1장의 모든 주사위 +${D.MAP.restUpgrade.ub}` } }, uid => {
+          G.rest(S.run, 'upgrade', uid);
+          sfx('coin');
+          toast('카드를 단련했습니다.');
+          leaveNode();
+        });
+        break;
+      case 'eventChoice': chooseEvent(Number(el.dataset.i)); break;
+      case 'eventDone': leaveNode(); break;
+      case 'potion': {
+        const i = Number(el.dataset.i);
+        const inBattle = S.screen === 'battle' && S.battle && !S.battle.outcome;
+        if (inBattle && S.busy) return;
+        const r = G.usePotion(S.run, i, inBattle ? S.battle : null);
+        if (!r.ok) { toast(r.msg); return; }
+        sfx('potion');
+        toast(`${r.item.name} 사용`);
+        if (inBattle) { if (r.item.potion.heal) log('good', `${r.item.name}: 체력 회복`); else log('good', `${r.item.name}: 이번 턴 효과 적용`); }
+        render();
+        break;
+      }
+      case 'continue': {
+        const saved = store.get('run', null);
+        const run = saved && G.loadRun(saved.json);
+        if (!run) { toast('저장된 진행이 없습니다.'); clearSave(); render(); return; }
+        S.run = run;
+        S.pendingBoss = false;
+        sfx('click');
+        if (saved.screen === 'shop') { S.shop = G.rollShop(S.run, rng); go('shop'); }
+        else if (saved.screen === 'region') { S.regions = G.regionChoices(S.run, rng); go('region'); }
+        else go('map');
+        break;
+      }
+      case 'mute':
+        SFX.setMuted(!SFX.muted);
+        store.set('muted', SFX.muted);
+        render();
+        break;
+      case 'autoBattle':
+        S.autoBattle = !S.autoBattle;
+        render();
+        if (S.autoBattle) autoStep();
         break;
       case 'closeModal': closeModal(); break;
       default: break;
@@ -1172,6 +1448,7 @@
   }
 
   document.addEventListener('click', ev => {
+    SFX.unlock();
     const el = ev.target.closest('[data-act]');
     if (!el) return;
     // 모달 내부 클릭이 배경 닫기로 번지지 않도록

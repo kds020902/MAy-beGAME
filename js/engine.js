@@ -128,7 +128,221 @@
     applyMods(p, cls.trait.mods);
     passiveIds.forEach(id => applyMods(p, D.PASSIVES.find(x => x.id === id).mods));
     const start = D.REGIONS[0].id;
-    return { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, lastMonster: null, kills: 0, bossKills: 0 };
+    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [] };
+    return run;
+  }
+
+  // ───────── 지도 ─────────
+  // 지역(막)마다 5열. 열 1·2·4는 고를 수 있는 칸 2~3개, 열 3은 중간 보스, 열 5는 보스.
+  // 열 1 → 열 2 사이에만 갈림길 간선이 있고, 그 뒤로는 모든 칸이 다음 열의 모든 칸으로 이어진다.
+  function makeMap(run, rng) {
+    const col = (kinds) => kinds.map(kind => ({ kind, done: false }));
+    const pickKinds = (n, must, pool) => {
+      const out = must.slice();
+      while (out.length < n) {
+        const k = weighted(pool, rng);
+        if (k === 'treasure' && out.includes('treasure')) continue;
+        out.push(k);
+      }
+      return shuffle(out, rng);
+    };
+    const first = run.floor <= 1;
+    const cols = [
+      col(pickKinds(2, ['battle'], first ? { battle: 70, event: 30 } : { battle: 55, event: 35, rest: 10 })),
+      col(pickKinds(3, ['battle'], { battle: 40, event: 30, rest: 18, treasure: 12 })),
+      col(['midboss']),
+      col(pickKinds(3, ['rest'], { battle: 45, event: 35, treasure: 20 })),
+      col(['boss']),
+    ];
+    // 열 1 → 열 2 간선: 각 칸이 1~2개로 이어지고, 열 2의 모든 칸에 들어오는 길이 있게 한다
+    const edges = cols[0].map(() => []);
+    edges[0].push(0, 1);
+    edges[1].push(1, 2);
+    if (rng() < 0.5) edges[0].push(2); else edges[1].push(0);
+    edges.forEach(e => e.sort((a, b) => a - b));
+    return { cols, edges, col: -1, idx: -1, startFloor: run.floor };
+  }
+
+  // 지금 고를 수 있는 칸 목록: [{col, idx}]
+  function mapChoices(run) {
+    const m = run.map;
+    if (!m) return [];
+    const next = m.col + 1;
+    if (next >= m.cols.length) return [];
+    if (next === 0) return m.cols[0].map((_, i) => ({ col: 0, idx: i }));
+    if (next === 1) return m.edges[m.idx].map(i => ({ col: 1, idx: i }));
+    return m.cols[next].map((_, i) => ({ col: next, idx: i }));
+  }
+
+  function enterNode(run, col, idx) {
+    const ok = mapChoices(run).some(c => c.col === col && c.idx === idx);
+    if (!ok) throw new Error('갈 수 없는 칸입니다');
+    run.map.col = col;
+    run.map.idx = idx;
+    return run.map.cols[col][idx];
+  }
+
+  function currentNode(run) {
+    const m = run.map;
+    return m && m.col >= 0 ? m.cols[m.col][m.idx] : null;
+  }
+
+  // 칸을 마치면 층이 오른다. 보스 칸이면 true (상점 → 지역 선택)
+  function finishNode(run) {
+    const node = currentNode(run);
+    if (node) node.done = true;
+    const boss = node && node.kind === 'boss';
+    run.floor++;
+    return boss;
+  }
+
+  // 새 지역에 들어갈 때 지도를 새로 만든다
+  function startRegion(run, rng) {
+    run.map = makeMap(run, rng);
+  }
+
+  // ───────── 모닥불 ─────────
+  function rest(run, choice, targetUid) {
+    const p = run.player;
+    if (choice === 'heal') {
+      const amount = Math.round(p.maxHp * D.MAP.restHeal);
+      applyMods(p, { heal: amount });
+      return { ok: true, amount };
+    }
+    if (choice === 'upgrade') {
+      const c = p.deck.find(x => x.uid === targetUid);
+      if (!c) return { ok: false, msg: '단련할 카드를 고르세요' };
+      c.ub += D.MAP.restUpgrade.ub || 0;
+      c.umax += D.MAP.restUpgrade.umax || 0;
+      return { ok: true };
+    }
+    return { ok: false, msg: '알 수 없는 선택' };
+  }
+
+  // ───────── 보물 ─────────
+  function rollTreasure(run, rng) {
+    const out = [];
+    let tries = 0;
+    while (out.length < 3 && tries++ < 100) {
+      const rarity = weighted(D.MAP.treasureWeights, rng);
+      const items = D.ITEMS.filter(it => it.type === 'relic' && it.rarity === rarity && itemOk(run, it) && !out.some(o => o.item.id === it.id));
+      if (items.length) out.push({ item: pick(items, rng) });
+    }
+    return out;
+  }
+
+  // ───────── 사건 ─────────
+  function rollEvent(run, rng) {
+    const pool = D.EVENTS.filter(e => !run.seen.includes(e.id));
+    const ev = pick(pool.length ? pool : D.EVENTS, rng);
+    run.seen.push(ev.id);
+    return ev;
+  }
+
+  const canChoose = (run, choice) => !choice.need || (choice.need.gold == null || run.gold >= choice.need.gold);
+
+  // 선택지를 적용한다. 결과: { lines: [...설명], needCard: 'upgrade' | null, pendingUpgrade }
+  function applyEventChoice(run, ev, i, rng) {
+    const choice = ev.choices[i];
+    if (!canChoose(run, choice)) return { ok: false, msg: '조건이 맞지 않습니다' };
+    const lines = [];
+    const out = { ok: true, lines, needCard: null };
+    const apply = fx => {
+      const p = run.player;
+      if (fx.gold) { run.gold = Math.max(0, run.gold + fx.gold); lines.push(`은화 ${fx.gold > 0 ? '+' : ''}${fx.gold}`); }
+      if (fx.maxHp) { applyMods(p, { maxHp: fx.maxHp }); lines.push(`최대 체력 ${fx.maxHp > 0 ? '+' : ''}${fx.maxHp}`); }
+      if (fx.hp) {
+        if (fx.hp > 0) applyMods(p, { heal: fx.hp }); else p.hp = Math.max(1, p.hp + fx.hp);
+        lines.push(`체력 ${fx.hp > 0 ? '+' : ''}${fx.hp}`);
+      }
+      if (fx.hpPct) { const n = Math.round(p.maxHp * fx.hpPct); applyMods(p, { heal: n }); lines.push(`체력 ${n} 회복`); }
+      if (fx.relic) {
+        const items = D.ITEMS.filter(it => it.type === 'relic' && it.rarity === fx.relic && itemOk(run, it) && !p.relics.includes(it.id));
+        if (items.length) { const it = pick(items, rng); applyReward(run, { item: it }); lines.push(`유물 「${it.name}」 획득`); }
+      }
+      if (fx.card) {
+        const pool = D.CLASS_MAP[run.classId].pool.filter(id => D.CARDS[id].rarity === fx.card);
+        if (pool.length) { const id = pick(pool, rng); p.deck.push(makeCard(id)); out.newCard = id; lines.push(`카드 「${D.CARDS[id].name}」 획득 — 덱의 카드 1장과 교체`); }
+      }
+      if (fx.potion) { const r = addPotion(run, fx.potion); lines.push(r.stored ? `물약 「${D.ITEMS.find(it => it.id === fx.potion).name}」 획득` : '물약 벨트가 가득 차 바로 마셨습니다'); }
+      if (fx.upgrade) { out.needCard = 'upgrade'; out.pendingUpgrade = fx.upgrade; lines.push('카드 1장을 단련합니다'); }
+      if (fx.chance) {
+        const won = rng() < fx.chance.p;
+        lines.push(won ? '운이 따랐습니다!' : '운이 따르지 않았습니다…');
+        apply(won ? fx.chance.win : fx.chance.lose);
+      }
+    };
+    apply(choice.fx);
+    if (!lines.length) lines.push('아무 일도 일어나지 않았습니다.');
+    return out;
+  }
+
+  // 사건에서 얻은 카드는 덱 9장을 유지하기 위해 기존 카드 1장과 교체한다
+  function swapEventCard(run, newId, targetUid) {
+    const p = run.player;
+    const ni = p.deck.findIndex(c => c.id === newId && c.uid === Math.max(...p.deck.map(x => x.uid)));
+    const ti = p.deck.findIndex(c => c.uid === targetUid);
+    if (ni < 0 || ti < 0 || ni === ti) return false;
+    p.deck.splice(ti, 1);
+    return true;
+  }
+
+  function upgradeCard(run, targetUid, upg) {
+    const c = run.player.deck.find(x => x.uid === targetUid);
+    if (!c) return false;
+    c.ub += upg.ub || 0;
+    c.umax += upg.umax || 0;
+    c.extraDie += upg.extraDie || 0;
+    return true;
+  }
+
+  // ───────── 물약 ─────────
+  // 벨트에 넣는다. 가득 차면 바로 마신다(회복만 적용).
+  function addPotion(run, id) {
+    if (run.potions.length < D.POTION_SLOTS) { run.potions.push(id); return { stored: true }; }
+    const it = D.ITEMS.find(x => x.id === id);
+    if (it.potion.heal) applyMods(run.player, { heal: it.potion.heal });
+    return { stored: false };
+  }
+
+  // 물약을 쓴다. 전투 중이면 b 를 넘긴다. 힘/보호/취약은 전투 중에만 쓸 수 있다.
+  function usePotion(run, i, b) {
+    const id = run.potions[i];
+    if (!id) return { ok: false, msg: '빈 칸입니다' };
+    const it = D.ITEMS.find(x => x.id === id);
+    const fx = it.potion;
+    const needsBattle = fx.might || fx.protect || fx.fragile;
+    if (needsBattle && !b) return { ok: false, msg: '전투 중에만 쓸 수 있습니다' };
+    if (fx.heal) {
+      if (run.player.hp >= run.player.maxHp) return { ok: false, msg: '체력이 가득 찼습니다' };
+      applyMods(run.player, { heal: fx.heal });
+    }
+    if (b) {
+      const st = b.player.status;
+      if (fx.might) st.might += fx.might;
+      if (fx.protect) st.protect += fx.protect;
+      if (fx.fragile) st.fragile += fx.fragile;
+    }
+    run.potions.splice(i, 1);
+    return { ok: true, item: it };
+  }
+
+  // ───────── 저장 / 불러오기 ─────────
+  function serializeRun(run) {
+    const p = run.player;
+    const player = Object.assign({}, p, { drawPile: [], hand: [], discard: [], status: undefined, undyingUsed: false });
+    return JSON.stringify(Object.assign({}, run, { player, v: 1 }));
+  }
+
+  function loadRun(json) {
+    const run = JSON.parse(json);
+    if (!run || run.v !== 1 || !D.CLASS_MAP[run.classId]) return null;
+    const p = run.player;
+    p.status = freshStatus();
+    p.drawPile = []; p.hand = []; p.discard = [];
+    const maxUid = Math.max(0, ...p.deck.map(c => c.uid));
+    if (maxUid >= uidSeq) uidSeq = maxUid + 1;
+    return run;
   }
 
   // 3층 중간 보스, 이후 +5층마다 / 5층마다 보스
@@ -553,7 +767,7 @@
     const p = run.player;
     const it = opt.item;
     if (it.type === 'relic') { applyMods(p, it.mods); p.relics.push(it.id); }
-    else if (it.type === 'heal') applyMods(p, it.mods);
+    else if (it.type === 'potion') addPotion(run, it.id);
     else if (it.type === 'card') {
       const idx = p.deck.findIndex(c => c.uid === targetUid);
       if (idx < 0) throw new Error('교체할 카드를 선택하세요');
@@ -611,6 +825,8 @@
     startBattle, startTurn, assignCard, unassign, planCards, planCost, planCount, resolveTurn, finishBattle,
     pairOdds, rowOdds, expectedDamage, startBuffs, clashDice,
     rollRewards, needsCardTarget, applyReward, rollShop, buy, regionChoices, chooseRegion, applyMods, isSigTurn,
+    makeMap, mapChoices, enterNode, currentNode, finishNode, startRegion, rest, rollTreasure,
+    rollEvent, canChoose, applyEventChoice, swapEventCard, upgradeCard, addPotion, usePotion, serializeRun, loadRun,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

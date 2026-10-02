@@ -51,14 +51,11 @@
       MH.river(w, up, 5.2, UPL, B.rockDk, B.path);
       MH.river(w, dn, 5.6, DNL, B.rockDk, B.path);
       const wr = Math.round(rX(WEIR));
-      // 보: 밝은 돌 마루 위로 물이 넘쳐, 아래 면을 흰 물살이 타고 흘러내린다
+      // 보: 물높이에 맞춘 밝은 돌 마루, 아래 면을 흰 물살이 타고 흘러내린다
       for (let x = wr - 7; x <= wr + 7; x++) {
         w.liquid(x, WEIR, -1); w.liquid(x, WEIR + 1, -1);
-        for (let y = base - 5; y <= UPL; y++) { w.set(x, y, WEIR, B.rock); w.set(x, y, WEIR + 1, y < UPL - 2 ? B.rock : 0); }
-        w.liquid(x, WEIR, UPL); w.set(x, UPL, WEIR, 0); w.set(x, UPL - 1, WEIR, B.found);
-        for (let y = DNL; y <= UPL - 1; y++) w.set(x, y, WEIR + 1, hash3(x, y, 7) > 0.7 ? B.foam2 : B.foam);
-        if (hash3(x, 3, WEIR) > 0.35) w.set(x, DNL, WEIR + 2, B.foam);
-        if (hash3(x, 5, WEIR) > 0.6) w.set(x, DNL, WEIR + 3, B.foam2);
+        for (let y = base - 5; y <= UPL; y++) { w.set(x, y, WEIR, y === UPL ? B.found : B.rock); w.set(x, y, WEIR + 1, y <= DNL ? B.rock : 0); }
+        for (let y = DNL + 1; y <= UPL; y++) w.set(x, y, WEIR + 1, hash3(x, y, 7) > 0.7 ? B.foam2 : B.foam);
       }
       const wet = (x, z) => x >= 0 && z >= 0 && x < W && z < D && w.liq[x + W * z] >= 0;
 
@@ -70,38 +67,24 @@
       const mm = { found: B.found, wall: B.plaster, frame: B.frame, quoin: B.found, win: B.win, shutter: B.shutter, sill: B.wood, door: B.door, roof: B.thatch, eave: B.tileDk, ridge: B.frame, chimney: B.found, lamp: B.lamp, flower: B.flower };
       const mill = MH.houseX(w, { x: millX, z: mz - 7, sx: 14, sz: 13, floors: 2, fh: 6, face: 'e', studs: true, pitch: 1, dormers: 2, y: my - 1, m: mm });
       lights.push({ p: [millX + 15, my + 4, mz], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
-      // 바퀴 구덩이를 파서 바퀴가 강바닥에 닿지 않게 한다
-      const wy = UPL + 3, WR = 8;
-      for (let z = mz - WR - 2; z <= mz + WR + 2; z++) for (let x = mrx + 2; x <= mrx + 8; x++) {
-        const lim = wy - Math.sqrt(Math.max(0, (WR + 2) * (WR + 2) - (z - mz) * (z - mz))) - 1;
-        if (MH.g(w, x, z) > lim) MH.setH(w, x, z, Math.floor(lim), B.rockDk, B.rockDk);
-        for (let y = Math.floor(lim) + 1; y <= UPL; y++) w.set(x, y, z, 0);
-        if (x <= mrx + 7) w.liquid(x, z, UPL); else { for (let y = Math.floor(lim); y <= my - 1; y++) w.set(x, y, z, B.found); w.hm[x + W * z] = my - 1; w.liquid(x, z, -1); }
-      }
-      w.box(mrx + 8, wy, mz, millX, wy, mz, B.wood);
-      const wheel = w.prop({ name: 'wheel', pivot: [mrx + 5, wy + 0.5, mz + 0.5], axis: 'x', speed: -0.7 });
+      // 물레방아: 강 한가운데 바퀴 아랫부분만 물에 잠기고, 굴대가 방앗간 벽까지 이어진다
+      const WR = 8, wy = UPL + WR - 1, wx = mrx + 2;
+      w.box(wx + 2, wy, mz, millX, wy, mz, B.wood);
+      for (const dz of [-1, 1]) w.box(millX - 2, my - 1, mz + dz * 2, millX - 2, wy - 1, mz + dz * 2, B.wood);
+      const wheel = w.prop({ name: 'wheel', pivot: [wx, wy + 0.5, mz + 0.5], axis: 'x', speed: -0.7 });
       for (let dy = -WR - 1; dy <= WR + 1; dy++) for (let dz = -WR - 1; dz <= WR + 1; dz++) {
         const r = Math.hypot(dy, dz);
         if (r > WR + 0.4) continue;
         const rim = r > WR - 1.2, spoke = (dy === 0 || dz === 0 || Math.abs(dy) === Math.abs(dz)) && r > 1;
-        if (rim || spoke || r < 1.5) for (const x of [mrx + 4, mrx + 5, mrx + 6]) { if (spoke && !rim && x === mrx + 5) continue; wheel.set(x, wy + dy, mz + dz, r < 1.5 ? B.iron : rim ? B.plank : B.wood); }
+        if (rim || spoke || r < 1.5) for (const x of [wx - 1, wx, wx + 1]) { if (spoke && !rim && x === wx) continue; wheel.set(x, wy + dy, mz + dz, r < 1.5 ? B.iron : rim ? B.plank : B.wood); }
       }
-      for (let a = 0; a < 16; a++) { const ang = a / 16 * Math.PI * 2; for (const x of [mrx + 4, mrx + 5, mrx + 6]) wheel.set(x, wy + Math.round(Math.sin(ang) * (WR + 1)), mz + Math.round(Math.cos(ang) * (WR + 1)), B.wood); }
-      wheel.box(mrx + 3, wy, mz, mrx + 7, wy, mz, B.iron);
-      // 수문: 틀 사이의 문짝이 위로 올라간다
-      const gz = mz - 14, gy0 = base - 2;
-      for (const x of [mrx - 1, mrx + 7]) w.box(x, gy0, gz, x, UPL + 9, gz, B.wood);
-      w.box(mrx - 1, UPL + 9, gz, mrx + 7, UPL + 9, gz, B.wood); w.box(mrx - 1, UPL + 5, gz, mrx + 7, UPL + 5, gz + 0, 0);
-      for (const x of [mrx - 1, mrx + 7]) w.box(x, gy0, gz, x, UPL + 9, gz, B.wood);
-      const gate = w.prop({ name: 'sluice', pivot: [mrx + 3.5, UPL, gz + 0.5] });
-      for (let x = mrx; x <= mrx + 6; x++) for (let y = gy0; y <= UPL + 1; y++) if (!w.get(x, y, gz)) gate.set(x, y, gz, (x + y) % 4 === 0 ? B.iron : B.plank);
+      for (let a = 0; a < 16; a++) { const ang = a / 16 * Math.PI * 2; for (const x of [wx - 1, wx, wx + 1]) wheel.set(x, wy + Math.round(Math.sin(ang) * (WR + 1)), mz + Math.round(Math.cos(ang) * (WR + 1)), B.wood); }
+      wheel.box(wx - 2, wy, mz, wx + 2, wy, mz, B.iron);
       acts.push({
-        name: '방앗간 수문', hint: '수문이 올라가면 물레방아가 빨라져요', hit: [mrx - 1, UPL - 1, gz - 1, mrx + 7, UPL + 9, gz + 1],
+        name: '물레방아', hint: '물살이 세지며 물레방아가 빠르게 돌아요', hit: [wx - 2, wy - WR - 1, mz - WR - 1, wx + 2, wy + WR + 1, mz + WR + 1],
         run: async a => {
-          await a.move('sluice', [0, 6, 0], 1.4);
           a.spin('wheel', 4, 4.5);
-          for (let k = 0; k < 7; k++) { a.burst([mrx + 5, UPL + 1, mz + 0.5], { n: 26, colors: ['#ffffff', '#d8f0ff', '#8ac8f0'], speed: 4, up: 4, life: 1, gravity: 9, spread: 4 }); await a.wait(0.6); }
-          await a.move('sluice', [0, 0, 0], 1.2);
+          for (let k = 0; k < 7; k++) { a.burst([wx, UPL + 1, mz + 0.5], { n: 26, colors: ['#ffffff', '#d8f0ff', '#8ac8f0'], speed: 4, up: 4, life: 1, gravity: 9, spread: 4 }); await a.wait(0.6); }
         },
       });
       landmarks.push({ name: '물레방앗간', note: '강물이 돌리는 큰 바퀴', p: [millX + 7, mill.peak + 7, mz], tag: 'MILL' });

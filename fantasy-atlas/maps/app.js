@@ -531,6 +531,7 @@
     { id: 'magic', name: '마법도시', eyebrow: 'Arcana · City of Magic' },
     { id: 'lands', name: '틈새의 땅', eyebrow: 'The Lands Between · Elden Ring Fan Atlas' },
     { id: 'orario', name: '오라리오', eyebrow: 'Orario · DanMachi Fan Atlas' },
+    { id: 'tarkov', name: '타르코프', eyebrow: 'Tarkov · Escape from Tarkov Fan Atlas' },
   ];
   MAPS.forEach(m => { m.cat = m.cat || 'dungeon'; });
   const catMaps = id => MAPS.map((m, i) => i).filter(i => MAPS[i].cat === id && !MAPS[i].sub);

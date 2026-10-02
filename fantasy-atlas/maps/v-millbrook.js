@@ -27,6 +27,7 @@
       leaf: { c: '#4a8a3a', v: 0.1 }, leaf2: { c: '#6aaa48', v: 0.1 }, leafDk: { c: '#3a6a30', v: 0.08 }, apple: { c: '#d8403a', v: 0.05 },
       hedge: { c: '#3e7a36', v: 0.1 }, flower: { c: '#e86a8a', v: 0.06 }, flower2: { c: '#f0e060', v: 0.06 }, flower3: { c: '#ffffff', v: 0.03 },
       sail: { c: '#f0ead8', v: 0.03 }, iron: { c: '#4a4a52', v: 0.03 }, rope: { c: '#b8a080', v: 0.04 }, barnR: { c: '#a83a2a', v: 0.05, pat: 'plank' }, sign: { c: '#d8a83a', v: 0.04 },
+      foam: { c: '#e4f4fc', v: 0.06 }, foam2: { c: '#a8d8f0', v: 0.06 },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base;
@@ -50,7 +51,15 @@
       MH.river(w, up, 5.2, UPL, B.rockDk, B.path);
       MH.river(w, dn, 5.6, DNL, B.rockDk, B.path);
       const wr = Math.round(rX(WEIR));
-      for (let x = wr - 7; x <= wr + 7; x++) { w.liquid(x, WEIR, -1); w.liquid(x, WEIR + 1, -1); for (let y = base - 5; y <= UPL; y++) { w.set(x, y, WEIR, B.rock); w.set(x, y, WEIR + 1, y < UPL ? B.rockDk : 0); } w.liquid(x, WEIR, UPL + 0); w.set(x, UPL, WEIR, 0); w.set(x, UPL - 1, WEIR, B.rock); }
+      // 보: 밝은 돌 마루 위로 물이 넘쳐, 아래 면을 흰 물살이 타고 흘러내린다
+      for (let x = wr - 7; x <= wr + 7; x++) {
+        w.liquid(x, WEIR, -1); w.liquid(x, WEIR + 1, -1);
+        for (let y = base - 5; y <= UPL; y++) { w.set(x, y, WEIR, B.rock); w.set(x, y, WEIR + 1, y < UPL - 2 ? B.rock : 0); }
+        w.liquid(x, WEIR, UPL); w.set(x, UPL, WEIR, 0); w.set(x, UPL - 1, WEIR, B.found);
+        for (let y = DNL; y <= UPL - 1; y++) w.set(x, y, WEIR + 1, hash3(x, y, 7) > 0.7 ? B.foam2 : B.foam);
+        if (hash3(x, 3, WEIR) > 0.35) w.set(x, DNL, WEIR + 2, B.foam);
+        if (hash3(x, 5, WEIR) > 0.6) w.set(x, DNL, WEIR + 3, B.foam2);
+      }
       const wet = (x, z) => x >= 0 && z >= 0 && x < W && z < D && w.liq[x + W * z] >= 0;
 
       // ── 물레방앗간(동쪽 강변)과 물레방아 ──

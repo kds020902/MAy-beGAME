@@ -518,6 +518,8 @@
       if (q.left > cxs) x1 = Math.min(x1, q.left - 8); else if (q.top > cys) y1 = Math.min(y1, q.top - 8);
     }
     if (bt) { const q = bt.getBoundingClientRect(); if (q.top > cys) y1 = Math.min(y1, q.top - 4); }
+    const ti = $('#title');
+    if (ti && isSheet()) { const q = ti.getBoundingClientRect(); if (q.bottom < cys) y0 = Math.max(y0, q.bottom + 4); }
     return { x0: x0 - cxs, x1: x1 - cxs, y0: y0 - cys, y1: y1 - cys };
   }
 
@@ -553,6 +555,18 @@
       tabs.appendChild(b);
     });
   }
+  // 가로로 넘치는 줄에서 고른 버튼이 보이게 (scrollIntoView는 화면 전체를 밀 수 있어 직접 계산)
+  function scrollInto(row, el) {
+    const l = el.offsetLeft - row.offsetLeft, r = l + el.offsetWidth;
+    if (l < row.scrollLeft) row.scrollLeft = l - 8;
+    else if (r > row.scrollLeft + row.clientWidth) row.scrollLeft = r - row.clientWidth + 8;
+  }
+  // 휴대폰에서 정보 시트·보기 설정 닫기
+  const isSheet = () => getComputedStyle($('#sheet-toggle')).display !== 'none';
+  function closeSheet() {
+    $('#panel').classList.remove('open'); $('#sheet-toggle').setAttribute('aria-expanded', 'false');
+  }
+  function closeOpts() { $('#ctrl').classList.remove('more'); $('#more').setAttribute('aria-expanded', 'false'); }
   function renderInfo() {
     const def = cur.def;
     document.documentElement.style.setProperty('--region', def.color);
@@ -563,15 +577,16 @@
     tabs.querySelectorAll('.tab').forEach(b => {
       const on = +b.dataset.idx === state.idx || (def.parent != null && MAPS[+b.dataset.idx].id === def.parent);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      if (on) try { b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* 무시 */ }
+      if (on) scrollInto(tabs, b);
     });
+    const cb = $('#cat-' + def.cat); if (cb) scrollInto(cats, cb);
     const list = $('#places');
     list.innerHTML = ''; pins.innerHTML = '';
     cur.landmarks.forEach((l, k) => {
       const tag = l.boss ? '<span class="tag boss">BOSS</span>' : l.mid ? '<span class="tag mid">MID</span>' : l.tag ? `<span class="tag key">${l.tag}</span>` : '';
       const li = document.createElement('li');
       li.innerHTML = `<button type="button" class="place" id="place-${k}"><span class="pn">${l.name}${tag}</span><span class="pnote">${l.note}</span></button>`;
-      li.firstChild.addEventListener('click', () => focusOn(l.world));
+      li.firstChild.addEventListener('click', () => { if (isSheet()) closeSheet(); focusOn(l.world); });
       list.appendChild(li);
       const pin = document.createElement('button');
       pin.type = 'button';
@@ -586,7 +601,7 @@
     cur.acts.forEach((a, k) => {
       const li = document.createElement('li');
       li.innerHTML = `<button type="button" class="act${a.goto ? ' go' : ''}" id="act-${k}"><span class="an">${a.name}</span><span class="ah">${a.hint}</span></button>`;
-      li.firstChild.addEventListener('click', () => runAct(a, true));
+      li.firstChild.addEventListener('click', () => { if (isSheet()) closeSheet(); runAct(a, true); });
       actList.appendChild(li);
       const mk = document.createElement('button');
       mk.type = 'button'; mk.className = 'actpin' + (a.goto ? ' go' : ''); mk.setAttribute('aria-label', a.name);
@@ -653,6 +668,12 @@
   $('#sheet-toggle').addEventListener('click', () => {
     const open = $('#panel').classList.toggle('open');
     $('#sheet-toggle').setAttribute('aria-expanded', open);
+    if (open) closeOpts();
+  });
+  $('#more').addEventListener('click', () => {
+    const open = $('#ctrl').classList.toggle('more');
+    $('#more').setAttribute('aria-expanded', open);
+    if (open && isSheet()) closeSheet();
   });
   function resetView() {
     const def = cur.def;
@@ -700,6 +721,7 @@
   stage.addEventListener('contextmenu', e => e.preventDefault());
   stage.addEventListener('pointerdown', e => {
     if (e.target.closest('.pin, .actpin')) return;
+    closeOpts(); if (isSheet()) closeSheet();
     stage.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragMode = (e.button === 2 || e.shiftKey || ptrs.size === 2) ? 'pan' : 'rot';
@@ -758,7 +780,11 @@
   }
 
   // ───── 크기: 도트 한 칸이 기기 픽셀 정수배가 되도록 ─────
-  function viewHalf() { return W * (state.cssW < 720 ? 0.86 : 0.72); }
+  // 휴대폰 세로는 좌우가 잘리지 않게 조금 물리고, 가로(낮은 화면)는 조금 당긴다
+  function viewHalf() {
+    if (state.cssW < 720) return W * Math.max(0.86, 0.44 * state.cssH / state.cssW);
+    return W * (state.cssH < 520 ? 0.62 : 0.72);
+  }
   function resize() {
     const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     const dev = Math.max(1, Math.round(state.px * dpr));

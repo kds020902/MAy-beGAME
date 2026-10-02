@@ -25,7 +25,7 @@
       dark: { c: '#120c0f', v: 0 }, iron: { c: '#241d22', v: 0.03 }, wood: { c: '#3d2a22', v: 0.06, pat: 'log' }, plank: { c: '#4d3528', v: 0.08, pat: 'plank' },
       garg: { c: '#5e585c', v: 0.06 }, bark: { c: '#2a2024', v: 0.05 }, bell: { c: '#8a6a3a', v: 0.06 }, bone: { c: '#d0c8b4', v: 0.05 }, rope: { c: '#6a5a4a', v: 0.04 },
       glassR: { c: '#ff3e52', glow: true }, glassP: { c: '#b848d8', glow: true }, glassG: { c: '#ffb85a', glow: true },
-      candle: { c: '#ffe2a0', glow: true }, fire: { c: '#ff8a3a', glow: true }, fire2: { c: '#ffd060', glow: true }, reye: { c: '#ff3040', glow: true },
+      candle: { c: '#ffe2a0', glow: true }, bolt: { c: '#fff0f0', glow: true }, door: { c: '#4a2420', v: 0.06, pat: 'plank' }, fire: { c: '#ff8a3a', glow: true }, fire2: { c: '#ffd060', glow: true }, reye: { c: '#ff3040', glow: true },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base, M = 56;
@@ -159,7 +159,7 @@
       w.box(FX, P + 7, FZ, FX, P + 11, FZ, B.garg);
       for (const s of [-1, 1]) { w.line(FX + s, P + 10, FZ, FX + s * 5, P + 14, FZ, B.garg); w.box(FX + s * 2, P + 9, FZ, FX + s * 3, P + 11, FZ, B.garg); }
       w.set(FX, P + 12, FZ, B.garg); w.set(FX, P + 11, FZ + 1, B.reye);
-      lights.push({ p: [FX + 0.5, P + 9, FZ + 1.5], c: '#ff3040', i: 1.3, d: 18, flicker: 0.1 });
+      lights.push({ name: 'font', p: [FX + 0.5, P + 9, FZ + 1.5], c: '#ff3040', i: 1.3, d: 18, flicker: 0.1 });
       let edgeX = FX + 7;
       while (edgeX < 110 && MH.g(w, edgeX, FZ) >= P - 1) edgeX++;
       for (let x = FX + 6; x < edgeX; x++) for (const dz of [0, 1]) { MH.setH(w, x, FZ + dz, P - 2, B.rock, B.rock); w.liquid(x, FZ + dz, P - 1); }
@@ -167,14 +167,17 @@
       MH.river(w, gorge, 3.6, base - 3, B.rockDk);
       landmarks.push({ name: '피의 샘', note: '절벽 아래로 떨어지는 핏물', p: [FX + 0.5, P + 19, FZ + 0.5] });
       // ── 가고일 회랑(고원 동쪽 끝) ──
-      let gcount = 0;
+      let gcount = 0, gargAt = null;
       for (let z = 22; z <= 78; z += 8) {
         let gx = 96; while (gx > 60 && MH.g(w, gx, z) !== P) gx--;
         gx -= 2;
         if (MH.g(w, gx, z) !== P) continue;
         w.box(gx - 1, P + 1, z - 1, gx + 1, P + 1, z + 1, B.wallDk); w.box(gx, P + 2, z, gx, P + 8, z, B.trim); w.box(gx - 1, P + 8, z - 1, gx + 1, P + 8, z + 1, B.wallDk);
-        w.box(gx, P + 9, z, gx, P + 11, z, B.garg); w.box(gx + 1, P + 9, z, gx + 2, P + 10, z, B.garg); w.set(gx + 2, P + 11, z, B.reye);
-        for (const s of [-1, 1]) { w.set(gx, P + 11, z + s, B.garg); w.set(gx - 1, P + 12, z + s * 2, B.garg); w.set(gx - 1, P + 11, z + s * 2, B.garg); }
+        // z=70의 가고일은 날아오르는 부품
+        const gw = z === 70 ? w.prop({ name: 'garg', pivot: [gx + 0.5, P + 9, z + 0.5] }) : w;
+        if (z === 70) gargAt = [gx, z];
+        gw.box(gx, P + 9, z, gx, P + 11, z, B.garg); gw.box(gx + 1, P + 9, z, gx + 2, P + 10, z, B.garg); gw.set(gx + 2, P + 11, z, B.reye);
+        for (const s of [-1, 1]) { gw.set(gx, P + 11, z + s, B.garg); gw.set(gx - 1, P + 12, z + s * 2, B.garg); gw.set(gx - 1, P + 11, z + s * 2, B.garg); }
         gcount++;
       }
       landmarks.push({ name: '가고일 회랑', note: '가고일 · 광신도 출몰', p: [90.5, P + 18, 46.5] });
@@ -205,9 +208,9 @@
       landmarks.push({ name: '심문관의 화형대', note: '중간 보스 · 심문관', p: [IX + 5.5, P + 23, IZ + 5.5], mid: true });
 
       // ── 순례자의 대계단(남쪽 비탈) → 아래 참배로 ──
-      const SZ0 = 97, footZ = 110, footH = MH.g(w, M, footZ + 3);
+      const stairC = [], SZ0 = 97, footZ = 110, footH = MH.g(w, M, footZ + 3);
       MH.flight(w, { name: '순례자 계단', axis: 'z', c: M, half: 5, a: SZ0, b: footZ, ha: P - 1, hb: footH, step: B.cobble, edge: B.trim, fill: B.rock, rail: B.iron, post: B.wallDk, postGap: 4,
-        onPost: (x, y, z, k) => { w.set(x, y, z, B.candle); if (k % 8 === 0 && x < M) lights.push({ p: [M + 0.5, y, z + 0.5], c: '#ffd0a0', i: 0.8, d: 14, flicker: 0.3, srcR: 7 }); } });
+        onPost: (x, y, z, k) => { w.set(x, y, z, B.candle); stairC.push([x, y, z]); if (k % 8 === 0 && x < M) lights.push({ p: [M + 0.5, y, z + 0.5], c: '#ffd0a0', i: 0.8, d: 14, flicker: 0.3, srcR: 7 }); } });
       MH.path(w, [[M + 0.5, footZ], [M + 0.5, 127]], 2.6, B.cobble, B.ground);
       for (let z = footZ + 4; z <= 125; z += 5) for (const x of [M - 4, M + 4]) { const g = MH.g(w, x, z); w.box(x, g + 1, z, x, g + 3, z, B.iron); w.set(x, g + 4, z, B.candle); }
       landmarks.push({ name: '순례자의 대계단', note: '촛불을 따라 오르는 길', p: [M + 0.5, P + 3, SZ0 + 6] });
@@ -218,6 +221,87 @@
         if (i % 3) MH.tree(w, tx, gy + 1, tz, { kind: 'dead', h: w.ri(10, 16), bark: B.bark, spread: 5, trunkR: 1.2 });
         else { const hh = w.ri(3, 11); w.box(tx, gy + 1, tz, tx + 1, gy + hh, tz + 1, B.trim); w.box(tx - 1, gy + 1, tz - 1, tx + 2, gy + 1, tz + 2, B.wallDk); }
       }
+      // ── 정문(부품 문짝 둘): 바깥으로 열리며 붉은 안개가 쏟아진다 ──
+      const archY = x => Y + 12 - Math.pow(Math.abs(x - M) / 5, 2) * 4;
+      const gL = w.prop({ name: 'gateL', pivot: [53, Y, 79] }), gR = w.prop({ name: 'gateR', pivot: [60, Y, 79] });
+      for (let x = 53; x <= 59; x++) for (let y = Y; y <= archY(x); y++) (x <= 56 ? gL : gR).set(x, y, 79, (y === Y + 3 || y === Y + 7 || x === 56 || x === 57) ? B.iron : B.door);
+      gL.set(55, Y + 5, 80, B.gold); gR.set(58, Y + 5, 80, B.gold);
+      lights.push({ name: 'nave', p: [M + 0.5, Y + 4, 80.5], c: '#ff4050', i: 0.01, d: 22, flicker: 0.3, srcR: 7 });
+      acts.push({
+        name: '성당 정문', hint: '육중한 정문이 바깥으로 열리며 붉은 안개가 쏟아져 나와요', hit: [52, Y, 78, 60, Y + 11, 80],
+        run: async a => {
+          a.flash('nave', 260, 5);
+          await Promise.all([a.turn('gateL', [0, -1.5, 0], 2.2), a.turn('gateR', [0, 1.5, 0], 2.2)]);
+          for (let k = 0; k < 5; k++) { a.burst([M + 0.5, Y + 3, 81], { n: 34, colors: ['#ff5a6a', '#c02a3a', '#4a1a24'], speed: 5, up: 1, life: 2.4, gravity: 0.3, spread: 4, flat: true }); await a.wait(0.4); }
+          await a.wait(1);
+          await Promise.all([a.turn('gateL', [0, 0, 0], 1.8), a.turn('gateR', [0, 0, 0], 1.8)]);
+        },
+      });
+
+      // ── 가고일의 비상: 회랑의 가고일 하나가 깨어나 성당 위를 돌고 돌아온다 ──
+      if (gargAt) {
+        const [gx, gz] = gargAt;
+        acts.push({
+          name: '가고일의 비상', hint: '회랑의 가고일이 눈을 붉히며 날아올라 성당 위를 한 바퀴 돌아요', hit: [gx - 2, P + 8, gz - 2, gx + 3, P + 13, gz + 2],
+          run: async a => {
+            for (let k = 0; k < 3; k++) { await a.move('garg', [0, 0.6, 0], 0.1); await a.move('garg', [0, 0, 0], 0.1); }
+            a.burst([gx + 2.5, P + 11.5, gz + 0.5], { n: 30, colors: ['#ff3040', '#5e585c', '#9e928c'], speed: 5, up: 3, life: 1.4, gravity: 3, spread: 1.5 });
+            await a.path('garg', [[2, 8, 2, 0.4], [-8, 16, 10, 1.6], [-26, 20, 4, 3], [-24, 18, -18, 4.4], [-6, 12, -14, 5.6], [0, 4, -2, 6.28], [0, 0, 0, 6.28]], 6);
+            a.unwind('garg');
+            a.burst([gx + 0.5, P + 9, gz + 0.5], { n: 30, colors: ['#9e928c', '#5e585c'], speed: 5, up: 1, life: 1, gravity: 4, spread: 2, flat: true });
+          },
+        });
+      }
+
+      // ── 피의 샘: 가고일 상의 입에서 핏물이 솟구친다 ──
+      acts.push({
+        name: '피의 샘', hint: '샘 한가운데 가고일 상이 핏물을 높이 뿜어 올려요', hit: [FX - 6, P - 1, FZ - 6, FX + 6, P + 12, FZ + 6],
+        run: async a => {
+          a.flash('font', 4, 4);
+          for (let k = 0; k < 8; k++) {
+            a.burst([FX + 0.5, P + 12, FZ + 1.5], { n: 40, colors: ['#ff3e52', '#c02a3a', '#7c1420'], speed: 4, up: 12, life: 2, gravity: 9, spread: 0.8 });
+            const t = k * 0.8;
+            a.burst([FX + 0.5 + Math.cos(t) * 4.5, P + 0.5, FZ + 0.5 + Math.sin(t) * 4.5], { n: 16, colors: ['#ff6072', '#7c1420'], speed: 3, up: 3, life: 0.8, gravity: 6, spread: 1 });
+            await a.wait(0.35);
+          }
+        },
+      });
+
+      // ── 광장의 낙뢰(부품 번개, 평소엔 숨김) ──
+      const TT = [72.5, P + 1, 85.5];
+      const bolt = w.prop({ name: 'bolt', pivot: TT, scl0: [0, 0, 0] });
+      let prev = [92, w.H - 3, 100];
+      for (let k = 1; k <= 7; k++) {
+        const t = k / 7, p = [prev[0] + (TT[0] - prev[0]) * (k === 7 ? 1 : 0.3), prev[1] + (TT[1] - prev[1]) * (k === 7 ? 1 : 0.3), prev[2] + (TT[2] - prev[2]) * (k === 7 ? 1 : 0.3)];
+        if (k < 7) { p[0] += (hash3(k, 1, 7) - 0.5) * 5; p[2] += (hash3(k, 3, 7) - 0.5) * 5; }
+        bolt.line(prev[0], prev[1], prev[2], p[0], p[1], p[2], B.bolt); prev = p;
+      }
+      lights.push({ name: 'strike', p: [TT[0], TT[1] + 1, TT[2]], c: '#ffd8d8', i: 0.01, d: 50, flicker: 0.3, srcR: 4 });
+      acts.push({
+        name: '광장의 낙뢰', hint: '핏빛 하늘에서 번개가 성당 앞 광장에 내리꽂혀 불똥이 튀어요', hit: [69, P, 82, 76, P + 4, 89],
+        run: async a => {
+          for (let k = 0; k < 3; k++) {
+            a.tween('bolt', { scl: [1, 1, 1] }, 0.05); a.lightning(1.3); a.flash('strike', 200, 0.3);
+            a.burst(TT, { n: 50, colors: ['#ffffff', '#ffd060', '#ff5a6a'], speed: 9, up: 3, life: 1, gravity: 4, spread: 2 });
+            await a.wait(0.22); await a.tween('bolt', { scl: [0, 0, 0] }, 0.05); await a.wait(0.5 + k * 0.25);
+          }
+          a.glow(1.8, 2); a.flash('rose', 3, 2);
+          a.burst([TT[0], P + 1.5, TT[2]], { n: 40, colors: ['#ff3e52', '#ffb85a', '#3d3439'], speed: 6, up: 1, life: 1.6, gravity: 2, spread: 2, flat: true });
+          await a.wait(1.2);
+        },
+      });
+
+      // ── 순례자의 촛불: 계단 촛불이 아래부터 차례로 크게 타오른다 ──
+      const cand = stairC.filter(([, , z]) => z <= 112).sort((p, q) => q[2] - p[2] || p[0] - q[0]).concat([[50, Y + 4, 80], [62, Y + 4, 80]]);
+      if (cand.length) acts.push({
+        name: '순례자의 촛불', hint: '대계단 난간의 촛불이 아래에서부터 차례로 타오르며 성당을 가리켜요', hit: [M - 7, cand[0][1] - 1, cand[0][2] - 2, M + 7, cand[0][1] + 3, cand[0][2] + 2],
+        run: async a => {
+          for (const [x, y, z] of cand) { a.burst([x + 0.5, y + 1, z + 0.5], { n: 14, colors: ['#ffe2a0', '#ffb04a', '#ff7a2a'], speed: 0.8, up: 5, life: 1.2, gravity: -0.4, spread: 0.3 }); await a.wait(0.1); }
+          a.flash('nave', 120, 2); a.flash('rose', 4, 2.4); a.glow(1.6, 2.4);
+          a.burst([M + 0.5, Y + 21, 80], { n: 50, colors: ['#ff3e52', '#ffb85a', '#b848d8'], speed: 6, up: 0.5, life: 2, gravity: -0.3, spread: 6 });
+          await a.wait(2);
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

@@ -79,6 +79,7 @@
         if (peak > g) w.hm[x + W * z] = Math.round(peak);
       }
       w.ellipsoid(EX, EY, EZ, 11, 10, 8, 0, (dx, dy, dz) => dz >= -1);
+      w.ellipsoid(EX, EY + 3, EZ + 6, 12, 11, 7, 0, (dx, dy, dz) => dz >= -2 && dy >= 0);   // 눈두덩을 깎아 위에서도 눈꺼풀이 보이게
       w.sphere(EX, EY, EZ, ER, B.eyeW, (dx, dy, dz) => dz >= -3);
       for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
         const d = Math.hypot(dx, dy);
@@ -101,13 +102,13 @@
         name: '감시자의 눈', hint: '눈꺼풀이 열리고 눈동자가 굴러가요', hit: [EX - 9, EY - 9, EZ, EX + 9, EY + 9, EZ + 10],
         run: async a => {
           a.flash('eye', 4, 4.4);
-          await Promise.all([a.turn('lidU', [-0.4, 0, 0], 0.8), a.turn('lidD', [0.3, 0, 0], 0.8)]);
+          await Promise.all([a.tween('lidU', { off: [0, 5, 3], rot: [-0.15, 0, 0] }, 0.8), a.tween('lidD', { off: [0, -3, 3], rot: [0.1, 0, 0] }, 0.8)]);
           await a.move('pupil', [-3, 0, 0], 0.6); await a.wait(0.3);
           await a.move('pupil', [3, 0.5, 0], 0.9); await a.wait(0.3);
           await a.move('pupil', [0, 0, 0], 0.5);
           a.burst([EX + 0.5, EY, EZ + ER + 2], { n: 60, colors: ['#d8a8ff', '#9a48ff', '#ffffff'], speed: 7, up: 1, life: 2, gravity: 0, spread: 4 });
           await a.wait(0.6);
-          await Promise.all([a.turn('lidU', [0, 0, 0], 0.5), a.turn('lidD', [0, 0, 0], 0.5)]);
+          await Promise.all([a.tween('lidU', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.5), a.tween('lidD', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.5)]);
         },
       });
       landmarks.push({ name: '감시자의 눈', note: '중간 보스 · 심연의 감시자', p: [EX + 0.5, EY + 18, EZ + 4], mid: true });
@@ -156,8 +157,11 @@
       }
       w.box(RX - 7, rg + 17, RZ + 5, RX + 7, rg + 17, RZ + 6, B.paleDk);
       MH.circle(w, RX, RZ, 4, B.rune); MH.circle(w, RX, RZ, 2, B.rune);
-      w.box(RX - 1, rg + 1, RZ - 1, RX + 1, rg + 2, RZ + 1, B.paleDk); w.set(RX, rg + 3, RZ, B.crys);
-      lights.push({ p: [RX + 0.5, rg + 3, RZ + 0.5], c: '#8a70ff', i: 1, d: 14, flicker: 0.1 });
+      w.box(RX - 1, rg + 1, RZ - 1, RX + 1, rg + 2, RZ + 1, B.paleDk);
+      // 제단 위 수정(부품): 의식 때 떠올라 돈다
+      const orb = w.prop({ name: 'orb', pivot: [RX + 0.5, rg + 4, RZ + 0.5] });
+      orb.box(RX, rg + 3, RZ, RX, rg + 6, RZ, B.crys); orb.box(RX - 1, rg + 4, RZ, RX + 1, rg + 5, RZ, B.crys); orb.box(RX, rg + 4, RZ - 1, RX, rg + 5, RZ + 1, B.iris2);
+      lights.push({ name: 'altar', p: [RX + 0.5, rg + 4, RZ + 0.5], c: '#8a70ff', i: 1, d: 14, flicker: 0.1 });
       landmarks.push({ name: '잊힌 제단', note: '그림자 · 눈먼 추적자 출몰', p: [RX + 0.5, rg + 22, RZ + 0.5] });
       // ── 쇠사슬 다리 ──
       const b0 = [CX - 26, CZ + 6], b1 = [CX - 8, CZ + 14], y0 = MH.g(w, b0[0], b0[1]), y1 = MH.g(w, b1[0], b1[1]);
@@ -202,6 +206,111 @@
         MH.cone(w, x, z, g + 1, w.r(1.2, 2.8), B.crag, 2.4 / h);
       }
       MH.scatter(w, 200, (x, g, z) => { if (w.chance(0.3)) w.set(x, g + 1, z, B.bone); });
+      const pset = (p, x, y, z, b) => { x = Math.round(x); y = Math.round(y); z = Math.round(z); if (!w.get(x, y, z)) p.set(x, y, z, b); };
+      // ── 잊힌 제단의 의식: 수정이 떠올라 돌고 바닥 룬이 타오른다 ──
+      acts.push({
+        name: '잊힌 제단', hint: '제단 위 수정이 떠올라 빙글 돌고 바닥의 룬 고리가 타올라요', hit: [RX - 2, rg + 1, RZ - 2, RX + 2, rg + 7, RZ + 2],
+        run: async a => {
+          a.flash('altar', 5, 5); a.glow(1.8, 5);
+          await a.move('orb', [0, 6, 0], 1.4);
+          const whirl = a.turn('orb', [0, Math.PI * 4, 0], 3);
+          for (let k = 0; k < 6; k++) {
+            for (let q = 0; q < 12; q++) { const t = q / 12 * Math.PI * 2 + k * 0.3; a.burst([RX + 0.5 + Math.cos(t) * 4, rg + 1.5, RZ + 0.5 + Math.sin(t) * 4], { n: 4, colors: ['#8a70ff', '#d8a8ff'], speed: 0.6, up: 4, life: 1, gravity: -0.5, spread: 0.3 }); }
+            a.burst([RX + 0.5, rg + 10, RZ + 0.5], { n: 20, colors: ['#b98cff', '#ffffff'], speed: 3, up: 6, life: 1.2, gravity: -1, spread: 0.6 });
+            await a.wait(0.5);
+          }
+          await whirl; a.unwind('orb');
+          await a.tween('orb', { off: [0, 0, 0], rot: [0, 0, 0] }, 1.2);
+        },
+      });
+
+      // ── 아치에 매달린 쇠우리(부품): 사슬이 풀리며 심연 쪽으로 덜컹 내려앉는다 ──
+      const KX = 92, KZ = 80;
+      let ky = Math.min(w.H - 2, MH.g(w, 104, 50) + 30);
+      while (ky > 0 && !w.get(KX, ky, KZ)) ky--;
+      while (ky > 0 && w.get(KX, ky, KZ)) ky--;
+      const kg = MH.g(w, KX, KZ);
+      if (ky - kg > 12) {
+        const chain = w.prop({ name: 'kchain', pivot: [KX + 0.5, ky + 1, KZ + 0.5] });
+        for (let y = ky - 3; y <= ky; y++) pset(chain, KX, y, KZ, B.chain);
+        const kage = w.prop({ name: 'kage', pivot: [KX + 0.5, ky + 1, KZ + 0.5], axis: 'x', rock: 0.05, rockSpeed: 0.7 });
+        const cy = ky - 4;
+        for (let y = cy - 5; y <= cy; y++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+          const edge = Math.abs(dx) === 1 && Math.abs(dz) === 1, cap = y === cy || y === cy - 5;
+          if (cap || (edge && true) || (y === cy - 3 && (dx === 0) !== (dz === 0))) pset(kage, KX + dx, y, KZ + dz, B.chain);
+        }
+        pset(kage, KX, cy - 4, KZ, B.crys2); pset(kage, KX, cy - 3, KZ, B.bone);
+        lights.push({ name: 'kage', p: [KX + 0.5, cy - 4, KZ + 0.5], c: '#60d8ff', i: 0.6, d: 14, flicker: 0.2 });
+        acts.push({
+          name: '매달린 쇠우리', hint: '바위 아치에 매달린 쇠우리가 덜컹 내려앉았다가 크게 흔들려요', hit: [KX - 2, cy - 6, KZ - 2, KX + 2, ky, KZ + 2],
+          run: async a => {
+            a.flash('kage', 4, 4);
+            await Promise.all([a.move('kage', [0, -6, 0], 0.5, t => t * t), a.rope('kchain', 4, 10, 0.5, t => t * t)]);
+            a.burst([KX + 0.5, cy - 9, KZ + 0.5], { n: 40, colors: ['#6ae0ff', '#c8c0d0', '#2a2a34'], speed: 6, up: 2, life: 1.4, gravity: 3, spread: 2 });
+            for (let k = 0; k < 3; k++) { await a.turn('kage', [0.35, 0, 0.2], 0.45); await a.turn('kage', [-0.35, 0, -0.2], 0.45); }
+            await a.turn('kage', [0, 0, 0], 0.4);
+            await Promise.all([a.move('kage', [0, 0, 0], 2), a.rope('kchain', 4, 4, 2)]);
+          },
+        });
+      }
+
+      // ── 수정 가시(부품, 평소엔 숨김): 테라스 곳곳에서 수정이 솟구친다 ──
+      const spikes = [];
+      for (let k = 0; k < 14 && spikes.length < 6; k++) {
+        const ang = 0.15 + k * 0.11, rr = 26 + (k % 3) * 5, x = Math.round(CX + Math.cos(ang) * rr), z = Math.round(CZ + Math.sin(ang) * rr), g = MH.g(w, x, z);
+        let free = g > 0;
+        for (let y = g + 1; y <= g + 9 && free; y++) for (let d = -1; d <= 1; d++) if (w.get(x + d, y, z) || w.get(x, y, z + d)) free = false;
+        if (!free || spikes.some(([sx, , sz]) => Math.hypot(sx - x, sz - z) < 5)) continue;
+        const nm = 'spike' + spikes.length, p = w.prop({ name: nm, pivot: [x + 0.5, g + 1, z + 0.5], scl0: [0, 0, 0] });
+        const h = 7 + (k % 3);
+        for (let y = g + 1; y <= g + h; y++) { pset(p, x, y, z, y > g + h - 2 ? B.iris2 : B.crys); if (y < g + h - 3) { pset(p, x + 1, y, z, B.crys); pset(p, x, y, z + 1, B.crys2); } }
+        pset(p, x - 1, g + 1, z, B.crys2); pset(p, x - 1, g + 2, z, B.crys2);
+        spikes.push([x, g, z, nm]);
+      }
+      if (spikes.length) acts.push({
+        name: '수정 가시', hint: '테라스 바닥을 뚫고 수정 가시가 차례로 솟구쳤다가 가라앉아요', hit: [spikes[0][0] - 2, spikes[0][1], spikes[0][2] - 2, spikes[0][0] + 2, spikes[0][1] + 9, spikes[0][2] + 2],
+        run: async a => {
+          a.glow(1.7, 4);
+          for (const [x, g, z, nm] of spikes) {
+            a.burst([x + 0.5, g + 1.5, z + 0.5], { n: 26, colors: ['#4d4663', '#b98cff', '#6ae0ff'], speed: 5, up: 3, life: 1.2, gravity: 4, spread: 1.5 });
+            a.tween(nm, { scl: [1, 1, 1] }, 0.25, t => 1 - (1 - t) * (1 - t));
+            await a.wait(0.3);
+          }
+          await a.wait(1.6);
+          await Promise.all(spikes.map(([, , , nm]) => a.tween(nm, { scl: [0, 0, 0] }, 0.8)));
+        },
+      });
+
+      // ── 심연의 소용돌이: 웅덩이 위로 보랏빛 회오리가 솟는다 ──
+      acts.push({
+        name: '심연의 소용돌이', hint: '심연의 웅덩이에서 보랏빛 회오리가 휘감아 올라가요', hit: [CX - 8, WL + 1, CZ - 8, CX + 8, WL + 6, CZ + 8],
+        run: async a => {
+          a.flash('void', 3, 4.4); a.wind(4, 4.4);
+          for (let k = 0; k < 36; k++) {
+            const t = k * 0.55, r = 3 + k * 0.25, y = WL + 2 + k * 0.9;
+            a.burst([CX + Math.cos(t) * r, y, CZ + Math.sin(t) * r], { n: 12, colors: ['#c29aff', '#8a6cff', '#f0d8ff'], speed: 1.5, up: 1, life: 1.4, gravity: -0.3, spread: 0.8 });
+            await a.wait(0.1);
+          }
+          await a.wait(0.8);
+        },
+      });
+
+      // ── 그림자 떼: 절벽 처마에서 그림자들이 날아올라 웅덩이로 빨려 든다 ──
+      const shade = [];
+      for (let k = 0; k < 16; k++) { const t = 0.2 + k * 0.1, r = 46 - (k % 4) * 2, x = Math.round(CX + Math.cos(t) * r), z = Math.round(CZ + Math.sin(t) * r); shade.push([x, MH.g(w, x, z), z]); }
+      const [hx, hy, hz] = shade[6];
+      acts.push({
+        name: '그림자 떼', hint: '동굴 가장자리의 그림자들이 일제히 일어나 심연으로 빨려 들어가요', hit: [hx - 3, hy + 1, hz - 3, hx + 3, hy + 4, hz + 3],
+        run: async a => {
+          a.glow(0.5, 3.6);
+          for (const [x, g, z] of shade) {
+            a.burst([x + 0.5, g + 1.5, z + 0.5], { n: 18, colors: ['#07060e', '#231f2e', '#4a3282'], speed: 2, up: 3, life: 1.6, gravity: -0.5, spread: 1.5 });
+            await a.wait(0.12);
+          }
+          for (let k = 0; k < 4; k++) { a.burst([CX, WL + 2, CZ], { n: 40, colors: ['#07060e', '#4a3282', '#c29aff'], speed: 6, up: 2, life: 1.4, gravity: 0, spread: 5 }); await a.wait(0.35); }
+          a.flash('void', 4, 1.4); await a.wait(1);
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

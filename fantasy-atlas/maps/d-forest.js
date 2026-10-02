@@ -29,6 +29,7 @@
       lily: { c: '#4a7a3a', v: 0.1 }, reed: { c: '#6a7a3a', v: 0.1 }, reedTop: { c: '#8a6a3a', v: 0.08 }, pot: { c: '#2a2a2c', v: 0.04 },
       spot: { c: '#f2f7a0', glow: true }, eye: { c: '#ffd54a', glow: true }, gmush: { c: '#8ff5dc', glow: true },
       lamp: { c: '#ffd890', night: true, day: '#6a5a3a' }, brew: { c: '#9aff6a', glow: true },
+      spid: { c: '#1c161a', v: 0.05 }, spidR: { c: '#c02a3a', glow: true }, bat: { c: '#221a22', v: 0.04 }, weye: { c: '#ffe040', glow: true },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base, lvl = base + 1;
@@ -167,7 +168,7 @@
         name: '거미 알 무더기', hint: '알이 떨리더니 새끼 거미가 쏟아져요', hit: [EX - 4, eg2, EZ - 4, EX + 3, eg2 + 4, EZ + 3],
         run: async a => {
           for (let k = 0; k < 6; k++) { await a.tween('eggs', { rot: [0, 0, 0.12], scl: [1.1, 1.22, 1.1] }, 0.1); await a.tween('eggs', { rot: [0, 0, -0.12], scl: [1, 1, 1] }, 0.1); }
-          await a.tween('eggs', { rot: [0, 0, 0], scl: [1.18, 0.8, 1.18] }, 0.12); await a.tween('eggs', { scl: [1, 1, 1] }, 0.25);
+          await a.tween('eggs', { rot: [0, 0, 0], off: [0, 1.4, 0], scl: [1.35, 1.7, 1.35] }, 0.2); await a.tween('eggs', { off: [0, 0, 0], scl: [1, 1, 1] }, 0.35);
           for (let k = 0; k < 3; k++) { a.burst([EX + 0.5, eg2 + 2, EZ + 0.5], { n: 50, colors: ['#1a1616', '#2a2420', '#e7e0c6'], speed: 8, up: 2, life: 2.2, gravity: 5, spread: 3, flat: true }); await a.wait(0.35); }
         },
       });
@@ -205,7 +206,7 @@
       for (let x = HX - 8; x >= 72; x--) for (const dz of [3, 4, 5]) if (MH.g(w, x, HZ + dz) <= lvl + 1) w.set(x, lvl + 1, HZ + dz, B.plank);
       w.box(HX + 6, hy, HZ - 1, HX + 7, hy + 1, HZ - 1, B.pot); w.set(HX + 6, hy + 2, HZ - 1, B.brew);
       lights.push({ p: [HX - 0.5, hy + 4, HZ + 4.5], c: '#ffd080', i: 1.2, d: 14, flicker: 0.25, night: true });
-      lights.push({ p: [HX + 6.5, hy + 3, HZ - 0.5], c: '#90ff60', i: 0.8, d: 10, flicker: 0.3 });
+      lights.push({ name: 'brew', p: [HX + 6.5, hy + 3, HZ - 0.5], c: '#90ff60', i: 0.8, d: 10, flicker: 0.3 });
       landmarks.push({ name: '늪 위 약초막', note: '누군가 끓이다 만 솥이 있다', p: [HX + 5, hut.peak + 5, HZ + 4] });
       // ── 늪 장식: 뒤틀린 나무, 수련, 갈대, 발광 버섯, 쓰러진 통나무 ──
       for (let i = 0; i < 46; i++) {
@@ -220,6 +221,102 @@
       for (let i = 0; i < 300; i++) { const x = w.ri(2, 125), z = w.ri(2, 125); if (wet(x, z) && !w.get(x, lvl + 1, z) && w.chance(0.5)) w.set(x, lvl + 1, z, B.lily); }
       for (let i = 0; i < 10; i++) { const x = w.ri(16, 110), z = w.ri(56, 118); const a = w.r(0, 3.14); if (wet(x, z)) w.line(x, lvl + 1, z, x + Math.cos(a) * 9, lvl + 1, z + Math.sin(a) * 9, B.barkDk, 0.9); }
       landmarks.push({ name: '독 늪', note: '판자길만이 안전하다', p: [68.5, lvl + 10, 108.5] });
+      const pset = (p, x, y, z, b) => { x = Math.round(x); y = Math.round(y); z = Math.round(z); if (!w.get(x, y, z)) p.set(x, y, z, b); };
+      // ── 거미 여왕(부품): 둥지 위 높은 곳에서 거미줄을 타고 내려온다 ──
+      const QY = sg + 24, QT = sg + 34;
+      const queen = w.prop({ name: 'queen', pivot: [SX + 0.5, QY, SZ + 0.5] });
+      for (let dz = -3; dz <= 3; dz++) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        if ((dx / 2) ** 2 + (dy / 1.5) ** 2 + ((dz + 0.6) / 2.6) ** 2 <= 1) pset(queen, SX + dx, QY + dy, SZ + dz, dz === -2 && Math.abs(dx) <= 1 && dy >= 0 ? B.spidR : B.spid);
+      }
+      for (let dz = 2; dz <= 3; dz++) for (let dx = -1; dx <= 1; dx++) pset(queen, SX + dx, QY, SZ + dz + 1, B.spid);
+      pset(queen, SX - 1, QY + 1, SZ + 4, B.eye); pset(queen, SX + 1, QY + 1, SZ + 4, B.eye);
+      for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
+        const z0 = SZ + 1.5 - k * 1.2, kx = SX + s * 1.5, ex = SX + s * 4.5, ez = SZ + 3 - k * 2.4;
+        for (let t = 0; t <= 1; t += 0.2) pset(queen, kx + (ex - kx) * t, QY + 2 * Math.sin(t * Math.PI) + (t > 0.5 ? -2.5 * (t - 0.5) : 0), z0 + (ez - z0) * t, B.spid);
+        for (let t = 0; t <= 1; t += 0.34) pset(queen, ex + s * t, QY - 1 - t * 2.5, ez, B.spid);
+      }
+      const silk = w.prop({ name: 'silk', pivot: [SX + 0.5, QT + 1, SZ + 0.5] });
+      for (let y = QY + 2; y <= QT; y++) pset(silk, SX, y, SZ, B.web);
+      acts.push({
+        name: '거미 여왕', hint: '둥지 위 높은 곳에서 거미 여왕이 줄을 타고 스르륵 내려와요', hit: [SX - 5, QY - 4, SZ - 4, SX + 5, QY + 3, SZ + 5],
+        run: async a => {
+          const L0 = QT - QY - 1;
+          await Promise.all([a.move('queen', [0, -13, 0], 2.2), a.rope('silk', L0, L0 + 13, 2.2)]);
+          for (let k = 0; k < 3; k++) { await a.move('queen', [0, -11.5, 0], 0.25); await a.move('queen', [0, -13, 0], 0.25); }
+          for (let k = 0; k < 3; k++) { a.burst([SX + 0.5, QY - 13, SZ + 0.5], { n: 40, colors: ['#1a1616', '#2a2420', '#d2cfc2'], speed: 7, up: 1, life: 2.2, gravity: 6, spread: 2 }); await a.wait(0.35); }
+          await a.wait(0.8);
+          await Promise.all([a.move('queen', [0, 0, 0], 2.6), a.rope('silk', L0, L0, 2.6)]);
+        },
+      });
+
+      // ── 마녀의 솥: 뚜껑(부품)이 튀어 오르며 독한 김이 솟는다 ──
+      const lid = w.prop({ name: 'potlid', pivot: [HX + 7, hy + 3, HZ - 0.5] });
+      lid.box(HX + 6, hy + 3, HZ - 1, HX + 7, hy + 3, HZ - 1, B.pot); lid.set(HX + 6, hy + 4, HZ - 1, B.post);
+      acts.push({
+        name: '마녀의 솥', hint: '약초막 솥이 펄펄 끓어 뚜껑이 튀어 오르고 독한 김이 솟아요', hit: [HX + 5, hy, HZ - 2, HX + 8, hy + 4, HZ],
+        run: async a => {
+          a.flash('brew', 6, 4);
+          for (let k = 0; k < 4; k++) { await a.move('potlid', [0, 0.6, 0], 0.1); await a.move('potlid', [0, 0, 0], 0.1); }
+          await a.tween('potlid', { off: [1, 5, 2], rot: [0.8, 2, 0.4] }, 0.5);
+          for (let k = 0; k < 6; k++) { a.burst([HX + 6.5, hy + 3, HZ - 0.5], { n: 30, colors: ['#9aff6a', '#c8ff6a', '#4a7a3a'], speed: 1.5, up: 6, life: 2.2, gravity: -0.6, spread: 0.8 }); await a.wait(0.3); }
+          await a.tween('potlid', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.6, t => t * t);
+        },
+      });
+
+      // ── 늑대 굴: 어둠 속 노란 눈(부품)이 굴 밖으로 다가온다 ──
+      const wolves = [[WX - 1, wg + 2, WZ + 7], [WX + 2, wg + 3, WZ + 6], [WX + 4, wg + 2, WZ + 8]].map(([x, y, z], k) => {
+        const p = w.prop({ name: 'wolf' + k, pivot: [x + 1, y, z + 0.5] });
+        pset(p, x, y, z, B.weye); pset(p, x + 2, y, z, B.weye);
+        return 'wolf' + k;
+      });
+      lights.push({ name: 'den', p: [WX + 1.5, wg + 3, WZ + 9], c: '#ffd040', i: 0.01, d: 12, flicker: 0.3, srcR: 5 });
+      acts.push({
+        name: '늑대 굴', hint: '굴 속 어둠에서 노란 눈들이 번뜩이며 다가와요', hit: [WX - 3, wg, WZ + 3, WX + 6, wg + 6, WZ + 12],
+        run: async a => {
+          a.flash('den', 120, 4.6);
+          await Promise.all(wolves.map((nm, k) => a.move(nm, [k - 1, 0, 5 + k], 1.6 + k * 0.3)));
+          a.wind(2.5, 1.6);
+          for (let k = 0; k < 3; k++) { a.burst([WX + 1.5, wg + 2, WZ + 13], { n: 26, colors: ['#3c5a2b', '#66782c', '#d8d0bc'], speed: 6, up: 2, life: 1.4, gravity: 3, spread: 3, flat: true }); await a.wait(0.4); }
+          await a.wait(0.6);
+          await Promise.all(wolves.map(nm => a.move(nm, [0, 0, 0], 1.4)));
+        },
+      });
+
+      // ── 고목의 입에서 쏟아지는 박쥐 떼(부품, 평소엔 숨김) ──
+      const bats = [];
+      for (let k = 0; k < 6; k++) {
+        const bx = TX - 3 + k, by = g + 11 + (k % 3), bz = fz + 2;
+        const nm = 'bat' + k, p = w.prop({ name: nm, pivot: [bx + 0.5, by, bz + 0.5], scl0: [0, 0, 0] });
+        pset(p, bx, by, bz, B.bat); pset(p, bx - 1, by + 1, bz, B.bat); pset(p, bx + 1, by + 1, bz, B.bat); pset(p, bx, by + 1, bz + 1, B.spidR);
+        bats.push(nm);
+      }
+      acts.push({
+        name: '박쥐 떼', hint: '고목의 벌어진 입에서 박쥐 떼가 쏟아져 나와 하늘로 흩어져요', hit: [TX - 5, g + 9, fz - 1, TX + 5, g + 15, fz + 2],
+        run: async a => {
+          a.flash('eyes', 5, 3);
+          a.burst([TX + 0.5, g + 12, fz + 2], { n: 50, colors: ['#221a22', '#3a2a34', '#120c10'], speed: 8, up: 4, life: 1.8, gravity: 0.5, spread: 3 });
+          await Promise.all(bats.map((nm, k) => (async () => {
+            await a.wait(k * 0.12);
+            await a.tween(nm, { scl: [1, 1, 1] }, 0.1);
+            const ang = (k - 2.5) * 0.45;
+            await a.path(nm, [[Math.sin(ang) * 8, 4 + k, 8], [Math.sin(ang) * 18, 12 + k * 2, 14 - k], [Math.sin(ang) * 24, 22 + k, 4]], 2.6);
+            await a.tween(nm, { scl: [0, 0, 0] }, 0.2);
+            await a.move(nm, [0, 0, 0], 0.05);
+          })()));
+        },
+      });
+
+      // ── 늪의 독기: 수면 곳곳에서 독 거품이 터진다 ──
+      const bog = [];
+      for (let i = 0; i < 400 && bog.length < 14; i++) { const x = w.ri(30, 104), z = w.ri(60, 110); if (wet(x, z) && !w.get(x, lvl + 1, z) && bog.every(([bx, bz]) => Math.hypot(bx - x, bz - z) > 7)) bog.push([x, z]); }
+      bog.sort((p, q) => (q[0] + q[1]) - (p[0] + p[1]));
+      if (bog.length) acts.push({
+        name: '늪의 독기', hint: '늪 수면 곳곳에서 독 거품이 부글부글 솟아 터져요', hit: [bog[0][0] - 3, lvl, bog[0][1] - 3, bog[0][0] + 3, lvl + 3, bog[0][1] + 3],
+        run: async a => {
+          a.glow(1.5, 4);
+          for (let r = 0; r < 2; r++) for (const [x, z] of bog) { a.burst([x + 0.5, lvl + 1.2, z + 0.5], { n: 22, colors: ['#b6e866', '#d4f07a', '#355f25'], speed: 2.5, up: 5, life: 1.4, gravity: 2.5, spread: 1.2 }); await a.wait(0.14); }
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

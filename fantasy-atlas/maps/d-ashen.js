@@ -27,7 +27,7 @@
       thatch: { c: '#4a4238', v: 0.08, pat: 'tile' }, tomb: { c: '#8a8b92', v: 0.08 }, tombDk: { c: '#6c6d74', v: 0.08 },
       tombMoss: { c: '#5e6a5a', v: 0.1 }, mound: { c: '#43372f', top: '#4f433a', v: 0.08 },
       bark: { c: '#2c2522', v: 0.06 }, barkDk: { c: '#1c1716', v: 0.05 }, coffin: { c: '#3a2a22', v: 0.05, pat: 'plank' }, lid: { c: '#4d3829', v: 0.05, pat: 'plank' },
-      bell: { c: '#a8823a', v: 0.06 },
+      bell: { c: '#a8823a', v: 0.06 }, crow: { c: '#141218', v: 0.03 }, slab: { c: '#7a7a82', v: 0.06, pat: 'big' },
       gfire: { c: '#8dffb0', glow: true }, gglass: { c: '#50e890', night: true, day: '#2a4a3c' }, warm: { c: '#ffc46e', night: true, day: '#4a4038' },
       candle: { c: '#fff0c4', glow: true }, soul: { c: '#70ffa8', glow: true },
     },
@@ -181,10 +181,10 @@
         for (let dz = -1; dz <= 6; dz++) for (let dx = -2; dx <= 2; dx++) if (MH.g(w, gx + dx, gz + dz) !== g) flat = false;
         if (flat) graves.push([gx, gz, g]);
       }
-      const used = [];
+      const used = [], tombG = graves.reduce((b, q) => Math.hypot(q[0] - 32, q[1] - 78) < Math.hypot(b[0] - 32, b[1] - 78) ? q : b, graves[0]);
       graves.forEach(([gx, gz, g], k) => {
         const kind = k % 8, tb = hash3(gx, 1, gz) > 0.6 ? B.tombMoss : hash3(gx, 2, gz) > 0.5 ? B.tomb : B.tombDk;
-        if (kind === 7 && used.length < 3 && gx > 14 && gx < 84) {
+        if ((kind === 7 && used.length < 3 && gx > 14 && gx < 84) || gx === tombG[0] && gz === tombG[1]) {
           // 가족 납골묘: 작은 돌집
           w.box(gx - 2, g + 1, gz, gx + 2, g + 6, gz + 5, B.wallBd); w.box(gx - 1, g + 1, gz + 5, gx + 1, g + 4, gz + 5, B.dark); w.box(gx, g + 1, gz + 5, gx, g + 4, gz + 5, B.iron);
           MH.roof(w, gx - 3, gx + 3, gz - 1, gz + 6, g + 7, { b: B.roof, eave: B.roofE, gable: B.wallBd, axis: 'z' });
@@ -291,6 +291,95 @@
       }
       MH.scatter(w, 900, (x, g, z, b) => { if (b === B.deadgrass && w.chance(0.5)) w.set(x, g + 1, z, B.deadgrass); else if (b === B.ash && w.chance(0.05)) w.set(x, g + 1, z, B.bone); });
       for (let i = 0; i < 22; i++) { const x = w.ri(94, 124), z = w.ri(4, 124), g = MH.g(w, x, z); if (g > base && w.liq[x + W * z] < 0) MH.rock(w, x, g, z, w.r(1.5, 3.4), B.rockM, B.deadgrass); }
+
+      // ── 가족 납골묘의 석문(부품): 옆으로 밀려나며 혼불이 새어 나온다 ──
+      const tomb = used.find(([x, z]) => x === tombG[0] && z === tombG[1]);
+      if (tomb) {
+        const [mx, mz, mg] = tomb;
+        w.box(mx - 1, mg + 1, mz + 5, mx + 1, mg + 3, mz + 5, B.soul); w.box(mx - 1, mg + 4, mz + 5, mx + 1, mg + 4, mz + 5, B.dark);
+        const slab = w.prop({ name: 'slab', pivot: [mx + 0.5, mg + 1, mz + 6.5] });
+        slab.box(mx - 1, mg + 1, mz + 6, mx + 1, mg + 4, mz + 6, B.slab); slab.set(mx, mg + 3, mz + 6, B.bone);
+        lights.push({ name: 'tomb', p: [mx + 0.5, mg + 2.5, mz + 6.5], c: '#60ff98', i: 0.01, d: 14, flicker: 0.3 });
+        acts.push({
+          name: '납골묘 석문', hint: '가족 납골묘의 돌문이 옆으로 밀려나며 혼불이 새어 나와요', hit: [mx - 2, mg + 1, mz + 4, mx + 2, mg + 5, mz + 7],
+          run: async a => {
+            for (let k = 0; k < 3; k++) { await a.move('slab', [0.3, 0, 0], 0.08); await a.move('slab', [0, 0, 0], 0.08); }
+            a.flash('tomb', 220, 4);
+            await a.tween('slab', { off: [3.2, 0, 0.6], rot: [0, -0.2, 0] }, 1.4);
+            for (let k = 0; k < 4; k++) { a.burst([mx + 0.5, mg + 2.5, mz + 6.5], { n: 30, colors: ['#8dffba', '#70ffa8', '#c9ffd9'], speed: 3, up: 4, life: 2.4, gravity: -0.6, spread: 1.2 }); await a.wait(0.4); }
+            await a.wait(1);
+            await a.tween('slab', { off: [0, 0, 0], rot: [0, 0, 0] }, 1.4);
+          },
+        });
+      }
+
+      // ── 죽은 나무의 까마귀 떼(부품) ──
+      const crows = [], CTX = 60, CTZ = 80, ctg = MH.g(w, CTX, CTZ);
+      const perch = [];
+      for (let z = CTZ - 6; z <= CTZ + 6; z++) for (let x = CTX - 6; x <= CTX + 6; x++) { const t = w.top(x, z); if (t > ctg + 6) perch.push([x, t, z]); }
+      perch.sort((p, q) => q[1] - p[1]);
+      for (const [x, t, z] of perch) {
+        if (crows.length >= 4 || crows.some(c => Math.abs(c[0] - x) + Math.abs(c[2] - z) < 3)) continue;
+        if (w.get(x, t + 1, z) || w.get(x, t + 2, z) || w.get(x, t + 1, z - 1) || w.get(x, t + 2, z + 1)) continue;
+        const nm = 'crow' + crows.length, cp = w.prop({ name: nm, pivot: [x + 0.5, t + 1, z + 0.5] });
+        cp.set(x, t + 1, z, B.crow); cp.set(x, t + 1, z - 1, B.crow); cp.set(x, t + 2, z, B.crow); cp.set(x, t + 2, z + 1, B.gfire);
+        crows.push([x, t, z, nm]);
+      }
+      if (crows.length) acts.push({
+        name: '까마귀 떼', hint: '죽은 나무의 까마귀들이 깍깍 날아올라 묘역을 한 바퀴 돌아요', hit: [CTX - 6, crows[0][1] - 4, CTZ - 6, CTX + 6, crows[0][1] + 3, CTZ + 6],
+        run: async a => {
+          for (const [x, t, z] of crows) a.burst([x + 0.5, t + 1.5, z + 0.5], { n: 14, colors: ['#141218', '#2a2630', '#4a4650'], speed: 4, up: 3, life: 1.6, gravity: 2, spread: 1 });
+          await Promise.all(crows.map(([, , , nm], k) => a.path(nm, [[3 + k, 6, 6, 0.6], [12, 12 + k, 2, 1.6], [8, 15, -10 + k, 3], [-6 - k, 12, -6, 4.4], [-4, 6 + k, 6, 5.6], [0, 0, 0, 6.28]], 5 + k * 0.3)));
+          crows.forEach(([, , , nm]) => a.unwind(nm));
+        },
+      });
+
+      // ── 혼불 행렬: 아래 묘역부터 납골당까지 무덤마다 혼불이 솟는다 ──
+      const souls = graves.filter(([x, z]) => x > 14 && x < 96 && z < 112).sort((p, q) => q[1] - p[1]).filter((p, k) => k % 2 === 0).slice(0, 24);
+      if (souls.length) acts.push({
+        name: '혼불 행렬', hint: '아래 묘역부터 무덤마다 혼불이 솟아 납골당까지 이어져요', hit: [souls[0][0] - 3, souls[0][2] + 1, souls[0][1] - 1, souls[0][0] + 3, souls[0][2] + 6, souls[0][1] + 6],
+        run: async a => {
+          a.glow(1.8, 5);
+          for (const [x, z, g] of souls) { a.burst([x + 0.5, g + 5, z + 3.5], { n: 16, colors: ['#8dffba', '#70ffa8', '#ffffff'], speed: 1.2, up: 5, life: 1.8, gravity: -0.5, spread: 0.6 }); await a.wait(0.16); }
+          a.flash('crypt', 9, 2.2);
+          a.burst([mid + 0.5, wy + 5, fz + 3], { n: 70, colors: ['#8dffba', '#c9ffd9', '#50e890'], speed: 5, up: 6, life: 2.4, gravity: -0.6, spread: 3 });
+          await a.wait(1.6);
+        },
+      });
+
+      // ── 해골 첨탑: 번개가 내리치고 해골 눈에서 초록 불길이 쏟아진다 ──
+      w.set(49, sTop + 3, 22, B.soul); w.set(51, sTop + 3, 22, B.soul);
+      lights.push({ name: 'skull', p: [50.5, sTop + 3, 23], c: '#70ffa8', i: 0.01, d: 30, flicker: 0.2 });
+      acts.push({
+        name: '해골 첨탑', hint: '첨탑 꼭대기 해골에 번개가 내리치고 눈에서 초록 불길이 쏟아져요', hit: [48, sTop, 20, 52, sTop + 5, 23],
+        run: async a => {
+          for (let k = 0; k < 3; k++) {
+            a.lightning(1 + k * 0.3); a.flash('skull', 300, 0.5);
+            a.burst([50.5, sTop + 6, 21.5], { n: 40, colors: ['#ffffff', '#c9ffd9', '#8dffba'], speed: 9, up: 2, life: 0.8, gravity: 3, spread: 1.5 });
+            await a.wait(0.7);
+          }
+          a.flash('skull', 160, 3); a.glow(1.7, 3);
+          for (let k = 0; k < 6; k++) { for (const ex of [49.5, 51.5]) a.burst([ex, sTop + 3.5, 23], { n: 14, colors: ['#70ffa8', '#8dffba', '#d9d1bd'], speed: 2.5, up: 1, life: 1.8, gravity: -0.8, spread: 0.4 }); await a.wait(0.4); }
+        },
+      });
+
+      // ── 망자의 나룻배(부품): 초록 등불을 단 빈 배가 협곡 물길을 따라 내려온다 ──
+      const FX = 102, FZ = 62, fy = base - 1;
+      const boat = w.prop({ name: 'boat', pivot: [FX + 0.5, fy, FZ + 0.5] });
+      boat.box(FX - 1, fy, FZ - 3, FX + 1, fy, FZ + 3, B.coffin);
+      for (const s of [-2, 2]) boat.box(FX + s, fy + 1, FZ - 3, FX + s, fy + 1, FZ + 3, B.wood);
+      boat.box(FX - 1, fy + 1, FZ - 4, FX + 1, fy + 1, FZ - 4, B.wood); boat.box(FX - 1, fy + 1, FZ + 4, FX + 1, fy + 2, FZ + 4, B.wood);
+      boat.box(FX, fy + 3, FZ + 4, FX, fy + 6, FZ + 4, B.iron); boat.set(FX, fy + 6, FZ + 5, B.iron); boat.set(FX, fy + 5, FZ + 5, B.gfire);
+      boat.set(FX, fy + 1, FZ, B.bone); boat.set(FX, fy + 1, FZ - 1, B.bone);
+      acts.push({
+        name: '망자의 나룻배', hint: '초록 등불을 단 빈 나룻배가 협곡 물길을 따라 미끄러져 내려와요', hit: [FX - 2, fy, FZ - 4, FX + 2, fy + 6, FZ + 5],
+        run: async a => {
+          a.burst([FX + 0.5, fy + 5, FZ + 5.5], { n: 30, colors: ['#8dffba', '#c9ffd9'], speed: 2, up: 2, life: 2, gravity: -0.3, spread: 1 });
+          await a.path('boat', [[-2, 0, 10, -0.1], [-3, 0, 18, 0], [-1, 0, 26, 0.25]], 4.5);
+          for (let k = 0; k < 3; k++) { a.burst([FX - 0.5, fy + 1, FZ + 31], { n: 18, colors: ['#8fb89a', '#34463e', '#c9ffd9'], speed: 3, up: 2, life: 1.2, gravity: 3, spread: 2, flat: true }); await a.wait(0.4); }
+          await a.path('boat', [[-3, 0, 16, 0], [0, 0, 0, 0]], 3.8);
+        },
+      });
       const smoke = hut.chimney ? [{ n: 40, colors: ['#6a6670', '#8a8690'], mode: 'rise', speed: 0.6, area: [hut.chimney[0], hut.chimney[2], 0.6], y0: hut.chimney[1], y1: hut.chimney[1] + 20, glow: false }] : [];
       return { lights, landmarks, acts, particles: smoke };
     },

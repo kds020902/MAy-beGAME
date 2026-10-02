@@ -92,15 +92,16 @@
       // 성문 누각: 문 위로 쇠창살이 다 들어갈 만큼 벽을 두되, 안뜰 너머 왕좌를 가리지 않을 높이로
       w.box(58, L + 1, 45, 70, L + 17, 48, B.castle);
       w.box(60, L + 1, 45, 68, L + 8, 48, 0);
-      w.box(59, L + 9, 49, 69, L + 9, 49, B.trim); w.box(60, L + 10, 49, 68, L + 13, 49, B.banner); w.box(64, L + 11, 49, 64, L + 12, 49, B.gold);
+      // 쇠창살이 누각 앞면을 타고 오르도록 깃발은 문 양옆에 단다
+      for (const bx of [58, 69]) { w.box(bx, L + 4, 49, bx + 1, L + 14, 49, B.banner); w.box(bx, L + 15, 49, bx + 1, L + 15, 49, B.trim); w.set(bx + (bx < 64 ? 1 : 0), L + 12, 49, B.gold); }
       w.walls(57, L + 18, 44, 71, L + 18, 49, B.trim);
       for (let x = 58; x <= 70; x += 2) w.set(x, L + 19, 49, B.trim);
-      const gate = w.prop({ name: 'gate', pivot: [64.5, L + 1, 48] });
-      for (let x = 60; x <= 68; x++) for (let y = L + 1; y <= L + 8; y++) if (x % 2 === 0 || (y - L) % 3 === 1) gate.set(x, y, 47, B.iron);
+      const gate = w.prop({ name: 'gate', pivot: [64.5, L + 1, 49.5] });
+      for (let x = 61; x <= 67; x++) for (let y = L + 1; y <= L + 8; y++) if ((x % 2 === 0 || (y - L) % 3 === 1) && !w.get(x, y, 49)) gate.set(x, y, 49, B.iron);
       for (const bx of [56, 72]) { const g = MH.g(w, bx, 52); w.box(bx, g + 1, 52, bx, g + 4, 52, B.iron); w.box(bx, g + 5, 52, bx, g + 6, 52, B.blueFire); lights.push({ p: [bx + 0.5, g + 6, 52.5], c: '#6ad0ff', i: 1, d: 14, flicker: 0.3 }); }
       acts.push({
-        name: '얼음 성문', hint: '쇠창살이 올라가고 다시 내려와요', hit: [60, L + 1, 45, 68, L + 8, 48],
-        run: async a => { await a.move('gate', [0, 8.2, 0], 2.4); await a.wait(2); await a.move('gate', [0, 0, 0], 1.2, t => t * t); a.burst([64.5, L + 1, 48], { n: 36, colors: ['#ffffff', '#dfefff'], speed: 6, up: 1, life: 1, gravity: 2, spread: 5, flat: true }); },
+        name: '얼음 성문', hint: '쇠창살이 올라가고 다시 내려와요', hit: [60, L + 1, 45, 68, L + 8, 50],
+        run: async a => { await a.move('gate', [0, 8.2, 0], 2.4); await a.wait(2); await a.move('gate', [0, 0, 0], 1.2, t => t * t); a.burst([64.5, L + 1, 50], { n: 36, colors: ['#ffffff', '#dfefff'], speed: 6, up: 1, life: 1, gravity: 2, spread: 5, flat: true }); },
       });
       landmarks.push({ name: '얼음 성문', note: '중간 보스 · 서리 기사단장', p: [64.5, L + 26, 47.5], mid: true });
       // 왕좌의 방: 앞이 트인 기둥 회랑
@@ -117,7 +118,14 @@
         if ((x - hx0 < 2 || hx1 - x < 2) && hash3(x, 3, z) > 0.3 + (z - 20) * 0.04) continue;
         for (let y = L + HH; y <= L + HH + 16; y++) if (y > L + HH || (x > hx0 && x < hx1 && z < hz1)) w.set(x, y, z, 0);
       }
-      for (let x = hx0 + 1; x < hx1; x++) { let y = L + HH + 16; while (y > L + HH && !w.get(x, y, 19)) y--; const k = 1 + Math.floor(hash3(x, 5, 27) * 4); for (let q = 1; q <= k; q++) if (!w.get(x, y - q, 19)) w.set(x, y - q, 19, q === k ? B.glowIce : B.icicle); }
+      const icl = [];
+      for (let x = hx0 + 1; x < hx1; x++) {
+        let y = L + HH + 16; while (y > L + HH && !w.get(x, y, 19)) y--;
+        // 몇 개는 떨어지는 고드름(부품)으로: 더 길고 굵다
+        const big = (x - hx0) % 5 === 3, k = big ? 6 : 1 + Math.floor(hash3(x, 5, 27) * 4), tw = big ? w.prop({ name: 'icl' + x, pivot: [x + 0.5, y, 19.5] }) : w;
+        for (let q = 1; q <= k; q++) if (!w.get(x, y - q, 19)) tw.set(x, y - q, 19, q === k ? B.glowIce : B.icicle);
+        if (big) { tw.set(x, y - 1, 20, B.icicle); tw.set(x, y - 2, 20, B.icicle); icl.push(['icl' + x, x, y - k]); }
+      }
       for (let i = 0; i < 70; i++) { const x = w.ri(hx0 + 1, hx1 - 1), z = w.ri(24, hz1); if (x < 61 || x > 67) w.fill(x, L + 1, z, B.snow2); }
       for (let z = hz0 + 5; z <= hz1 + 8; z++) for (let x = 61; x <= 67; x++) w.set(x, L, z, (x === 61 || x === 67) ? B.gold : B.carpet);
       for (let s = 0; s < 4; s++) w.box(55 + s, L + 1 + s, hz0 + 1, 73 - s, L + 1 + s, hz0 + 6 - s, s % 2 ? B.trim : B.castleDk);
@@ -166,6 +174,93 @@
       for (let i = 0; i < 70; i++) { const a = w.r(0, 6.28), rr = w.r(0, 5); w.set(RX + Math.round(Math.cos(a) * rr), rg + 18 - w.ri(0, 7), RZ + Math.round(Math.sin(a) * rr), 0); }
       for (let i = 0; i < 20; i++) { const x = RX + w.ri(-8, 8), z = RZ + w.ri(-8, 8), g = MH.g(w, x, z); if (!w.get(x, g + 1, z)) w.set(x, g + 1, z, B.castleDk); }
       landmarks.push({ name: '무너진 망루', note: '창백한 기사들의 순찰로', p: [RX + 0.5, rg + 24, RZ + 0.5] });
+      // ── 고드름 낙하: 무너진 지붕 끝의 큰 고드름이 왕좌의 방 바닥에 떨어져 부서진다 ──
+      if (icl.length) acts.push({
+        name: '고드름 낙하', hint: '무너진 지붕 끝 큰 고드름들이 떨어져 왕좌의 방 바닥에 부서져요', hit: [hx0 + 2, icl[0][2] - 1, 18, hx1 - 2, L + HH, 21],
+        run: async a => {
+          for (let k = 0; k < 4; k++) { await Promise.all(icl.map(([nm]) => a.move(nm, [0.2 * (k % 2 ? 1 : -1), 0, 0], 0.07))); }
+          for (const [nm, x, y] of icl) {
+            const drop = y - L - 1;
+            await a.move(nm, [0, -drop, 1], 0.45, t => t * t);
+            a.burst([x + 0.5, L + 1.5, 20.5], { n: 36, colors: ['#ffffff', '#c8ecfa', '#9fe8ff'], speed: 7, up: 3, life: 1.2, gravity: 6, spread: 1.5 });
+            a.tween(nm, { scl: [0, 0, 0] }, 0.1);
+            await a.wait(0.25);
+          }
+          await a.wait(0.6);
+          for (const [nm] of icl) { await a.move(nm, [0, 0, 0], 0.01); }
+          await Promise.all(icl.map(([nm]) => a.tween(nm, { scl: [1, 1, 1] }, 1.2)));
+        },
+      });
+
+      // ── 망루의 봉화: 무너진 망루 꼭대기에 푸른 불길이 치솟는다 ──
+      let bt = rg + 18; while (bt > rg && !w.get(RX, bt, RZ)) bt--;
+      w.box(RX - 1, bt + 1, RZ - 1, RX + 1, bt + 1, RZ + 1, B.iron); w.set(RX, bt + 2, RZ, B.blueFire);
+      lights.push({ name: 'beacon', p: [RX + 0.5, bt + 3, RZ + 0.5], c: '#6ad0ff', i: 0.5, d: 30, flicker: 0.4 });
+      acts.push({
+        name: '망루의 봉화', hint: '무너진 망루 꼭대기에 푸른 봉화가 치솟아 계곡을 비춰요', hit: [RX - 2, bt, RZ - 2, RX + 2, bt + 3, RZ + 2],
+        run: async a => {
+          a.flash('beacon', 8, 5); a.glow(1.5, 5);
+          for (let k = 0; k < 12; k++) { a.burst([RX + 0.5, bt + 2.5, RZ + 0.5], { n: 26, colors: ['#6ad0ff', '#9fe8ff', '#ffffff'], speed: 2, up: 9, life: 1.4, gravity: -0.5, spread: 1 }); await a.wait(0.35); }
+        },
+      });
+
+      // ── 서리 호수의 유빙(부품): 얼음이 갈라지며 얼음판이 기울었다 가라앉는다 ──
+      const IX = 60, IZ = 107, iy = base + 2;
+      const floe = w.prop({ name: 'floe', pivot: [IX + 0.5, iy, IZ + 0.5] });
+      for (let dz = -3; dz <= 3; dz++) for (let dx = -4; dx <= 4; dx++) if (Math.abs(dx) + Math.abs(dz) * 1.3 <= 5.2 && !w.get(IX + dx, iy, IZ + dz)) floe.set(IX + dx, iy, IZ + dz, hash3(dx, 4, dz) > 0.75 ? B.iceDk : B.ice);
+      floe.set(IX - 1, iy + 1, IZ, B.snow2); floe.set(IX + 2, iy + 1, IZ + 1, B.snow2);
+      acts.push({
+        name: '갈라지는 유빙', hint: '서리 호수의 얼음판이 쩍 갈라지며 기울었다가 물보라와 함께 가라앉아요', hit: [IX - 4, iy, IZ - 3, IX + 4, iy + 1, IZ + 3],
+        run: async a => {
+          for (let k = 0; k < 5; k++) { a.burst([IX + 0.5 + (k - 2) * 2, iy + 1, IZ + 0.5 + (k % 2) * 2 - 1], { n: 14, colors: ['#ffffff', '#b4e2f2'], speed: 3, up: 1, life: 0.7, gravity: 4, spread: 0.6, flat: true }); await a.wait(0.12); }
+          await a.tween('floe', { off: [0, 1.5, 0], rot: [0.55, 0, 0.25] }, 0.6);
+          await a.wait(0.4);
+          await a.tween('floe', { off: [0, -2.5, 0], rot: [0.2, 0, 0.1] }, 0.9, t => t * t);
+          for (let k = 0; k < 3; k++) { a.burst([IX + 0.5, iy + 1, IZ + 0.5], { n: 40, colors: ['#ffffff', '#b4e2f2', '#8cc8e0'], speed: 6, up: 5, life: 1.3, gravity: 7, spread: 3 }); await a.wait(0.25); }
+          await a.wait(0.6);
+          await a.tween('floe', { off: [0, 0, 0], rot: [0, 0, 0] }, 1.8);
+        },
+      });
+
+      // ── 눈 털어내는 전나무(부품): 바람에 크게 흔들리며 눈 더미를 쏟는다 ──
+      let pine = null;
+      for (let z = 58; z <= 100 && !pine; z += 2) for (let x = 110; x >= 18 && !pine; x -= 2) {
+        const g = MH.g(w, x, z);
+        if (g < 0 || w.slope[x + W * z] > 2 || w.liq[x + W * z] >= 0 || onTrail(x, z) || Math.hypot(x - 64, z - 52) < 18) continue;
+        let free = true;
+        for (let y = g + 1; y <= g + 19 && free; y++) for (let dz = -4; dz <= 4 && free; dz++) for (let dx = -4; dx <= 4; dx++) if (w.get(x + dx, y, z + dz)) { free = false; break; }
+        if (free) pine = [x, g, z];
+      }
+      if (pine) {
+        const [px, pg, pz] = pine;
+        const pp = w.prop({ name: 'pine', pivot: [px + 0.5, pg + 1, pz + 0.5], axis: 'z' });
+        const ptop = MH.tree(pp, px, pg + 1, pz, { kind: 'pine', h: 17, bark: B.trunk, leaves: [B.pine, B.pine, B.pineDk], snow: B.snow, r: 4 });
+        acts.push({
+          name: '흔들리는 전나무', hint: '큰 전나무가 찬바람에 휘청이며 가지 위 눈을 우수수 쏟아내요', hit: [px - 4, pg + 1, pz - 4, px + 4, ptop, pz + 4],
+          run: async a => {
+            a.wind(3, 3);
+            for (let k = 0; k < 4; k++) {
+              await a.turn('pine', [0.12, 0, k % 2 ? 0.14 : -0.14], 0.35);
+              a.burst([px + 0.5, pg + 8 + k * 2, pz + 0.5], { n: 50, colors: ['#ffffff', '#e8f0f6', '#dfefff'], speed: 4, up: 1, life: 2, gravity: 3, spread: 4 });
+            }
+            await a.turn('pine', [0, 0, 0], 0.8);
+          },
+        });
+      }
+
+      // ── 오로라: 성채 위 하늘에 푸른 빛의 장막이 일렁인다 ──
+      acts.push({
+        name: '오로라', hint: '성채 위 하늘에 푸르고 초록빛 오로라가 장막처럼 일렁여요', hit: [56, L + 28, 26, 72, L + 34, 32],
+        run: async a => {
+          a.glow(1.6, 6); a.flash('throne', 2, 6);
+          for (let r = 0; r < 3; r++) for (let k = 0; k <= 16; k++) {
+            const x = 30 + k * 4.2, z = 30 + Math.sin(k * 0.6 + r) * 6, y = Math.min(w.H - 6, L + 34 + Math.sin(k * 0.4 + r * 1.3) * 3);
+            a.burst([x, y, z], { n: 10, colors: r % 2 ? ['#7affc8', '#9fe8ff', '#c8ffe8'] : ['#9fe8ff', '#b088ff', '#e0f8ff'], speed: 0.6, up: -2, life: 2.2, gravity: 0.6, spread: 1.2 });
+            await a.wait(0.07);
+          }
+          await a.wait(1.4);
+        },
+      });
       MH.scatter(w, 500, (x, g, z, b) => { if (b === B.snow && w.chance(0.3)) w.set(x, g + 1, z, B.snow2); });
       return { lights, landmarks, acts };
     },

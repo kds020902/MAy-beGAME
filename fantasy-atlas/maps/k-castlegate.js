@@ -16,6 +16,7 @@
     blocks: Object.assign({}, KP, {
       carpet: { c: '#2a4a9a', top: '#30509e', v: 0.03 }, goldP: { c: '#b89a3a', top: '#e8c04a', v: 0.04 }, waterB: { c: '#5aa0d8', v: 0.03 },
       chain: { c: '#3a3a44', v: 0.03 }, dark: { c: '#16141a', v: 0 }, fire: { c: '#ffb04a', glow: true },
+      fire2: { c: '#ff7a2a', glow: true }, fishO: { c: '#f08a30', v: 0.04 }, fishW: { c: '#f4f0e8', v: 0.03 }, coach: { c: '#2a4a9a', v: 0.03 }, glass: { c: '#16141a', v: 0 },
     }),
     build(w) {
       const B = w.id, base = w.base, P = base + 3, CG = base + 10, WL = base;
@@ -104,10 +105,12 @@
         w.box(x, y, z, x + 1, y + 4, z + 1, B.white); w.box(x - 1, y + 5, z, x + 2, y + 10, z + 1, B.white);
         w.box(x - 2, y + 8, z, x - 2, y + 10, z + 1, B.white); w.box(x + 3, y + 8, z, x + 3, y + 10, z + 1, B.white);
         w.box(x, y + 11, z, x + 1, y + 13, z + 1, B.white); w.box(x, y + 14, z, x + 1, y + 14, z + 1, B.gold); w.set(x, y + 15, z, B.gold); w.set(x + 1, y + 15, z + 1, B.gold);
-        w.box(x + 3, y + 1, z + 2, x + 3, y + 12, z + 2, B.gold); w.box(x - 1, y + 3, z + 2, x + 2, y + 9, z + 2, B.whiteDk);
+        const sw = w.prop({ name: 'sword' + swords.length, pivot: [x + 3.5, y + 8, z + 2.5] }); swords.push([x, y, z]);
+        sw.box(x + 3, y + 1, z + 2, x + 3, y + 12, z + 2, B.gold); sw.box(x + 3, y + 3, z + 1, x + 3, y + 3, z + 3, B.gold); w.box(x - 1, y + 3, z + 2, x + 2, y + 9, z + 2, B.whiteDk);
         return y + 16;
       };
       let sTop = 0;
+      const swords = [];
       for (const z of [60, 80, 100]) for (const x of [46, 80]) sTop = Math.max(sTop, statue(x, z));
       landmarks.push({ name: '선왕들의 석상', note: '여섯 왕이 광장을 지킨다', p: [47, sTop + 4, 80.5] });
       // 쌍분수
@@ -151,6 +154,74 @@
             a.burst([tx + (k - 2.5) * 3, top + 16, 40], { n: 90, colors: sets[k % 3], speed: 16, up: 2, life: 1.6, gravity: 2.5, spread: 1 });
             await a.wait(0.3);
           }
+        },
+      });
+      // ── 선왕의 검: 여섯 석상이 금빛 검을 들어 올린다 ──
+      acts.push({
+        name: '선왕의 검', hint: '여섯 석상이 금빛 검을 일제히 들어 올리자 왕관이 반짝여요', hit: [44, P + 7, 58, 50, P + 22, 63],
+        run: async a => {
+          for (let k = 0; k < 6; k++) { a.move('sword' + k, [0, 5, 0], 1.2); await a.wait(0.25); }
+          await a.wait(1);
+          for (let q = 0; q < 3; q++) { swords.forEach(([x, y, z]) => { a.burst([x + 1, y + 15, z + 1], { n: 12, colors: ['#ffe060', '#ffffff', '#fff4c0'], speed: 3, up: 3, life: 1.2, gravity: 1, spread: 1 }); a.burst([x + 3.5, y + 18, z + 2.5], { n: 6, colors: ['#ffffff', '#ffe8a0'], speed: 2, up: 2, life: 0.8, gravity: 0, spread: 0.5 }); }); await a.wait(0.6); }
+          await Promise.all(swords.map((s, k) => a.move('sword' + k, [0, 0, 0], 1.4)));
+        },
+      });
+      // ── 성문 화로(부품): 불꽃이 확 일어난다 ──
+      const braz = [[55, 53], [73, 53], [55, 71], [73, 71]];
+      braz.forEach(([bx, bz], k) => {
+        w.box(bx, P + 1, bz, bx, P + 4, bz, B.iron); w.box(bx - 1, P + 1, bz - 1, bx + 1, P + 1, bz + 1, B.whiteDk);
+        w.ring(bx, bz, P + 5, 0.9, 2.2, B.iron); w.ring(bx, bz, P + 6, 1.4, 2.2, B.gold); w.set(bx, P + 5, bz, B.iron);
+        const f = w.prop({ name: 'fire' + k, pivot: [bx + 0.5, P + 6, bz + 0.5], scl0: [0.3, 0.2, 0.3] });
+        f.box(bx - 1, P + 6, bz, bx + 1, P + 6, bz, B.fire2); f.box(bx, P + 6, bz - 1, bx, P + 6, bz + 1, B.fire2); f.box(bx, P + 6, bz - 1, bx, P + 8, bz + 1, B.fire); f.box(bx - 1, P + 7, bz, bx + 1, P + 7, bz, B.fire); f.set(bx, P + 9, bz, B.fire);
+        if (k < 2) lights.push({ name: 'brazier', p: [bx + 0.5, P + 8, bz + 0.5], c: '#ff9a40', i: 1.4, d: 18, flicker: 0.35 });
+      });
+      acts.push({
+        name: '성문 화로', hint: '도개교 앞 네 화로에 불길이 확 치솟고 불티가 날려요', hit: [53, P + 1, 51, 57, P + 9, 55],
+        run: async a => {
+          a.flash('brazier', 3.5, 5); a.glow(1.8, 5);
+          await Promise.all(braz.map((b, k) => a.tween('fire' + k, { scl: [1.2, 1.6, 1.2] }, 0.6)));
+          for (let q = 0; q < 8; q++) { braz.forEach(([bx, bz]) => a.burst([bx + 0.5, P + 9, bz + 0.5], { n: 10, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], speed: 2, up: 6, life: 1.2, gravity: -1, spread: 1 })); await a.wait(0.45); }
+          await Promise.all(braz.map((b, k) => a.tween('fire' + k, { scl: [0.3, 0.2, 0.3] }, 1.4)));
+        },
+      });
+      // ── 왕실 마차(부품): 푸른 융단 길을 따라 성문까지 갔다가 돌아온다 ──
+      const MZ = 109, my = P + 1;
+      const coach = w.prop({ name: 'coach', pivot: [MIDX + 0.5, my, MZ + 0.5] });
+      coach.box(62, my + 2, MZ - 3, 66, my + 6, MZ + 3, B.coach); coach.box(62, my + 7, MZ - 3, 66, my + 7, MZ + 3, B.gold); coach.box(63, my + 8, MZ - 2, 65, my + 8, MZ + 2, B.coach); coach.set(64, my + 9, MZ, B.gold);
+      for (const x of [62, 66]) { coach.box(x, my + 4, MZ - 1, x, my + 5, MZ + 1, B.glass); coach.box(x, my + 2, MZ - 3, x, my + 2, MZ + 3, B.gold); }
+      for (const x of [61, 67]) for (const z of [MZ - 2, MZ + 2]) { coach.box(x, my, z - 1, x, my + 2, z + 1, B.iron); coach.set(x, my + 1, z, B.gold); }
+      coach.box(64, my + 2, MZ - 6, 64, my + 2, MZ - 4, B.wood); coach.box(63, my + 2, MZ - 6, 65, my + 2, MZ - 6, B.wood);
+      acts.push({
+        name: '왕실 마차', hint: '금장 왕실 마차가 푸른 융단 길을 따라 성문 앞까지 다녀와요', hit: [61, my, MZ - 6, 67, my + 9, MZ + 3],
+        run: async a => {
+          const dust = async (z0, dz) => { for (let k = 0; k < 10; k++) { a.burst([64.5, my + 0.5, z0 + dz * k], { n: 10, colors: ['#c8d4ee', '#d8d4ca'], speed: 2, up: 1, life: 0.8, gravity: 2, spread: 3, flat: true }); await a.wait(0.5); } };
+          await Promise.all([a.move('coach', [0, 0, -48], 5, t => t * (2 - t)), dust(MZ, -4.8)]);
+          for (let k = 0; k < 3; k++) { a.burst([64.5, P + 18, 62], { n: 40, colors: ['#ffffff', '#ffd0e0', '#ffe060'], speed: 6, up: 4, life: 2, gravity: 2, spread: 4 }); await a.wait(0.4); }
+          await a.turn('coach', [0, Math.PI, 0], 1.6);
+          await Promise.all([a.move('coach', [0, 0, 0], 5, t => t * t), dust(MZ - 48, 4.8)]);
+          await a.turn('coach', [0, 0, 0], 1.6);
+        },
+      });
+      // ── 해자 물고기(부품): 금붕어들이 물 위로 뛰어오른다 ──
+      const fish = [[30, 44], [40, 46], [88, 44], [98, 46]];
+      fish.forEach(([fx, fz], k) => {
+        const f = w.prop({ name: 'fish' + k, pivot: [fx + 1, WL - 1, fz + 0.5] });
+        f.box(fx, WL - 1, fz, fx + 1, WL - 1, fz, k % 2 ? B.fishW : B.fishO); f.set(fx + 2, WL - 1, fz, B.fishO); f.set(fx - 1, WL - 1, fz, B.fishO); f.set(fx - 1, WL, fz, B.fishO);
+      });
+      acts.push({
+        name: '해자 물고기', hint: '해자의 금붕어들이 물 위로 펄쩍펄쩍 뛰어올라요', hit: [28, WL - 1, 42, 42, WL + 3, 48],
+        run: async a => {
+          const splash = (x, z) => a.burst([x, WL + 1, z], { n: 14, colors: ['#e0f4ff', '#8ac0f0', '#ffffff'], speed: 2.5, up: 3, life: 0.8, gravity: 9, spread: 1 });
+          await Promise.all(fish.map(async ([fx, fz], k) => {
+            for (let j = 0; j < 2; j++) {
+              await a.wait(0.3 + k * 0.35 + j * 0.2);
+              const dir = (j + k) % 2 ? -1 : 1;
+              splash(fx + 1, fz + 0.5);
+              await Promise.all([a.path('fish' + k, [[dir * 2, 4, 0], [dir * 4, 6, 0], [dir * 6, 4, 0], [dir * 8, 0, 0]], 1.4), (async () => { await a.turn('fish' + k, [0, 0, dir * 0.8], 0.5); await a.turn('fish' + k, [0, 0, -dir * 0.8], 0.6); await a.turn('fish' + k, [0, 0, 0], 0.3); })()]);
+              splash(fx + 1 + dir * 8, fz + 0.5);
+              await a.move('fish' + k, [0, 0, 0], 0.8);
+            }
+          }));
         },
       });
       return { lights, landmarks, acts };

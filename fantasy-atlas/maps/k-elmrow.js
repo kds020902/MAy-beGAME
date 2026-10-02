@@ -40,14 +40,14 @@
         for (let s = 0; s <= top - bot; s++) { w.set(sx - 1, top - s + 1, k * BAND + s, B.whiteDk); w.set(sx + 6, top - s + 1, k * BAND + s, B.whiteDk); }
       }
       // 층층이 늘어선 집들
-      const lines = [];
+      const lines = [], allHs = [];
       for (let k = 0; k < 5; k++) {
         const z0 = k * BAND + 5, z1 = k * BAND + 16;
         if (z1 >= D - 2) continue;
         for (const [x0, x1] of [[3, 35], [47, 85], [97, 125]]) {
           if ((k === 2 || k === 0 || k === 3) && x0 === 47) continue;
           const hs = block(w, B, x0, z0, x1, z1, 's', { seed: k * 3 + x0, gap: 4, min: 9, max: 11, floors: [2, 3, 2], y: lvl(z0) });
-          doorLights(lights, hs, 4);
+          doorLights(lights, hs, 4); allHs.push(...hs);
           for (let i = 0; i < hs.length - 1; i++) { const a = hs[i], b = hs[i + 1], y = Math.min(a.top, b.top) - 3; lines.push([[a.x1 + 2, y, (a.z0 + a.z1) / 2], [b.x0 - 2, y, (b.z0 + b.z1) / 2]]); }
         }
       }
@@ -106,6 +106,68 @@
       });
       lights.push({ p: [ch.door[0] + 0.5, ch.door[1] + 3, ch.door[2] + 1.5], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
       landmarks.push({ name: '작은 예배당', note: '푸른 첨탑의 종', p: [tx + 3, st + 7, tz + 3] });
+      // ── 첨탑 풍향계(부품) ──
+      w.set(tx + 2, st + 4, tz + 2, B.iron);
+      const vane = w.prop({ name: 'vane', pivot: [tx + 3, st + 5, tz + 2.5], speed: 0.25 });
+      vane.box(tx, st + 5, tz + 2, tx + 5, st + 5, tz + 2, B.iron); vane.box(tx + 4, st + 4, tz + 2, tx + 4, st + 6, tz + 2, B.gold); vane.set(tx + 5, st + 5, tz + 2, B.gold);
+      vane.box(tx, st + 6, tz + 2, tx + 1, st + 6, tz + 2, B.iron); vane.box(tx + 2, st + 6, tz + 2, tx + 2, st + 8, tz + 2, B.gold); vane.set(tx + 3, st + 7, tz + 2, B.gold); vane.set(tx + 1, st + 7, tz + 2, B.gold);
+      acts.push({
+        name: '첨탑 풍향계', hint: '바람이 거세지며 첨탑 꼭대기의 금빛 수탉 풍향계가 팽팽 돌아요', hit: [tx - 1, st + 3, tz, tx + 6, st + 9, tz + 5],
+        run: async a => { a.wind(3, 3.6); for (let k = 0; k < 3; k++) a.burst([tx + 3, st + 6, tz + 3], { n: 10, colors: ['#3a3040', '#6a5a70'], speed: 7, up: 2, life: 2, gravity: -0.4, spread: 3 }); await a.spin('vane', 24, 3.6); },
+      });
+      // ── 쉼터 그네(부품) ──
+      const SX = 49, SZ = 63;
+      for (const x of [SX - 2, SX + 2]) { w.box(x, eg + 1, SZ, x, eg + 8, SZ, B.wood); w.line(x, eg + 1, SZ - 2, x, eg + 6, SZ, B.wood); w.line(x, eg + 1, SZ + 2, x, eg + 6, SZ, B.wood); }
+      w.box(SX - 2, eg + 9, SZ, SX + 2, eg + 9, SZ, B.wood);
+      const swing = w.prop({ name: 'swing', pivot: [SX + 0.5, eg + 9, SZ + 0.5], axis: 'x', rock: 0.04, rockSpeed: 1.4 });
+      for (const x of [SX - 1, SX + 1]) swing.box(x, eg + 3, SZ, x, eg + 8, SZ, B.rope);
+      swing.box(SX - 1, eg + 2, SZ, SX + 1, eg + 2, SZ, B.bench);
+      acts.push({
+        name: '쉼터 그네', hint: '바람이 불자 느릅나무 옆 그네가 높이 흔들리고 잎이 흩날려요', hit: [SX - 2, eg + 1, SZ - 2, SX + 2, eg + 9, SZ + 2],
+        run: async a => {
+          a.wind(2.5, 4);
+          for (const amp of [0.5, 0.9, 1.1, 0.8, 0.5, 0.25]) {
+            a.burst([EX + 0.5, eg + 16, EZ + 0.5], { n: 12, colors: ['#6aaa48', '#4a8a3a', '#e8c040'], speed: 5, up: 1, life: 2.2, gravity: 2, spread: 6 });
+            await a.turn('swing', [amp, 0, 0], 0.55); await a.turn('swing', [-amp, 0, 0], 0.55);
+          }
+          await a.turn('swing', [0, 0, 0], 0.5);
+        },
+      });
+      // ── 텃밭 해바라기(부품): 물을 주면 쑥쑥 자란다 ──
+      const gy = lvl(gz0) + 1, sun = w.prop({ name: 'sunflowers', pivot: [66, gy, gz0 + 6], scl0: [1, 0.05, 1] });
+      const spots = [[54, gz0 + 2], [60, gz0 + 5], [66, gz0 + 2], [72, gz0 + 5], [78, gz0 + 2], [54, gz0 + 8], [72, gz0 + 8], [78, gz0 + 11]];
+      for (const [x, z] of spots) { sun.box(x, gy, z, x, gy + 4, z, B.veg); sun.box(x - 1, gy + 5, z, x + 1, gy + 7, z, B.flowerY); sun.set(x, gy + 6, z, B.bark); sun.set(x + 1, gy + 3, z, B.veg); }
+      acts.push({
+        name: '텃밭 해바라기', hint: '텃밭에 물을 뿌리면 해바라기가 쑥쑥 자라 꽃을 피워요', hit: [48, gy - 1, gz0, 84, gy + 3, gz0 + 11],
+        run: async a => {
+          for (let k = 0; k < 6; k++) { for (const z of [gz0 + 2, gz0 + 8]) a.burst([51 + k * 6, gy + 6, z + 0.5], { n: 18, colors: ['#e0f4ff', '#8ac0f0', '#ffffff'], speed: 2, up: 2, life: 1, gravity: 10, spread: 2 }); await a.wait(0.3); }
+          await a.tween('sunflowers', { scl: [1, 1, 1] }, 2.4);
+          for (const [x, z] of spots) a.burst([x + 0.5, gy + 7, z + 1], { n: 8, colors: ['#ffe060', '#fff4c0'], speed: 2, up: 2, life: 1.4, gravity: 0.5, spread: 1 });
+          await a.wait(2.6);
+          await a.tween('sunflowers', { scl: [1, 0.05, 1] }, 2);
+        },
+      });
+      // ── 굴뚝 연기 ──
+      const chims = allHs.filter(h => h.chimney && Math.abs(h.chimney[0] - 64) < 50 && Math.abs(h.chimney[2] - 64) < 48).map(h => h.chimney);
+      const c0 = chims.slice().sort((p, q) => (q[2] - Math.abs(q[0] - 80) * 0.5) - (p[2] - Math.abs(p[0] - 80) * 0.5))[0];
+      acts.push({
+        name: '굴뚝 연기', hint: '저녁밥 짓는 시간, 집집마다 굴뚝에서 연기가 피어올라요', hit: [Math.floor(c0[0]) - 1, Math.floor(c0[1]) - 6, Math.floor(c0[2]) - 1, Math.floor(c0[0]) + 1, Math.floor(c0[1]) - 2, Math.floor(c0[2]) + 1],
+        run: async a => {
+          for (let k = 0; k < 8; k++) { for (const c of chims) a.burst([c[0], c[1] - 1, c[2]], { n: 5, colors: ['#d8d0d0', '#a8a0a8', '#f0e8e8'], speed: 0.6, up: 3.5, life: 2.4, gravity: -0.6, spread: 0.6 }); await a.wait(0.45); }
+        },
+      });
+      // ── 저녁 창불: 아래 단부터 위 단까지 남향 창에 차례로 불이 켜진다 ──
+      const wins = [], clear = (x, y, z) => { for (let t = 1; t < 40; t++) if (w.get(Math.floor(x + t * 0.45), Math.floor(y + t * 0.56), Math.floor(z + t * 0.69))) return false; return true; };
+      for (let z = 1; z < D - 1; z++) for (let x = 0; x < W; x++) for (let y = base; y < base + 60; y++) if (w.get(x, y, z) === B.win && !w.get(x, y, z + 1) && !w.get(x, y, z + 2) && !w.get(x, y + 1, z + 1) && (x + y) % 2 === 0 && Math.pow(((x - 64) / 64) ** 4 + ((z - 64) / 64) ** 4, 0.25) < 0.7 && clear(x + 0.5, y + 0.5, z + 2)) wins.push([x + 0.5, y, z + 2]);
+      const wh = allHs.filter(h => h.z0 === 3 * BAND + 5 && h.x0 >= 97)[0];
+      acts.push({
+        name: '저녁 창불', hint: '해가 지면 아래 골목부터 언덕 위까지 창문마다 불이 켜져요', hit: [wh.x0, wh.y + 1, wh.z1, wh.x1, wh.top, wh.z1 + 1],
+        run: async a => {
+          const o = { n: 4, colors: ['#ffd890', '#fff0c0'], speed: 0.4, up: 0.5, life: 1.2, gravity: 0, spread: 0.4 };
+          for (let k = 4; k >= 0; k--) { wins.filter(p => Math.floor(p[2] / BAND) === k).forEach(p => a.burst(p, o)); await a.wait(0.7); }
+          await a.wait(0.6);
+        },
+      });
       // ── 가로등(밤에 켜진다), 화분 ──
       for (let k = 0; k < 5; k++) for (const lx of [14, 60, 108]) {
         const lz = k * BAND + 22;

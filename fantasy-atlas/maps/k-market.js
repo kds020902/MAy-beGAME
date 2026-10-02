@@ -59,6 +59,17 @@
       for (const [cx, cz] of [[BX - 1, BZ - 1], [BX + 9, BZ - 1], [BX - 1, BZ + 9], [BX + 9, BZ + 9]]) w.box(cx, g0 + 20, cz, cx, g0 + 34, cz, B.whiteDk);
       for (const y of [g0 + 22, g0 + 34]) w.walls(BX - 1, y, BZ - 1, BX + 9, y, BZ + 9, B.whiteDk);
       for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const d = Math.hypot(u, v); if (d > 3.4) continue; w.set(BX + 4 + u, g0 + 28 + v, BZ + 9, d > 2.6 ? B.gold : ((u === 0 && v >= 0 && v <= 2) || (v === 0 && u >= 0 && u <= 1)) ? B.iron : B.face); }
+      // 시곗바늘(부품): 판 앞에 따로 달아 돌린다
+      for (const [u, v] of [[0, 0], [0, 1], [0, 2], [1, 0]]) w.set(BX + 4 + u, g0 + 28 + v, BZ + 9, B.face);
+      const hands = w.prop({ name: 'hands', pivot: [BX + 4.5, g0 + 28.5, BZ + 10.5], axis: 'z', speed: -0.03 });
+      hands.box(BX + 4, g0 + 28, BZ + 10, BX + 4, g0 + 31, BZ + 10, B.iron); hands.box(BX + 5, g0 + 28, BZ + 10, BX + 6, g0 + 28, BZ + 10, B.iron); hands.set(BX + 4, g0 + 28, BZ + 10, B.gold);
+      acts.push({
+        name: '길드 시계', hint: '시곗바늘이 빙글빙글 돌아 정오를 가리키고 금빛이 반짝여요', hit: [BX + 1, g0 + 25, BZ + 9, BX + 7, g0 + 31, BZ + 10],
+        run: async a => {
+          await a.turn('hands', [0, 0, -Math.PI * 4], 2.6); a.unwind('hands');
+          for (let k = 0; k < 3; k++) { a.burst([BX + 4.5, g0 + 28.5, BZ + 11], { n: 24, colors: ['#ffe8a0', '#e8c04a', '#ffffff'], speed: 4, up: 2, life: 1.3, gravity: 1, spread: 2.5 }); await a.turn('hands', [0, 0, -0.3], 0.25); await a.turn('hands', [0, 0, 0], 0.25); }
+        },
+      });
       w.box(BX + 1, g0 + 36, BZ, BX + 7, g0 + 43, BZ + 8, 0); w.box(BX, g0 + 36, BZ + 1, BX + 8, g0 + 43, BZ + 7, 0);
       w.box(BX + 1, g0 + 35, BZ + 1, BX + 7, g0 + 35, BZ + 7, B.whiteDk);
       for (const x of [BX, BX + 8]) for (const z of [BZ, BZ + 8]) w.box(x, g0 + 36, z, x, g0 + 43, z, B.white);
@@ -141,7 +152,65 @@
       for (const px of [24, 50, 78, 104]) w.box(px, UP + 1, 57, px, UP + 14, 57, B.wood);
       for (const [lx, lz] of [[50, 62], [78, 62], [50, 104], [78, 104], [30, 50], [98, 50], [64, 50]]) lights.push({ p: MH.lamp(w, lx, lz, { m: { post: B.iron, glow: B.lampG, found: B.found }, h: 6 }), c: '#ffe0a0', i: 1, d: 13, flicker: 0.05, night: true });
       for (const [tx, tz] of [[30, 46], [98, 46], [28, 22], [100, 22]]) MH.tree(w, tx, UP + 1, tz, { kind: 'oak', h: 9, bark: B.bark, leaves: [B.leaf2, B.leaf, B.leafDk], r: 4 });
-      for (let i = 0; i < 40; i++) { const x = w.ri(48, 108), z = w.ri(60, 106), g = MH.g(w, x, z); if (g === LO && !w.get(x, g + 1, z) && !w.get(x, g + 3, z) && MH.dist(x, z, FX, FZ) > 12 && MH.dist(x, z, HXX, HZZ) > 4) { w.set(x, g + 1, z, w.pick([B.crate, B.barrel, B.crate])); if (w.chance(0.3)) w.set(x, g + 2, z, B.crate); } }
+      // ── 회랑 간판(부품): 기둥에서 내민 쇠팔에 매달려 흔들린다 ──
+      const signs = [[39, B.apple], [49, B.bread], [79, B.fish], [89, B.pot]];
+      signs.forEach(([sx, em], k) => {
+        w.box(sx, g0 + 5, GZ1 + 4, sx, g0 + 5, GZ1 + 6, B.iron);
+        const p = w.prop({ name: 'sign' + k, pivot: [sx + 0.5, g0 + 5, GZ1 + 6.5], axis: 'x', rock: 0.05, rockSpeed: 1.3, phase: k });
+        p.set(sx, g0 + 4, GZ1 + 6, B.iron); p.box(sx - 1, g0 + 1, GZ1 + 6, sx + 1, g0 + 3, GZ1 + 6, B.plank); p.box(sx - 1, g0 + 3, GZ1 + 6, sx + 1, g0 + 3, GZ1 + 6, B.frame); p.set(sx, g0 + 2, GZ1 + 6, em);
+      });
+      acts.push({
+        name: '상점 간판', hint: '돌풍이 불어 회랑의 간판들이 삐걱삐걱 흔들려요', hit: [38, g0 + 1, GZ1 + 4, 90, g0 + 5, GZ1 + 6],
+        run: async a => {
+          a.wind(3, 3.4);
+          for (const amp of [0.7, 0.55, 0.4, 0.22]) { await Promise.all(signs.map((s, k) => a.turn('sign' + k, [amp * (k % 2 ? -1 : 1), 0, 0], 0.4))); await Promise.all(signs.map((s, k) => a.turn('sign' + k, [-amp * (k % 2 ? -1 : 1), 0, 0], 0.4))); }
+          await Promise.all(signs.map((s, k) => a.turn('sign' + k, [0, 0, 0], 0.4)));
+        },
+      });
+      // ── 길드 회관 창불: 아래층부터 차례로 불이 켜진다 ──
+      lights.push({ name: 'guild', p: [64.5, g0 + 11, GZ1 + 2], c: '#ffd890', i: 1.2, d: 30, flicker: 0.1 });
+      acts.push({
+        name: '길드 회관 창불', hint: '회관 창마다 아래층부터 차례로 등불이 켜져요', hit: [GX0, g0 + 9, GZ1, GX1, g0 + 18, GZ1 + 1],
+        run: async a => {
+          a.flash('guild', 4, 4.5);
+          const o = { n: 7, colors: ['#ffd890', '#fff0c0'], speed: 0.6, up: 0.6, life: 1, gravity: 0, spread: 0.6 };
+          for (const fy of [g0 + 1, g0 + 9, g0 + 15]) { for (let x = GX0 + 2; x <= GX1 - 3; x += 5) if (fy !== g0 + 1 || x % 10 !== 6) a.burst([x + 1, fy + 2, GZ1 + 1.5], o); await a.wait(0.6); }
+          for (const dx of [40, 50, 76, 86]) a.burst([dx + 2, g0 + 23, GZ1 + 2], o);
+          await a.wait(0.8);
+        },
+      });
+      // ── 짐마차(부품): 아랫광장을 가로질러 오간다 ──
+      const CY = LO + 1, CZc = 70;
+      const cart = w.prop({ name: 'cart', pivot: [52.5, CY, CZc + 0.5] });
+      cart.box(50, CY + 1, CZc - 1, 54, CY + 1, CZc + 1, B.plank); cart.box(50, CY + 2, CZc - 1, 50, CY + 2, CZc + 1, B.wood); cart.box(54, CY + 2, CZc - 1, 54, CY + 2, CZc + 1, B.wood);
+      for (const x of [51, 53]) for (const z of [CZc - 2, CZc + 2]) { cart.box(x, CY, z, x, CY + 1, z, B.iron); }
+      cart.box(55, CY + 1, CZc, 57, CY + 1, CZc, B.wood); cart.box(51, CY + 2, CZc - 1, 52, CY + 3, CZc, B.barrel); cart.set(53, CY + 2, CZc + 1, B.crate); cart.set(51, CY + 2, CZc + 1, B.melon); cart.set(52, CY + 2, CZc + 1, B.apple); cart.set(53, CY + 2, CZc, B.orange);
+      acts.push({
+        name: '짐마차', hint: '과일과 술통을 실은 짐마차가 아랫광장을 가로질러 오가요', hit: [50, CY, CZc - 2, 57, CY + 3, CZc + 2],
+        run: async a => {
+          const dust = x => a.burst([x, CY + 0.5, CZc + 0.5], { n: 10, colors: ['#c8c0b0', '#a8a49c'], speed: 2, up: 1, life: 0.8, gravity: 2, spread: 2, flat: true });
+          const go = async (x0, dx) => { for (let k = 0; k < 6; k++) { dust(x0 + dx * k); await a.wait(0.8); } };
+          await Promise.all([a.move('cart', [36, 0, 0], 4.8, t => t), go(52, 6)]);
+          await a.turn('cart', [0, Math.PI, 0], 1.4);
+          await Promise.all([a.move('cart', [0, 0, 0], 4.8, t => t), go(88, -6)]);
+          await a.turn('cart', [0, 0, 0], 1.4);
+        },
+      });
+      // ── 장터 불꽃놀이 ──
+      acts.push({
+        name: '장터 불꽃놀이', hint: '분수 위 하늘로 장날을 축하하는 불꽃이 터져요', hit: [FX - 2, LO + 15, FZ - 2, FX + 2, LO + 21, FZ + 2],
+        run: async a => {
+          const sets = [['#ff6a5a', '#ffe0a0'], ['#6ad0ff', '#ffffff'], ['#ffe060', '#ff9a3a'], ['#c08aff', '#ffd0f0'], ['#7aff9a', '#ffffff']];
+          for (let k = 0; k < 7; k++) {
+            const x = FX + 0.5 + [-16, 10, -4, 18, -12, 4, 0][k], z = FZ + 0.5 + [-14, -10, 6, -2, 2, -20, -8][k];
+            a.burst([x, LO + 22, z], { n: 10, colors: ['#ffe8a0'], speed: 0.4, up: 18, life: 0.9, gravity: 4, spread: 0.3 });
+            await a.wait(0.6);
+            a.burst([x, LO + 40, z], { n: 80, colors: sets[k % sets.length], speed: 14, up: 2, life: 1.6, gravity: 2.5, spread: 1 });
+            await a.wait(0.3);
+          }
+        },
+      });
+      for (let i = 0; i < 40; i++) { const x = w.ri(48, 108), z = w.ri(60, 106), g = MH.g(w, x, z); if (g === LO && !w.get(x, g + 1, z) && !w.get(x, g + 3, z) && MH.dist(x, z, FX, FZ) > 12 && MH.dist(x, z, HXX, HZZ) > 4 && (z < CZc - 4 || z > CZc + 4)) { w.set(x, g + 1, z, w.pick([B.crate, B.barrel, B.crate])); if (w.chance(0.3)) w.set(x, g + 2, z, B.crate); } }
       return { lights, landmarks, acts };
     },
   }));

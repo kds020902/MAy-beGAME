@@ -83,6 +83,17 @@
         },
       });
       landmarks.push({ name: '알현실', note: '왕좌와 스테인드글라스', p: [64.5, ty + 20, 16.5], tag: 'THRONE' });
+      acts.push({
+        name: '스테인드글라스', hint: '달빛이 스테인드글라스를 지나 알현실 바닥에 붉고 푸른 빛을 뿌려요', hit: [46, Y + 2, Z0 + 1, 84, Y + 8, Z0 + 2],
+        run: async a => {
+          a.glow(2.6, 5); a.flash('throne', 1.8, 5);
+          for (let k = 0; k < 8; k++) {
+            for (const [gx, col] of [[46, '#ff5a6a'], [52, '#6aa8ff'], [76, '#6aa8ff'], [82, '#ff5a6a']]) a.burst([gx + 1.5, Y + 5 - k * 0.4, Z0 + 3 + k * 2.4], { n: 8, colors: [col, '#ffffff'], speed: 0.8, up: 0.3, life: 1.6, gravity: 0.4, spread: 1.4 });
+            await a.wait(0.35);
+          }
+          await a.wait(1);
+        },
+      });
       // ── 현관 홀: 큰 계단(잘린 중이층으로) ──
       floor(41, 62, 87, 109, B.marble);
       for (let z = 62; z <= 109; z++) for (let x = 61; x <= 67; x++) w.set(x, F, z, (x === 61 || x === 67) ? B.carpetG : B.carpet);
@@ -111,12 +122,23 @@
       landmarks.push({ name: '연회장', note: '긴 식탁 두 줄과 큰 벽난로', p: [27.5, Y + 12, 42.5] });
       // 주방: 화덕, 조리대, 통, 매단 냄비
       w.box(16, Y, 98, 18, Y + 6, 108, B.hearth); w.box(17, Y + 1, 100, 18, Y + 3, 102, 0); w.box(17, Y + 1, 104, 18, Y + 3, 106, 0); w.set(17, Y + 1, 101, B.fire); w.set(17, Y + 1, 105, B.fire);
-      lights.push({ p: [19, Y + 2, 103.5], c: '#ff9a40', i: 1.2, d: 14, flicker: 0.3 });
+      lights.push({ name: 'kitchen', p: [19, Y + 2, 103.5], c: '#ff9a40', i: 1.2, d: 14, flicker: 0.3 });
       w.box(24, Y, 80, 32, Y + 1, 84, B.table); for (let x = 24; x <= 32; x += 2) w.set(x, Y + 2, 82, [B.food, B.food2, B.plate][x % 3]);
       w.box(24, Y, 94, 32, Y + 1, 98, B.table); w.set(26, Y + 2, 96, B.food2); w.set(30, Y + 2, 96, B.food);
       for (const [bx, bz] of [[36, 74], [36, 76], [35, 75], [36, 108], [34, 108], [36, 106]]) { w.set(bx, Y, bz, B.barrel); w.set(bx, Y + 1, bz, B.barrel); }
-      for (let x = 22; x <= 34; x += 3) { w.set(x, Y + 8, 73, B.iron); w.set(x, Y + 7, 73, B.iron); w.set(x, Y + 6, 73, x % 2 ? B.steel : B.gold); }
+      w.box(16, Y + 9, 73, 38, Y + 9, 73, B.iron);
+      const pots = w.prop({ name: 'pots', pivot: [28.5, Y + 9, 73.5], axis: 'x', rock: 0.03 });
+      for (let x = 22; x <= 34; x += 3) { pots.set(x, Y + 8, 73, B.iron); pots.set(x, Y + 7, 73, B.iron); pots.set(x, Y + 6, 73, x % 2 ? B.steel : B.gold); }
       landmarks.push({ name: '주방', note: '화덕 두 개와 조리대', p: [27.5, Y + 10, 92.5] });
+      acts.push({
+        name: '주방 화덕', hint: '화덕 불이 확 일고 매달린 냄비들이 달그락 흔들리며 김이 올라요', hit: [16, Y, 98, 19, Y + 6, 108],
+        run: async a => {
+          a.flash('kitchen', 3, 4);
+          const fire = async () => { for (let k = 0; k < 8; k++) { for (const z of [101.5, 105.5]) a.burst([18.8, Y + 2, z], { n: 12, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], speed: 2, up: 4, life: 1, gravity: 2, spread: 1 }); for (const z of [82, 96]) a.burst([28.5, Y + 3, z + 0.5], { n: 6, colors: ['#ffffff', '#e8e8f0'], speed: 0.6, up: 3, life: 1.8, gravity: -0.8, spread: 2 }); await a.wait(0.4); } };
+          const swing = async () => { for (const amp of [0.9, 0.6, 0.35]) { await a.turn('pots', [amp, 0, 0], 0.4); await a.turn('pots', [-amp, 0, 0], 0.4); } await a.turn('pots', [0, 0, 0], 0.4); };
+          await Promise.all([fire(), swing()]);
+        },
+      });
       // ── 동쪽: 왕실 서고, 보물고, 무기고 ──
       floor(90, 14, 112, 61, B.plankF); floor(90, 64, 112, 89, B.tile); floor(90, 92, 112, 110, B.kfloor);
       const books = [B.book1, B.book2, B.book3, B.book4];
@@ -125,7 +147,28 @@
       for (let z = 16; z <= 58; z += 2) for (let y = Y; y <= Y + 7; y++) if (z < 33 || z > 39) w.set(112, y, z, (y - Y) % 2 === 1 ? B.shelf : books[(hash3(1, y, z) * 4) | 0]);
       for (let y = Y; y <= Y + 7; y++) { w.set(94, y, 25, B.wood); if (y % 2) w.set(95, y, 25, B.wood); }
       w.box(98, Y, 54, 106, Y, 57, B.table); w.set(100, Y + 1, 55, B.book2); w.set(104, Y + 1, 56, B.book1); w.box(102, Y + 1, 55, 102, Y + 2, 55, B.gold); w.set(102, Y + 3, 55, B.candle);
-      w.box(93, Y, 56, 93, Y + 1, 56, B.wood); w.sphere(93, Y + 3, 56, 1.5, B.globe);
+      w.box(93, Y, 56, 93, Y + 1, 56, B.wood);
+      const globe = w.prop({ name: 'globe', pivot: [93.5, Y + 3.5, 56.5], speed: 0.3 });
+      globe.sphere(93, Y + 3, 56, 1.5, B.globe); for (const [x, y, z] of [[92, Y + 3, 55], [94, Y + 4, 56], [93, Y + 2, 57], [92, Y + 4, 57]]) globe.set(x, y, z, B.leaf2);
+      const fbooks = [[98, 54, B.book1], [105, 57, B.book3], [103, 54, B.book4]];
+      fbooks.forEach(([bx, bz, bc], k) => { const p = w.prop({ name: 'fbook' + k, pivot: [bx + 1, Y + 1, bz + 0.5] }); p.set(bx, Y + 1, bz, bc); p.set(bx + 1, Y + 1, bz, bc); p.set(bx, Y + 2, bz, B.cloth); });
+      acts.push({
+        name: '왕실 서고', hint: '지구본이 빙글빙글 돌고 책들이 떠올라 서고 위를 맴돌아요', hit: [91, Y, 53, 106, Y + 5, 58],
+        run: async a => {
+          a.glow(1.5, 8);
+          const fly = async ([bx, bz], k) => {
+            const s0 = [bx + 1, Y + 1, bz + 0.5], pts = [];
+            for (let i = 0; i <= 24; i++) { const t = k * 2.1 + i / 12 * Math.PI; pts.push([102.5 + 5 * Math.cos(t) - s0[0], 9 + Math.sin(i * 0.8) - (i === 24 ? 0 : 0), 55.5 + 5 * Math.sin(t) - s0[2], -t - Math.PI / 2]); }
+            await a.wait(k * 0.3);
+            await a.move('fbook' + k, [0, 5, 0], 1);
+            await a.path('fbook' + k, pts, 6);
+            a.unwind('fbook' + k);
+            await a.tween('fbook' + k, { off: [0, 0, 0], rot: [0, 0, 0] }, 1.2);
+          };
+          const sparkle = async () => { for (let q = 0; q < 14; q++) { a.burst([102.5 + 5 * Math.cos(q), Y + 10, 55.5 + 5 * Math.sin(q)], { n: 6, colors: ['#5ac8ff', '#ffffff', '#ffe2a0'], speed: 1, up: 1, life: 1.2, gravity: -0.3, spread: 1 }); await a.wait(0.5); } };
+          await Promise.all([a.spin('globe', 12, 7), sparkle(), ...fbooks.map(fly)]);
+        },
+      });
       lights.push({ p: [102.5, Y + 4, 55.5], c: '#ffe0a0', i: 1.1, d: 16, flicker: 0.15 });
       landmarks.push({ name: '왕실 서고', note: '왕국의 연대기가 잠든 서가', p: [102.5, Y + 14, 36.5] });
       // 보물고: 금화 더미, 보석, 뚜껑이 열리는 상자
@@ -158,6 +201,33 @@
       // 바깥 뜰: 산울타리와 횃불
       for (const [x, z] of [[58, 116], [70, 116]]) { w.box(x, Y, z, x, Y + 4, z, B.iron); w.set(x, Y + 5, z, B.fire); lights.push({ p: [x + 0.5, Y + 6, z + 0.5], c: '#ffb050', i: 1.1, d: 14, flicker: 0.3 }); }
       for (let x = 20; x <= 108; x += 3) { if (x > 54 && x < 74) continue; w.set(x, F + 1, 118, B.hedge); w.set(x + 1, F + 1, 118, B.hedge); if (x % 2) w.set(x, F + 2, 118, B.hedge); }
+      // ── 성 정문(부품): 남쪽 정문 두 문짝이 바깥 뜰로 열린다 ──
+      const gL = w.prop({ name: 'mgateL', pivot: [60, Y, Z1 + 0.5] }), gR = w.prop({ name: 'mgateR', pivot: [69, Y, Z1 + 0.5] });
+      for (let y = Y; y <= Y + 8; y++) for (let x = 60; x <= 68; x++) (x < 64 ? gL : gR).set(x, y, Z1, (y === Y + 2 || y === Y + 6 || x === 63 || x === 64 || y === Y + 8) ? B.iron : B.door);
+      acts.push({
+        name: '성 정문', hint: '쇠테 두른 정문이 바깥 뜰 쪽으로 활짝 열리며 횃불이 타올라요', hit: [60, Y, Z1 - 1, 68, Y + 8, Z1],
+        run: async a => {
+          await Promise.all([a.turn('mgateL', [0, -1.45, 0], 2.4), a.turn('mgateR', [0, 1.45, 0], 2.4)]);
+          for (let k = 0; k < 4; k++) { for (const x of [58, 70]) a.burst([x + 0.5, Y + 6, 116.5], { n: 12, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], speed: 2, up: 5, life: 1, gravity: -1, spread: 0.8 }); a.burst([64.5, Y + 4, Z1 - 3], { n: 10, colors: ['#ffe8c0', '#ffffff'], speed: 2, up: 2, life: 1.4, gravity: 0, spread: 3 }); await a.wait(0.5); }
+          await a.wait(1.2);
+          await Promise.all([a.turn('mgateL', [0, 0, 0], 2.2), a.turn('mgateR', [0, 0, 0], 2.2)]);
+        },
+      });
+      // ── 밤하늘 불꽃놀이: 익랑 벽 위에서 쏘아 올린다 ──
+      acts.push({
+        name: '밤하늘 불꽃', hint: '왕성 위 밤하늘에 금빛과 푸른빛 불꽃이 연달아 터져요', hit: [38, Y + 9, 98, 41, Y + 10, 104],
+        run: async a => {
+          const sets = [['#ffd860', '#fff4c0'], ['#6aa8ff', '#ffffff'], ['#ff5a6a', '#ffd0d0'], ['#c08aff', '#ffffff'], ['#7aff9a', '#fff4c0']];
+          const pads = [[39.5, 100], [88.5, 36], [39.5, 30], [88.5, 100], [64.5, 64], [39.5, 64], [88.5, 76]];
+          for (let k = 0; k < pads.length; k++) {
+            const [x, z] = pads[k];
+            a.burst([x, Y + 10, z], { n: 10, colors: ['#ffe8a0'], speed: 0.4, up: 20, life: 1, gravity: 4, spread: 0.3 });
+            await a.wait(0.65);
+            a.burst([x, Y + 34, z], { n: 90, colors: sets[k % sets.length], speed: 15, up: 2, life: 1.8, gravity: 2.5, spread: 1 });
+            await a.wait(0.3);
+          }
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

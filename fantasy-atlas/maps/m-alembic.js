@@ -22,6 +22,7 @@
       copper: { c: '#c07a3a', v: 0.08 }, copperDk: { c: '#8a5228', v: 0.06 }, patina: { c: '#4a9a7a', v: 0.08 }, iron: { c: '#3a3a40', v: 0.04 }, log: { c: '#4a3020', v: 0.06, pat: 'log' }, plank: { c: '#6a4a30', v: 0.06, pat: 'plank' },
       winG: { c: '#c8ff8a', night: true, day: '#7a9a80' }, winP: { c: '#e0a0ff', night: true, day: '#8a7aa0' }, lamp: { c: '#b8ff9a', night: true, day: '#9ab090' },
       potG: { c: '#8aff5a', glow: true }, potP: { c: '#d07aff', glow: true }, potR: { c: '#ff6a8a', glow: true }, potB: { c: '#6ac8ff', glow: true }, fire: { c: '#ff9a3a', glow: true },
+      goldG: { c: '#ffd860', glow: true }, philo: { c: '#ff2a4a', glow: true }, frost: { c: '#c8f0ff', glow: true }, soil: { c: '#3a2a1a', top: '#4a3420', v: 0.1 }, mand: { c: '#c8a070', v: 0.08 }, leafM: { c: '#5a9a3a', v: 0.1 },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base, F = base + 2, UPL = base + 18;
@@ -33,7 +34,7 @@
         surface: (x, z, y, s) => s >= 3 ? B.rock : y > F + 8 ? B.grass : B.cob,
         under: (x, z, y, dep, s) => dep < 2 && y > F + 8 && s < 3 ? B.dirt : (y % 5 === 0 ? B.rockDk : B.rock),
       });
-      const lights = [], acts = [], smoke = [], landmarks = [];
+      const lights = [], acts = [], smoke = [], landmarks = [], chims = [];
       // 폐액 수로(골목 가운데)
       for (let z = 0; z < D; z++) { const x = Math.round(cx(z)); if (MH.dist(x, z, 64, 72) < 11) continue; for (const dx of [0, 1]) { MH.setH(w, x + dx, z, F - 2, B.rockDk, B.rockDk); w.liquid(x + dx, z, F - 1); w.set(x + dx, F - 1, z, 0); w.set(x + dx, F, z, 0); } if (z % 12 === 6) for (let dx = -1; dx <= 2; dx++) w.set(x + dx, F, z, B.plank); }
       // ── 기울어진 집들(골목 양쪽) ──
@@ -57,6 +58,7 @@
             w.box(hx, F + 6, z + 6, hx, F + 7, z + 7, pots[(k + 2) % 4]);
           }
           if (k % 2 === 0) lights.push({ p: [fx + 0.5, F + 3, z + 2.5], c: k % 4 === 0 ? '#90ff70' : '#d080ff', i: 0.9, d: 10, flicker: 0.2 });
+          if (h.chimney) chims.push(h.chimney);
           if (h.chimney && smoke.length < 5) smoke.push({ n: 28, colors: smokeCol[k % 4], mode: 'rise', speed: 0.7, area: [h.chimney[0], h.chimney[2], 0.7], y0: h.chimney[1], y1: h.chimney[1] + 18, glow: true });
           k++;
         }
@@ -139,6 +141,100 @@
       landmarks.push({ name: '폐액 물레', note: '넘친 물약을 퍼 올리는 바퀴', p: [PXX + 1, F + 16, PZ + 2.5] });
       // 골목 가로등(초록 불)
       for (let z = 14; z <= 118; z += 22) { const x = Math.round(cx(z)) + 5; if (MH.dist(x, z, KX, KZ) < 14 || w.get(x, F + 1, z)) continue; lights.push({ p: MH.lamp(w, x, z, { m: { post: B.iron, glow: B.lamp, found: B.found }, h: 6 }), c: '#a0ff80', i: 1, d: 13, flicker: 0.1, night: true }); }
+      // ── 현자의 돌(동쪽 절벽 위): 변성진 위에 떠 있는 붉은 돌(부품) ──
+      const SX = 106, SZ = 96, sy = MH.maxG(w, SX - 9, SZ - 9, SX + 9, SZ + 9);
+      MH.flatten(w, SX - 10, SZ - 10, SX + 10, SZ + 10, sy, B.cob, B.rock);
+      MH.circle(w, SX, SZ, 8, B.potR); MH.circle(w, SX, SZ, 5, B.goldG);
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; w.line(SX + Math.cos(a) * 5, sy, SZ + Math.sin(a) * 5, SX + Math.cos(a + 2.09) * 5, sy, SZ + Math.sin(a + 2.09) * 5, B.potR); }
+      for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.78, px = Math.round(SX + Math.cos(a) * 9.5), pz = Math.round(SZ + Math.sin(a) * 9.5); w.box(px, sy + 1, pz, px, sy + 4, pz, B.found); w.set(px, sy + 5, pz, k % 2 ? B.potP : B.potG); }
+      w.box(SX - 1, sy + 1, SZ - 1, SX + 1, sy + 1, SZ + 1, B.copperDk); w.box(SX, sy + 2, SZ, SX, sy + 3, SZ, B.copper);
+      const philo = w.prop({ name: 'philo', pivot: [SX + 0.5, sy + 7.5, SZ + 0.5], axis: 'y', speed: 0.6, bob: 0.5, bobSpeed: 1.2 });
+      philo.sphere(SX, sy + 7, SZ, 1.7, B.philo); philo.set(SX, sy + 9, SZ, B.goldG); philo.set(SX, sy + 5, SZ, B.goldG); philo.set(SX + 2, sy + 7, SZ, B.goldG); philo.set(SX - 2, sy + 7, SZ, B.goldG);
+      lights.push({ name: 'philo', p: [SX + 0.5, sy + 7, SZ + 0.5], c: '#ff4a5a', i: 1.4, d: 18, flicker: 0.12 });
+      acts.push({
+        name: '현자의 돌', hint: '붉은 돌이 높이 떠올라 돌며 금빛 가루를 쏟아내요', hit: [SX - 9, sy + 1, SZ - 9, SX + 9, sy + 10, SZ + 9],
+        run: async a => {
+          a.flash('philo', 4, 5.5); a.glow(1.7, 5.5); a.spin('philo', 9, 5.5);
+          await a.move('philo', [0, 7, 0], 1.4);
+          for (let k = 0; k < 7; k++) { a.burst([SX + 0.5, sy + 14, SZ + 0.5], { n: 36, colors: ['#ffd860', '#fff0a0', '#ff6a8a'], speed: 8, up: 4, life: 1.8, gravity: 6, spread: 1 }); await a.wait(0.4); }
+          a.burst([SX + 0.5, sy + 1, SZ + 0.5], { n: 60, colors: ['#ffd860', '#ff6a8a'], speed: 12, up: 1, life: 1, gravity: 1, spread: 6, flat: true });
+          await a.move('philo', [0, 0, 0], 1.6);
+        },
+      });
+      landmarks.push({ name: '현자의 돌', note: '변성진 위에 떠 있는 붉은 돌', p: [SX + 0.5, sy + 16, SZ + 0.5] });
+      // ── 응축기 남쪽 면의 냉각 팬(부품) ──
+      const fan = w.prop({ name: 'fan', pivot: [CXX + 0.5, cy + 12.5, CZZ + 7.5], axis: 'z', speed: 0.8 });
+      for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; for (let r = 1; r <= 4; r++) for (const s of [-0.35, 0, 0.35]) fan.set(Math.round(CXX + Math.cos(a + s * 1.3 / r * 2) * r), Math.round(cy + 12 + Math.sin(a + s * 1.3 / r * 2) * r), CZZ + 7, r === 4 ? B.copper : B.patina); }
+      fan.set(CXX, cy + 12, CZZ + 7, B.iron); fan.set(CXX, cy + 12, CZZ + 8, B.frost);
+      acts.push({
+        name: '냉각 팬', hint: '응축기의 팬이 세차게 돌며 차가운 김을 내뿜어요', hit: [CXX - 5, cy + 7, CZZ + 5, CXX + 5, cy + 17, CZZ + 9],
+        run: async a => {
+          a.spin('fan', 9, 5);
+          for (let k = 0; k < 9; k++) {
+            a.burst([CXX + 0.5, cy + 12.5, CZZ + 9], { n: 30, colors: ['#c8f0ff', '#ffffff', '#6ac8ff'], speed: 9, up: 0, life: 1.4, gravity: -0.4, spread: 3 });
+            if (k % 2) a.burst([CXX + 0.5, cy + 6, CZZ + 0.5], { n: 10, colors: ['#6ac8ff', '#c8f0ff'], speed: 0.5, up: 0, life: 0.8, gravity: 8, spread: 0.5 });
+            await a.wait(0.5);
+          }
+        },
+      });
+      // ── 굴뚝 폭발: 시점 쪽 공방 굴뚝의 뚜껑(부품)이 펑 하고 날아간다 ──
+      const ch = chims.reduce((b, c) => c[0] + c[2] > b[0] + b[2] && c[2] < 112 ? c : b), hx = ch[0] - 0.5, hz = ch[2] - 0.5, hy = ch[1];
+      const lid = w.prop({ name: 'lid', pivot: [hx + 1, hy + 1, hz + 1] });
+      for (const [dx, dz] of [[0, 0], [1, 1]]) lid.set(hx + dx, hy, hz + dz, B.iron);
+      lid.box(hx - 1, hy + 1, hz - 1, hx + 2, hy + 1, hz + 2, B.copper); lid.box(hx, hy + 2, hz, hx + 1, hy + 2, hz + 1, B.copperDk); lid.set(hx, hy + 3, hz, B.potP);
+      acts.push({
+        name: '굴뚝 폭발', hint: '실험이 실패해 굴뚝 뚜껑이 펑 하고 날아가요', hit: [hx - 2, hy - 4, hz - 2, hx + 3, hy + 4, hz + 3],
+        run: async a => {
+          for (let k = 0; k < 4; k++) { await a.turn('lid', [0.12, 0, -0.12], 0.12); await a.turn('lid', [-0.12, 0, 0.12], 0.12); }
+          a.lightning(0.7); a.glow(1.8, 1.5);
+          a.burst([hx + 1, hy + 1, hz + 1], { n: 80, colors: ['#d07aff', '#8aff5a', '#ff6a8a', '#ffd860', '#ffffff'], speed: 12, up: 9, life: 2, gravity: 5, spread: 1 });
+          await a.tween('lid', { off: [0, 16, 0], rot: [0.6, 7, 0.4] }, 1.3);
+          for (let k = 0; k < 3; k++) { a.burst([hx + 1, hy + 2, hz + 1], { n: 30, colors: ['#d07aff', '#f0c8ff', '#888888'], speed: 3, up: 6, life: 2, gravity: -0.5, spread: 1 }); await a.wait(0.3); }
+          await a.tween('lid', { off: [0, 0, 0], rot: [0, 12.566, 0] }, 1.4, t => t * t);
+          a.unwind('lid');
+          a.burst([hx + 1, hy + 1, hz + 1], { n: 20, colors: ['#888888', '#c8c0a8'], speed: 4, up: 1, life: 0.8, gravity: 3, spread: 1, flat: true });
+        },
+      });
+      // ── 증류관을 타고 건너는 물약 방울(부품, 평소엔 숨김) ──
+      const pipeAt = t => [MH.lerp(AX + 3, CXX, t), MH.lerp(ay + 35, cy + 18, t) + Math.sin(t * Math.PI) * 6, MH.lerp(AZ, CZZ, t)];
+      const d0 = pipeAt(0), drop = w.prop({ name: 'drop', pivot: [d0[0] + 0.5, d0[1] + 3, d0[2] + 0.5], axis: 'y', speed: 1, scl0: [0, 0, 0] });
+      drop.sphere(Math.round(d0[0]), Math.round(d0[1] + 3), Math.round(d0[2]), 1.5, B.potG); drop.set(Math.round(d0[0]), Math.round(d0[1] + 5), Math.round(d0[2]), B.frost);
+      const dropPts = []; for (let i = 1; i <= 12; i++) { const p = pipeAt(i / 12); dropPts.push([p[0] - d0[0], p[1] - d0[1], p[2] - d0[2]]); }
+      acts.push({
+        name: '물약 방울', hint: '증류탑 꼭대기에서 빛나는 물약 방울이 관을 타고 협곡을 건너요', hit: [AX - 4, ay + 30, AZ - 4, AX + 5, ay + 39, AZ + 4],
+        run: async a => {
+          a.flash('still', 2.4, 7);
+          a.burst([d0[0] + 0.5, d0[1] + 3, d0[2] + 0.5], { n: 30, colors: ['#8aff5a', '#e0ffc0'], speed: 4, up: 3, life: 1.2, gravity: 2, spread: 1 });
+          await a.tween('drop', { scl: [1, 1, 1] }, 0.7);
+          await a.path('drop', dropPts, 4.5);
+          await a.move('drop', [dropPts[11][0], dropPts[11][1] - 3, dropPts[11][2]], 0.5);
+          a.tween('drop', { scl: [0, 0, 0] }, 0.4);
+          for (let k = 0; k < 4; k++) { a.burst([CXX + 0.5, cy + 6, CZZ + 0.5], { n: 14, colors: ['#8aff5a', '#6ac8ff'], speed: 0.6, up: 0, life: 0.8, gravity: 8, spread: 0.5 }); a.burst([CXX + 0.5, cy + 21, CZZ + 0.5], { n: 16, colors: ['#8aff5a', '#ffffff'], speed: 4, up: 4, life: 1, gravity: 4, spread: 1 }); await a.wait(0.4); }
+          await a.move('drop', [0, 0, 0], 0.1);
+        },
+      });
+      // ── 만드라고라 밭(동쪽 절벽 위): 흙 속 뿌리(부품)가 차례로 튀어나와 비명을 지른다 ──
+      const MX = 100, MZ = 68, my = MH.maxG(w, MX - 2, MZ - 3, MX + 16, MZ + 3);
+      MH.flatten(w, MX - 3, MZ - 4, MX + 17, MZ + 4, my, B.cob, B.rock);
+      w.box(MX - 2, my + 1, MZ - 2, MX + 16, my + 1, MZ + 2, B.plank); w.box(MX - 1, my + 1, MZ - 1, MX + 15, my + 1, MZ + 1, B.soil);
+      for (let k = 0; k < 5; k++) {
+        const x = MX + k * 3 + 1, p = w.prop({ name: 'mand' + k, pivot: [x + 0.5, my + 4, MZ + 0.5], off0: [0, -3, 0], clipOK: 0 });
+        p.box(x - 1, my + 2, MZ, x, my + 4, MZ, B.mand); p.set(x - 1, my + 4, MZ + 1, B.eave); p.set(x, my + 4, MZ + 1, B.eave); p.set(x - 2, my + 3, MZ, B.mand); p.set(x + 1, my + 3, MZ, B.mand);
+        p.box(x - 1, my + 5, MZ, x, my + 5, MZ, B.leafM); p.set(x - 1, my + 6, MZ, B.leafM); p.set(x, my + 6, MZ - 1, B.leafM); p.set(x, my + 7, MZ, B.leafM); p.set(x - 1, my + 6, MZ + 1, B.leafM);
+      }
+      acts.push({
+        name: '만드라고라 밭', hint: '흙 속 만드라고라가 차례로 튀어나와 꽥 비명을 질러요', hit: [MX - 2, my + 1, MZ - 3, MX + 16, my + 8, MZ + 3],
+        run: async a => {
+          for (let k = 0; k < 5; k++) {
+            a.move('mand' + k, [0, 1, 0], 0.35); a.turn('mand' + k, [0, 0.5, 0], 0.2);
+            a.burst([MX + k * 3 + 1, my + 5, MZ + 0.5], { n: 26, colors: ['#ffffff', '#e0ffb0'], speed: 8, up: 0.5, life: 0.7, gravity: 0, spread: 1, flat: true });
+            await a.wait(0.35); a.turn('mand' + k, [0, -0.5, 0], 0.2);
+          }
+          await a.wait(1.4);
+          for (let k = 0; k < 5; k++) { a.turn('mand' + k, [0, 0, 0], 0.4); a.move('mand' + k, [0, -3, 0], 0.6); a.burst([MX + k * 3 + 1, my + 2, MZ + 0.5], { n: 10, colors: ['#4a3420', '#6a4a30'], speed: 2, up: 2, life: 0.6, gravity: 8, spread: 1 }); await a.wait(0.15); }
+          await a.wait(0.6);
+        },
+      });
       return { lights, landmarks, acts, particles: smoke };
     },
   });

@@ -24,6 +24,7 @@
       win: { c: '#c8f4ff', night: true, day: '#8ab0c8' }, lamp: { c: '#c8fff4', night: true, day: '#a8c4c0' },
       crysT: { c: '#7af0e0', glow: true }, crysP: { c: '#d0f8ff', glow: true }, crysV: { c: '#c8a8ff', glow: true },
       portal: { c: '#b890ff', glow: true }, portal2: { c: '#e8d0ff', glow: true }, rune: { c: '#8af0ff', glow: true }, beam: { c: '#e8ffff', glow: true },
+      whale: { c: '#4a7aa8', v: 0.06 }, whaleB: { c: '#c8f4ff', glow: true }, lotus: { c: '#ffc8f0', glow: true }, lant: { c: '#ffe0a0', glow: true },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base, WL = base + 1;
@@ -78,7 +79,7 @@
       landmarks.push({ name: '달의 첨탑', note: '꼭대기에서 초승달이 돈다', p: [64.5, main.top + 16, 50.5], tag: 'MOON' });
       // ── 작은 첨탑과 섬을 잇는 아치 다리 ──
       const sp = [spire(26, 26, 30, 3.2, B.crysT), spire(102, 24, 34, 3.4, B.crysT), spire(100, 86, 28, 3.2, B.crysV)];
-      sp.forEach(s => lights.push({ p: [s.cx + 0.5, s.top - 3, s.cz + 0.5], c: '#70f0e0', i: 1, d: 14, flicker: 0.05, srcR: 6 }));
+      sp.forEach((s, k) => lights.push({ name: 'sp' + k, p: [s.cx + 0.5, s.top - 3, s.cz + 0.5], c: '#70f0e0', i: 1, d: 14, flicker: 0.05, srcR: 6 }));
       const span = (a, b, lift) => {
         const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz), px = -dz / len, pz = dx / len, nn = Math.ceil(len * 2);
         const ya = Math.max(WL + 2, MH.g(w, Math.round(a[0]), Math.round(a[1])) + 1), yb = Math.max(WL + 2, MH.g(w, Math.round(b[0]), Math.round(b[1])) + 1);
@@ -162,6 +163,95 @@
         if (clear && MH.dist(x, z, QX, QZ) > 12) MH.tree(w, x, g + 1, z, { kind: i % 3 ? 'oak' : 'willow', h: w.ri(6, 9), bark: B.bark, leaves: [B.leafS, B.leafT, B.leafT], r: w.r(2.8, 3.6) });
       }
       MH.scatter(w, 500, (x, g, z, b) => { if ((b === B.moss || b === B.moss2) && w.chance(0.2)) w.set(x, g + 1, z, w.chance(0.15) ? B.rune : B.leafT); });
+      // ── 월광 연못의 연꽃(부품, 평소엔 숨김): 기둥 둘레로 피어나 돈다 ──
+      const lotus = w.prop({ name: 'lotus', pivot: [PX + 0.5, py + 1, PZ + 0.5], axis: 'y', speed: 0.4, scl0: [0, 0, 0] });
+      for (let k = 0; k < 5; k++) {
+        const a = k / 5 * Math.PI * 2 + 0.3, lx = Math.round(PX + Math.cos(a) * 4), lz = Math.round(PZ + Math.sin(a) * 4);
+        lotus.box(lx - 1, py + 1, lz - 1, lx + 1, py + 1, lz + 1, B.leafT);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) lotus.set(lx + dx, py + 2, lz + dz, B.lotus);
+        lotus.set(lx, py + 2, lz, B.crysP); lotus.set(lx, py + 3, lz, B.lotus);
+      }
+      acts.push({
+        name: '연꽃 개화', hint: '연못에서 빛나는 연꽃이 피어나 기둥 둘레를 맴돌아요', hit: [PX - 7, py - 1, PZ - 7, PX + 7, py + 7, PZ + 7],
+        run: async a => {
+          a.flash('pool', 3, 6.5);
+          await a.tween('lotus', { scl: [1, 1, 1] }, 1.8);
+          a.spin('lotus', 3, 3.4);
+          for (let k = 0; k < 6; k++) { a.burst([PX + 0.5, py + 3, PZ + 0.5], { n: 26, colors: ['#ffc8f0', '#d0f8ff', '#ffffff'], speed: 5, up: 4, life: 1.8, gravity: -0.3, spread: 4 }); await a.wait(0.55); }
+          await a.tween('lotus', { scl: [0, 0, 0] }, 1.4);
+        },
+      });
+      // ── 수정 정원 위를 떠도는 수정 조각(부품) ──
+      const CGX = 110, CGZ = 92, cgy = top(CGX, CGZ) + 12;
+      const shards = w.prop({ name: 'shards', pivot: [CGX + 0.5, cgy + 1, CGZ + 0.5], axis: 'y', speed: 0.25, bob: 0.5, bobSpeed: 0.7 });
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, x = Math.round(CGX + Math.cos(a) * 7), z = Math.round(CGZ + Math.sin(a) * 7), y = cgy + (k % 2) * 2, c = k % 2 ? B.crysV : B.crysT; shards.box(x, y - 1, z, x, y + 2, z, c); shards.set(x + 1, y + 1, z, c); shards.set(x - 1, y, z, c); shards.set(x, y + 3, z, B.crysP); }
+      lights.push({ name: 'garden', p: [CGX + 0.5, cgy, CGZ + 0.5], c: '#a0f0ff', i: 1.2, d: 20, flicker: 0.08, srcR: 8 });
+      acts.push({
+        name: '수정 공명', hint: '수정 조각들이 높이 떠올라 빠르게 돌며 빛을 뿌려요', hit: [CGX - 8, cgy - 13, CGZ - 8, CGX + 8, cgy + 4, CGZ + 8],
+        run: async a => {
+          a.flash('garden', 4, 5); a.glow(1.7, 5); a.spin('shards', 10, 5);
+          await a.move('shards', [0, 8, 0], 1.4);
+          for (let k = 0; k < 6; k++) { a.burst([CGX + 0.5, cgy + 9, CGZ + 0.5], { n: 30, colors: ['#7af0e0', '#c8a8ff', '#ffffff'], speed: 10, up: 1, life: 1.6, gravity: 0.5, spread: 2 }); await a.wait(0.4); }
+          await a.move('shards', [0, 0, 0], 1.4);
+        },
+      });
+      // ── 달빛 고래: 호수 속에서 뛰어올라 반대편 물속으로 들어간다(부품) ──
+      const WS = [78, 104], WE = [90, 92], wy = base - 3;
+      for (const [cx, cz] of [WS, WE]) for (let z = cz - 11; z <= cz + 11; z++) for (let x = cx - 11; x <= cx + 11; x++) if (MH.dist(x, z, cx, cz) <= 10.9 && MH.g(w, x, z) < WL - 1) MH.setH(w, x, z, base - 7, B.sand, B.rockDk);
+      const yaw0 = Math.atan2(-(WE[1] - WS[1]), WE[0] - WS[0]);
+      const whale = w.prop({ name: 'whale', pivot: [WS[0] + 0.5, wy + 0.5, WS[1] + 0.5], rot0: [0, yaw0, 0] });
+      whale.ellipsoid(WS[0], wy, WS[1], 5.8, 2.3, 2.3, B.whale); whale.ellipsoid(WS[0] + 1, wy - 1.2, WS[1], 4.4, 1.2, 1.7, B.whaleB);
+      whale.box(WS[0] - 8, wy, WS[1], WS[0] - 6, wy + 1, WS[1], B.whale); whale.box(WS[0] - 10, wy + 1, WS[1] - 3, WS[0] - 9, wy + 1, WS[1] + 3, B.whaleB); whale.box(WS[0] - 9, wy + 1, WS[1] - 1, WS[0] - 8, wy + 1, WS[1] + 1, B.whale);
+      whale.set(WS[0] + 4, wy + 1, WS[1] - 2, B.whaleB); whale.set(WS[0] + 4, wy + 1, WS[1] + 2, B.whaleB); whale.box(WS[0] + 1, wy - 1, WS[1] - 4, WS[0] + 2, wy - 1, WS[1] - 3, B.whale); whale.box(WS[0] + 1, wy - 1, WS[1] + 3, WS[0] + 2, wy - 1, WS[1] + 4, B.whale);
+      for (let x = WS[0] - 4; x <= WS[0] + 3; x += 2) whale.set(x, wy + 3, WS[1], B.whaleB);
+      const jump = [];
+      for (let i = 1; i <= 10; i++) { const t = i / 10, dy = 4 * 17 * t * (1 - t) + (t > 0.9 ? -1 : 0); jump.push([(WE[0] - WS[0]) * t, dy, (WE[1] - WS[1]) * t, Math.atan2(4 * 17 * (1 - 2 * t), Math.hypot(WE[0] - WS[0], WE[1] - WS[1])) * 0.9]); }
+      acts.push({
+        name: '달빛 고래', hint: '호수 속 달빛 고래가 물 위로 크게 뛰어올라요', hit: [WS[0] - 6, WL - 1, WS[1] - 6, WS[0] + 6, WL + 2, WS[1] + 6],
+        run: async a => {
+          a.burst([WS[0] + 0.5, WL + 1, WS[1] + 0.5], { n: 30, colors: ['#e0ffff', '#7af0e0'], speed: 4, up: 3, life: 1, gravity: 6, spread: 3 });
+          await a.tween('whale', { off: [0, 2, 0], rot: [0, yaw0, 0.6] }, 0.6, t => t);
+          for (const q of jump) await a.tween('whale', { off: [q[0], q[1] + 2, q[2]], rot: [0, yaw0, q[3]] }, 0.28, t => t);
+          a.burst([WE[0] + 0.5, WL + 1, WE[1] + 0.5], { n: 70, colors: ['#e0ffff', '#ffffff', '#7af0e0'], speed: 8, up: 8, life: 1.4, gravity: 10, spread: 3 });
+          a.flash('moon', 2.4, 1.2);
+          await a.tween('whale', { off: [WE[0] - WS[0], -1, WE[1] - WS[1]], rot: [0, yaw0, -0.6] }, 0.5);
+          await a.tween('whale', { scl: [0, 0, 0] }, 0.3);
+          await a.tween('whale', { off: [0, 0, 0], rot: [0, yaw0, 0] }, 0.1);
+          await a.wait(0.6); await a.tween('whale', { scl: [1, 1, 1] }, 0.6);
+        },
+      });
+      landmarks.push({ name: '고래의 물길', note: '달밤에 뛰어오르는 달빛 고래', p: [WS[0] + 6.5, WL + 10, WS[1] - 6.5] });
+      // ── 작은 첨탑의 후광(부품): 빛의 고리가 하늘로 솟는다 ──
+      sp.forEach((s, k) => { const h = w.prop({ name: 'halo' + k, pivot: [s.cx + 0.5, s.top + 2.5, s.cz + 0.5], axis: 'y', speed: 0.5 }); MH.ringProp(h, s.cx, s.top + 2, s.cz, 2.6, 'xz', B.beam, B.crysP, 4); });
+      acts.push({
+        name: '첨탑 후광', hint: '세 첨탑 끝의 빛 고리가 하늘로 솟아오르며 넓게 퍼져요', hit: [96, sp[2].top - 8, 82, 104, sp[2].top + 4, 90],
+        run: async a => {
+          a.glow(1.7, 5);
+          for (let k = 0; k < 3; k++) { a.flash('sp' + k, 4, 5); a.spin('halo' + k, 6, 5); a.tween('halo' + k, { off: [0, 14, 0], scl: [3, 1, 3] }, 2); a.burst([sp[k].cx + 0.5, sp[k].top, sp[k].cz + 0.5], { n: 30, colors: ['#e8ffff', '#7af0e0'], speed: 1, up: 14, life: 1.6, gravity: 0, spread: 1 }); await a.wait(0.3); }
+          await a.wait(2.2);
+          for (let k = 0; k < 3; k++) a.burst([sp[k].cx + 0.5, sp[k].top + 16, sp[k].cz + 0.5], { n: 40, colors: ['#e8ffff', '#c8a8ff', '#ffffff'], speed: 9, up: 0, life: 1.6, gravity: 0.5, spread: 2, flat: true });
+          for (let k = 0; k < 3; k++) a.tween('halo' + k, { off: [0, 0, 0], scl: [1, 1, 1] }, 1.8);
+          await a.wait(1.9);
+        },
+      });
+      // ── 달맞이 등롱: 호수에 뜬 등롱(부품)들이 차례로 하늘로 떠오른다 ──
+      const lantG = [];
+      for (let k = 0; k < 3; k++) {
+        const nm = 'lant' + k, lp = w.prop({ name: nm, pivot: [46.5 + k * 3, WL + 2, 92.5], bob: 0.3, bobSpeed: 0.9, phase: k * 2 });
+        for (let q = 0; q < 4; q++) { const x = 38 + ((k * 4 + q) * 7) % 20, z = 84 + ((k * 4 + q) * 11) % 18; if (MH.g(w, x, z) >= WL) continue; lp.set(x, WL + 1, z, B.silver); lp.box(x, WL + 2, z, x, WL + 3, z, B.lant); lp.set(x, WL + 4, z, B.silver); }
+        lantG.push(nm);
+      }
+      acts.push({
+        name: '달맞이 등롱', hint: '호수에 떠 있던 등롱들이 차례로 밤하늘로 떠올라요', hit: [36, WL - 1, 82, 60, WL + 5, 104],
+        run: async a => {
+          for (let k = 0; k < 3; k++) { a.move(lantG[k], [k - 1, 26 + k * 4, -k * 2], 3.6); a.burst([48.5 + k * 3, WL + 1, 92.5], { n: 20, colors: ['#ffe0a0', '#ffffff'], speed: 3, up: 2, life: 1, gravity: 2, spread: 6, flat: true }); await a.wait(0.5); }
+          await a.wait(3.4);
+          for (let k = 0; k < 3; k++) a.burst([47.5 + k * 3, WL + 28 + k * 4, 91.5 - k * 2], { n: 20, colors: ['#ffe0a0', '#fff8d0'], speed: 4, up: 0, life: 1.6, gravity: 0.3, spread: 6 });
+          await a.wait(1);
+          for (let k = 0; k < 3; k++) a.move(lantG[k], [0, 0, 0], 3);
+          await a.wait(3.1);
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

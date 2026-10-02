@@ -130,19 +130,105 @@
       landmarks.push({ name: '유성 구덩이', note: '아직 식지 않은 별 조각', p: [MXX + 0.5, my + 9, MZZ + 0.5] });
       // ── 점성술사의 집(돔 지붕)과 관측 탑 ──
       const hm = { found: B.marbleDk, wall: B.marble, frame: B.marbleDk, quoin: B.trim, win: B.win, sill: B.trim, door: B.door, roof: B.roofN, eave: B.iron, lamp: B.lamp };
+      const domes = [];
       for (const [x, z, face] of [[22, 78, 'e'], [26, 96, 'e'], [40, 108, 'n'], [74, 108, 'n'], [96, 70, 'w']]) {
         const h = MH.house(w, { x, z, sx: 9, sz: 9, fh: 6, face, roof: 'flat', m: hm });
-        w.cyl(x + 4, z + 4, h.top + 1, h.top + 2, 3.6, B.marbleDk); const dt = MH.dome(w, x + 4, h.top + 3, z + 4, 3.8, B.roofN, B.silver); w.set(x + 4, dt, z + 4, B.silver);
+        w.cyl(x + 4, z + 4, h.top + 1, h.top + 2, 3.6, B.marbleDk); const dt = MH.dome(w, x + 4, h.top + 3, z + 4, 3.8, B.roofN, B.silver); w.set(x + 4, dt, z + 4, B.silver); domes.push([x + 4, dt, z + 4]);
         lights.push({ p: [h.door[0] + 0.5, h.door[1] + 3, h.door[2] + 0.5], c: '#d0e0ff', i: 0.8, d: 10, flicker: 0.05, night: true });
       }
+      const tTop = [];
       for (const [tx, tz] of [[24, 50], [104, 46]]) {
         const g = MH.g(w, tx, tz) + 1;
         const t = MH.tower(w, { cx: tx, cz: tz, y0: g, h: 18, r: 3, m: { wall: B.marble, band: B.marbleDk, win: B.win, cren: B.trim } });
-        w.line(tx, t, tz, tx + 4, t + 5, tz + 3, B.brass, 0.8); w.set(tx + 5, t + 6, tz + 4, B.lens);
+        tTop.push(t);
+        if (tx < 64) { w.line(tx, t, tz, tx + 4, t + 5, tz + 3, B.brass, 0.8); w.set(tx + 5, t + 6, tz + 4, B.lens); continue; }
+        // 동쪽 탑의 망원경은 부품(수평으로 돈다)
+        w.box(tx, t - 1, tz, tx, t, tz, B.iron);
+        const ts = w.prop({ name: 'tscope', pivot: [tx + 0.5, t + 1, tz + 0.5], axis: 'y' });
+        ts.line(tx, t + 1, tz, tx + 4, t + 6, tz + 3, B.brass, 0.8); ts.set(tx + 5, t + 7, tz + 4, B.lens); ts.set(tx, t + 1, tz, B.brassDk);
+        lights.push({ name: 'tscope', p: [tx + 3.5, t + 5, tz + 2.5], c: '#a0d8ff', i: 1.1, d: 16, flicker: 0.05 });
       }
       // 선돌과 나무
-      for (let i = 0; i < 9; i++) { const a = i * 0.7, x = Math.round(64 + Math.cos(a) * 17), z = Math.round(PZ + Math.sin(a) * 15), g = MH.g(w, x, z); if (g === py && !w.get(x, g + 1, z) && Math.abs(x - 64) > 6) { w.box(x, g + 1, z, x, g + 5 + (i % 3), z, B.marbleDk); w.set(x, g + 3, z, i % 2 ? B.starG : B.starB); } }
+      const menh = w.prop({ name: 'menhirs', pivot: [64.5, py + 1, PZ + 0.5], axis: 'y' }), mPts = [];
+      for (let i = 0; i < 9; i++) { const a = i * 0.7, x = Math.round(64 + Math.cos(a) * 17), z = Math.round(PZ + Math.sin(a) * 15), g = MH.g(w, x, z); if (g === py && !w.get(x, g + 1, z) && Math.abs(x - 64) > 6) { menh.box(x, g + 1, z, x, g + 5 + (i % 3), z, B.marbleDk); menh.set(x, g + 3, z, i % 2 ? B.starG : B.starB); mPts.push([x + 0.5, g + 3, z + 0.5]); } }
       for (let i = 0; i < 26; i++) { const x = w.ri(6, 122), z = w.ri(6, 122), g = MH.g(w, x, z); if (g > base + 1 && w.slope[x + W * z] < 2 && !w.get(x, g + 1, z) && w.get(x, g, z) !== B.path && w.get(x, g, z) !== B.marbleDk && MH.dist(x, z, SX, SZ) > 20 && MH.dist(x, z, MXX, MZZ) > 11 && MH.dist(x, z, 64, PZ) > 16) MH.tree(w, x, g + 1, z, { kind: 'pine', h: w.ri(9, 15), bark: B.bark, leaves: [B.leaf2, B.leaf, B.leaf], r: 3.2 }); }
+      // ── 동쪽 관측 탑: 작은 망원경이 하늘을 훑는다 ──
+      const ET = tTop[1];
+      acts.push({
+        name: '관측 탑', hint: '동쪽 탑의 망원경이 하늘을 훑으며 별을 찾아요', hit: [100, ET - 6, 42, 110, ET + 8, 51],
+        run: async a => {
+          a.flash('tscope', 3, 6);
+          await a.turn('tscope', [0, 1.6, 0], 1.4); a.burst([104 + 5, ET + 12, 46 - 6], { n: 24, colors: ['#ffffff', '#a0d8ff'], speed: 3, up: 1, life: 1.6, gravity: 0, spread: 4 });
+          await a.wait(0.5);
+          await a.turn('tscope', [0, 3.6, 0], 1.4); a.burst([104 - 6, ET + 12, 46 - 3], { n: 24, colors: ['#ffffff', '#fff8d0'], speed: 3, up: 1, life: 1.6, gravity: 0, spread: 4 });
+          await a.wait(0.5);
+          await a.turn('tscope', [0, 6.283, 0], 1.6); a.unwind('tscope');
+          a.burst([104 + 6, ET + 9, 46 + 5], { n: 30, colors: ['#ffffff', '#a0d8ff', '#fff8d0'], speed: 4, up: 1, life: 1.8, gravity: 0, spread: 3 });
+        },
+      });
+      // ── 점성술사의 집(남쪽): 돔에서 망원경(부품, 평소엔 안에 숨음)이 솟아 돈다 ──
+      const [DX, DT, DZ] = domes[3];
+      const dscope = w.prop({ name: 'dscope', pivot: [DX + 0.5, DT + 1, DZ + 0.5], axis: 'y', off0: [0, -8, 0] });
+      dscope.line(DX, DT + 1, DZ, DX + 2, DT + 8, DZ + 2, B.brass, 0.8); dscope.box(DX, DT + 1, DZ, DX, DT + 2, DZ, B.brassDk); dscope.set(DX + 2, DT + 9, DZ + 2, B.lens); dscope.set(DX + 3, DT + 8, DZ + 2, B.lens);
+      acts.push({
+        name: '돔 망원경', hint: '점성술사의 돔에서 망원경이 솟아올라 빙 돌아요', hit: [DX - 4, DT - 5, DZ - 4, DX + 4, DT + 2, DZ + 4],
+        run: async a => {
+          a.burst([DX + 0.5, DT + 1, DZ + 0.5], { n: 24, colors: ['#c8d4e0', '#ffffff'], speed: 3, up: 2, life: 1, gravity: 3, spread: 2 });
+          await a.move('dscope', [0, 0, 0], 1.6);
+          await a.turn('dscope', [0, 6.283, 0], 3.6);
+          a.unwind('dscope');
+          for (let k = 0; k < 3; k++) { a.burst([DX + 3, DT + 12, DZ + 3], { n: 24, colors: ['#ffffff', '#a0d8ff', '#fff8d0'], speed: 3, up: 2, life: 1.6, gravity: 0, spread: 3 }); await a.wait(0.4); }
+          await a.move('dscope', [0, -8, 0], 1.4);
+        },
+      });
+      // ── 별자리 정원: 바닥의 별이 떠올라 하늘에 큰 별자리(부품, 평소엔 숨김)를 그린다 ──
+      const CGX = 52, CGZ = 88, CGY = py + 32, U = Math.SQRT1_2;
+      const cst = w.prop({ name: 'cstars', pivot: [CGX + 0.5, py + 1, CGZ + 0.5], scl0: [0, 0, 0] });
+      const dip = [[-15, 1], [-10, 3], [-5, 4], [0, 2], [1, -3], [8, -4], [9, 2]].map(([u, v]) => [Math.round(CGX + u * U), CGY + v, Math.round(CGZ - u * U)]);
+      for (let i = 0; i < dip.length - 1; i++) { const [ax, ay2, az] = dip[i], [bx, by2, bz] = dip[i + 1 === 7 ? 3 : i + 1]; cst.line(ax, ay2, az, bx, by2, bz, B.silver, 0); }
+      cst.line(dip[6][0], dip[6][1], dip[6][2], dip[3][0], dip[3][1], dip[3][2], B.silver, 0);
+      for (const [x, y, z] of dip) { cst.box(x - 1, y, z, x + 1, y, z, B.starG); cst.box(x, y - 1, z, x, y + 1, z, B.starG); cst.set(x, y, z - 1, B.starB); cst.set(x, y, z + 1, B.starB); }
+      acts.push({
+        name: '별자리 승천', hint: '바닥의 별들이 하늘로 떠올라 커다란 별자리를 그려요', hit: [44, py, 88, 58, py + 3, 97],
+        run: async a => {
+          a.glow(1.7, 7);
+          for (let k = 0; k < 4; k++) a.burst([CGX + 0.5 - k * 2, py + 1, CGZ + 5.5 + k], { n: 20, colors: ['#fff8d0', '#8ab8ff'], speed: 1, up: 10, life: 1.6, gravity: 0, spread: 2 });
+          await a.tween('cstars', { scl: [1, 1, 1] }, 2.4);
+          for (const p of dip) { a.burst([p[0] + 0.5, p[1] + 0.5, p[2] + 0.5], { n: 18, colors: ['#ffffff', '#fff8d0', '#8ab8ff'], speed: 4, up: 0, life: 1.6, gravity: 0, spread: 1 }); await a.wait(0.25); }
+          await a.wait(1.8);
+          await a.tween('cstars', { scl: [0, 0, 0] }, 1.8);
+        },
+      });
+      // ── 혜성: 서쪽 탑에서 부르면 하늘을 가로지른다(부품, 평소엔 숨김) ──
+      const C0 = [30, base + 64, 96], C1 = [98, base + 56, 28];
+      const comet = w.prop({ name: 'comet', pivot: [C0[0] + 0.5, C0[1] + 0.5, C0[2] + 0.5], scl0: [0, 0, 0] });
+      comet.sphere(C0[0], C0[1], C0[2], 2.2, B.starG);
+      for (let s = 1; s <= 16; s++) { const r = 2 - s * 0.12, x = Math.round(C0[0] - s * 0.72), y = Math.round(C0[1] + s * 0.15), z = Math.round(C0[2] + s * 0.72); if (r > 0.5) comet.sphere(x, y, z, r, s < 6 ? B.starG : B.starB); else comet.set(x, y, z, B.starB); }
+      const cOff = t => [(C1[0] - C0[0]) * t, (C1[1] - C0[1]) * t, (C1[2] - C0[2]) * t];
+      acts.push({
+        name: '혜성', hint: '서쪽 탑에서 부르면 꼬리 긴 혜성이 하늘을 가로질러요', hit: [20, tTop[0] - 6, 46, 30, tTop[0] + 7, 55],
+        run: async a => {
+          a.burst([24.5, tTop[0] + 2, 50.5], { n: 30, colors: ['#8ab8ff', '#ffffff'], speed: 1, up: 14, life: 1.4, gravity: 0, spread: 1 });
+          await a.tween('comet', { scl: [1, 1, 1] }, 0.6);
+          for (let k = 1; k <= 6; k++) { const o = cOff(k / 6); await a.move('comet', o, 0.9, t => t); a.burst([C0[0] + o[0] - 2, C0[1] + o[1], C0[2] + o[2] + 2], { n: 24, colors: ['#fff8d0', '#8ab8ff', '#ffffff'], speed: 1.5, up: -1, life: 1.6, gravity: 2, spread: 2 }); }
+          a.lightning(0.3);
+          await a.tween('comet', { scl: [0, 0, 0] }, 0.6);
+          await a.move('comet', [0, 0, 0], 0.1);
+        },
+      });
+      // ── 선돌 공명: 광장 둘레의 선돌이 떠올라 광장을 한 바퀴 돈다 ──
+      acts.push({
+        name: '선돌 공명', hint: '광장 둘레의 선돌들이 떠올라 광장을 한 바퀴 돌아요', hit: [75, py + 1, 70, 83, py + 9, 98],
+        run: async a => {
+          a.glow(1.6, 7);
+          for (const p of mPts) a.burst([p[0], py + 1, p[2]], { n: 14, colors: ['#c8d0e0', '#8a94a8'], speed: 2, up: 2, life: 0.8, gravity: 6, spread: 1, flat: true });
+          await a.move('menhirs', [0, 4, 0], 1.2);
+          a.turn('menhirs', [0, 6.283, 0], 4.2);
+          for (let k = 0; k < 7; k++) { a.burst([64.5, py + 8, PZ + 0.5], { n: 24, colors: ['#fff8d0', '#8ab8ff'], speed: 10, up: 0, life: 1.6, gravity: 0, spread: 1, flat: true }); await a.wait(0.6); }
+          a.unwind('menhirs');
+          await a.move('menhirs', [0, 0, 0], 1.2);
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

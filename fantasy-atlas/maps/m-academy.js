@@ -39,6 +39,7 @@
       bark: { c: '#4a3a3a', v: 0.06 }, leaf: { c: '#3a6a5a', v: 0.1 }, leaf2: { c: '#5a8a7a', v: 0.1 }, leafP: { c: '#7a5aa8', v: 0.1 }, glass: { c: '#9ac8d8', v: 0.03 }, iron: { c: '#3a3848', v: 0.03 },
       win: { c: '#c8b0ff', night: true, day: '#8a9ad0' }, lamp: { c: '#d8c8ff', night: true, day: '#b0a8c8' },
       crys: { c: '#c080ff', glow: true }, crys2: { c: '#80e0ff', glow: true }, rune: { c: '#a890ff', glow: true }, mana: { c: '#a0d0ff', glow: true },
+      flame: { c: '#ff8a3a', glow: true }, ember: { c: '#ffd060', glow: true }, owl: { c: '#7a5a3a', v: 0.08 }, owlW: { c: '#e8dcc0', v: 0.05 }, straw: { c: '#d8b060', v: 0.1 }, petal: { c: '#ff9ad8', glow: true },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base;
@@ -157,6 +158,98 @@
         let clear = true; for (let q = 2; q <= 12; q++) if (w.get(x, gg + q, z) || w.get(x + 3, gg + q, z) || w.get(x - 3, gg + q, z) || w.get(x, gg + q, z + 3) || w.get(x, gg + q, z - 3)) clear = false;
         if (clear) MH.tree(w, x, gg + 1, z, { kind: 'oak', h: w.ri(6, 9), bark: B.bark, leaves: [i % 3 ? B.leaf2 : B.leafP, B.leaf, B.leaf], r: w.r(2.8, 3.6) });
       }
+      // ── 대도서관 지붕을 맴도는 금서(부품) ──
+      w.set(LX + 8, dTop + 4, LZ + 10, B.crys);
+      lights.push({ name: 'lib', p: [LX + 8.5, dTop + 4, LZ + 10.5], c: '#ffe0a0', i: 1.2, d: 18, flicker: 0.08 });
+      const tomes = w.prop({ name: 'tomes', pivot: [LX + 8.5, lib.top + 3, LZ + 10.5], axis: 'y', speed: 0.12, bob: 0.3, bobSpeed: 0.9 });
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, bx = Math.round(LX + 8 + Math.cos(a) * 10), bz = Math.round(LZ + 10 + Math.sin(a) * 10), by = lib.top + 2 + (k % 2) * 2; tomes.box(bx, by, bz, bx, by + 1, bz + 1, [B.book1, B.book2, B.book3][k % 3]); tomes.box(bx, by + 2, bz, bx, by + 2, bz + 1, B.trim); }
+      acts.push({
+        name: '금서의 비행', hint: '지붕 위 책들이 날아올라 돔 둘레를 맴돌아요', hit: [LX - 2, lib.top + 1, LZ, LX + 18, dTop + 4, LZ + 20],
+        run: async a => {
+          a.flash('lib', 3, 5); a.spin('tomes', 7, 5);
+          await a.move('tomes', [0, 9, 0], 1.4);
+          for (let k = 0; k < 6; k++) { a.burst([LX + 8.5, lib.top + 12 + k, LZ + 10.5], { n: 30, colors: ['#fff8e0', '#ffe0a0', '#c8b0ff'], speed: 10, up: 1, life: 1.6, gravity: 1, spread: 3 }); await a.wait(0.4); }
+          await a.move('tomes', [0, 0, 0], 1.6);
+        },
+      });
+      // ── 결투장: 기둥 위의 불꽃 구슬과 얼음 구슬(부품)이 가운데서 부딪친다 ──
+      MH.circle(w, AX, AZ, 3, B.rune);
+      const duelOrb = (nm, k, c) => {
+        const a = k * 1.57 + 0.78, px = Math.round(AX + Math.cos(a) * 8), pz = Math.round(AZ + Math.sin(a) * 8);
+        const p = w.prop({ name: nm, pivot: [px + 0.5, ay + 12.5, pz + 0.5], axis: 'y', speed: 1.2, bob: 0.4, bobSpeed: 1.6 });
+        p.sphere(px, ay + 12, pz, 1.6, c); p.set(px, ay + 14, pz, B.ember); p.set(px + 2, ay + 12, pz, B.ember); p.set(px - 2, ay + 12, pz, B.ember);
+        return [AX - px, AZ - pz];
+      };
+      const fo = duelOrb('fireOrb', 1, B.flame), io = duelOrb('iceOrb', 3, B.crys2);
+      acts.push({
+        name: '원소 대결', hint: '불꽃 구슬과 얼음 구슬이 날아와 결투장 한가운데서 부딪쳐요', hit: [AX - 8, ay + 1, AZ - 8, AX + 8, ay + 14, AZ + 8],
+        run: async a => {
+          a.spin('fireOrb', 5, 6); a.spin('iceOrb', 5, 6);
+          for (const k of [0.6, 1]) {
+            a.move('fireOrb', [fo[0] * k - 0.5, -6, fo[1] * k + 0.5], 0.9); await a.move('iceOrb', [io[0] * k + 0.5, -6, io[1] * k - 0.5], 0.9);
+            a.lightning(0.6 * k); a.glow(1.8, 0.8);
+            a.burst([AX + 0.5, ay + 6, AZ + 0.5], { n: 50, colors: ['#ff8a3a', '#ffd060', '#80e0ff', '#ffffff'], speed: 12, up: 3, life: 1.2, gravity: 4, spread: 1 });
+            a.move('fireOrb', [fo[0] * 0.3, -3, fo[1] * 0.3], 0.6); await a.move('iceOrb', [io[0] * 0.3, -3, io[1] * 0.3], 0.6);
+          }
+          for (let k = 0; k < 4; k++) { a.burst([AX + 0.5, ay + 2, AZ + 0.5], { n: 30, colors: k % 2 ? ['#80e0ff', '#ffffff'] : ['#ff8a3a', '#ffd060'], speed: 10, up: 1, life: 1, gravity: 2, spread: 4, flat: true }); await a.wait(0.3); }
+          a.move('fireOrb', [0, 0, 0], 1.3); await a.move('iceOrb', [0, 0, 0], 1.3);
+        },
+      });
+      // ── 수정 온실 옆 마법꽃: 봉오리에서 거대한 꽃이 자란다(부품, 평소엔 숨김) ──
+      const FLX = 24, FLZ = 108;
+      MH.leafBlob(w, FLX + 1, gy + 1, FLZ + 1, 1.4, 1, 1.4, [B.leaf2, B.leafP, B.leaf]);
+      const bloom = w.prop({ name: 'bloom', pivot: [FLX + 0.5, gy + 1, FLZ + 0.5], axis: 'y', speed: 0.6, scl0: [0, 0, 0], clipOK: 20 });
+      bloom.box(FLX, gy + 1, FLZ, FLX, gy + 11, FLZ, B.leaf); bloom.box(FLX + 1, gy + 4, FLZ, FLX + 2, gy + 4, FLZ, B.leaf2); bloom.box(FLX - 2, gy + 7, FLZ, FLX - 1, gy + 7, FLZ, B.leaf2); bloom.set(FLX + 2, gy + 5, FLZ, B.leaf2); bloom.set(FLX - 2, gy + 8, FLZ, B.leaf2);
+      for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) { const d = Math.abs(dx) + Math.abs(dz); if (d === 0 || d > 4) continue; bloom.set(FLX + dx, gy + 12 + (d >= 3 ? 1 : 0), FLZ + dz, d === 1 ? B.ember : B.petal); }
+      bloom.set(FLX, gy + 12, FLZ, B.ember); bloom.set(FLX, gy + 13, FLZ, B.ember);
+      acts.push({
+        name: '마법꽃 개화', hint: '온실 옆 봉오리에서 거대한 꽃이 피어나 꽃가루를 뿌려요', hit: [FLX - 4, gy + 1, FLZ - 4, FLX + 4, gy + 14, FLZ + 4],
+        run: async a => {
+          a.glow(1.6, 6.5);
+          await a.tween('bloom', { scl: [1, 1, 1] }, 2.2);
+          for (let k = 0; k < 6; k++) { a.burst([FLX + 0.5, gy + 13, FLZ + 0.5], { n: 30, colors: ['#ff9ad8', '#ffd060', '#ffffff'], speed: 4, up: 3, life: 2.2, gravity: -0.6, spread: 3 }); await a.wait(0.5); }
+          await a.tween('bloom', { scl: [0, 0, 0] }, 1.6);
+        },
+      });
+      // ── 탑 발코니의 전령 부엉이(부품): 탑을 한 바퀴 날고 돌아온다 ──
+      const OX = 66, OZ = 58, oy = g + 16;
+      const owl = w.prop({ name: 'owl', pivot: [OX + 1, oy + 1.5, OZ + 1] });
+      owl.box(OX, oy, OZ, OX + 1, oy + 1, OZ + 1, B.owl); owl.box(OX, oy + 2, OZ, OX + 1, oy + 2, OZ + 1, B.owlW);
+      owl.set(OX + 2, oy + 2, OZ, B.ember); owl.set(OX + 2, oy + 2, OZ + 1, B.ember); owl.set(OX, oy + 3, OZ, B.owl); owl.set(OX, oy + 3, OZ + 1, B.owl);
+      owl.box(OX, oy + 1, OZ - 1, OX + 1, oy + 1, OZ - 1, B.owl); owl.box(OX, oy + 1, OZ + 2, OX + 1, oy + 1, OZ + 2, B.owl);
+      const owlPts = [], r0 = Math.hypot(OX + 1 - TX, OZ + 1 - TZ), t0 = Math.atan2(OZ + 1 - TZ, OX + 1 - TX);
+      for (let i = 1, pyw = 0; i <= 16; i++) {
+        const s = Math.sin(i / 16 * Math.PI), t = t0 + i / 16 * Math.PI * 2, r = r0 + Math.pow(s, 0.4) * 7;
+        let yw = Math.atan2(-Math.cos(t), -Math.sin(t)); while (yw - pyw > Math.PI) yw -= Math.PI * 2; while (yw - pyw < -Math.PI) yw += Math.PI * 2; pyw = yw;
+        owlPts.push([TX + Math.cos(t) * r - OX - 1, Math.pow(s, 1.5) * 14, TZ + Math.sin(t) * r - OZ - 1, yw]);
+      }
+      owlPts[15][0] = 0; owlPts[15][2] = 0;
+      acts.push({
+        name: '전령 부엉이', hint: '발코니의 부엉이가 날개를 펴고 탑을 한 바퀴 돌아와요', hit: [OX - 2, oy - 1, OZ - 2, OX + 3, oy + 4, OZ + 3],
+        run: async a => {
+          a.burst([OX + 1, oy + 2, OZ + 1], { n: 20, colors: ['#e8dcc0', '#7a5a3a'], speed: 3, up: 2, life: 1.2, gravity: 3, spread: 1 });
+          await a.path('owl', owlPts, 7);
+          a.unwind('owl'); await a.turn('owl', [0, 0, 0], 0.5);
+          a.burst([OX + 1, oy + 2, OZ + 1], { n: 16, colors: ['#e8dcc0', '#ffd060'], speed: 2, up: 1, life: 1, gravity: 3, spread: 1 });
+        },
+      });
+      // ── 동쪽 잔디의 빗자루 발판: 빗자루 두 자루(부품)가 섬을 한 바퀴 돈다 ──
+      const BRX = 94, BRZ = 71;
+      MH.circle(w, BRX, BRZ + 1, 4, B.rune); MH.paint(w, BRX, BRZ + 1, B.rune);
+      const broom = (nm, z) => { const p = w.prop({ name: nm, pivot: [BRX + 0.5, base + 3.5, z + 0.5], bob: 0.3, bobSpeed: 1.3, phase: z }); p.box(BRX - 2, base + 3, z, BRX + 4, base + 3, z, B.bark); p.box(BRX - 5, base + 2, z - 1, BRX - 3, base + 4, z + 1, B.straw); p.set(BRX - 2, base + 3, z, B.gold); p.set(BRX + 4, base + 3, z, B.crys); return p; };
+      broom('broomA', BRZ - 1); broom('broomB', BRZ + 3);
+      const loop = [[BRX, BRZ], [102, 48], [84, 20], [44, 18], [16, 52], [26, 98], [62, 112], [BRX, BRZ]];
+      const brPts = [[0, 8, 0, 0]].concat(MH.relPath(loop, 0).map(q => [q[0], 28, q[2], q[3]]));
+      brPts.push([0, 0, 0, brPts[brPts.length - 1][3]]);
+      const fly = async (a, nm) => { await a.path(nm, brPts, 10); a.unwind(nm); await a.turn(nm, [0, 0, 0], 0.6); };
+      acts.push({
+        name: '빗자루 비행', hint: '룬 발판의 빗자루 두 자루가 떠올라 섬을 한 바퀴 돌아요', hit: [BRX - 6, base + 1, BRZ - 4, BRX + 6, base + 6, BRZ + 6],
+        run: async a => {
+          a.burst([BRX + 0.5, base + 2, BRZ + 1.5], { n: 40, colors: ['#a890ff', '#ffd060', '#ffffff'], speed: 6, up: 4, life: 1.4, gravity: 2, spread: 3 });
+          fly(a, 'broomA'); await a.wait(0.7); await fly(a, 'broomB');
+          a.burst([BRX + 0.5, base + 2, BRZ + 1.5], { n: 40, colors: ['#a890ff', '#ffd060', '#ffffff'], speed: 6, up: 2, life: 1.2, gravity: 2, spread: 3, flat: true });
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

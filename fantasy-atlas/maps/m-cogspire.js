@@ -31,6 +31,7 @@
       face: { c: '#f0e8d0', v: 0.02 }, hand: { c: '#1e1e24', v: 0 }, golem: { c: '#7a7068', v: 0.06, pat: 'big' }, golemDk: { c: '#5a524c', v: 0.05 }, door: { c: '#2a1e18', v: 0.03, pat: 'plank' }, bell: { c: '#d8b050', v: 0.05 },
       win: { c: '#ffd890', night: true, day: '#8a9aa8' }, lamp: { c: '#ffe0a0', night: true, day: '#c8b890' },
       rune: { c: '#5affff', glow: true }, runeO: { c: '#ffb040', glow: true }, eye: { c: '#5affff', glow: true },
+      hot: { c: '#ff6a20', glow: true }, note: { c: '#ff8ad0', glow: true }, canvas: { c: '#d8c8a0', v: 0.05 }, canvasDk: { c: '#a89870', v: 0.05 }, plank: { c: '#7a5a3a', v: 0.06, pat: 'plank' },
     },
     build(w) {
       const B = w.id, base = w.base, UP = base + 10, LO = base + 2, EDGE = 60;
@@ -143,6 +144,107 @@
       for (const px of [76, 84]) { w.box(px, UP + 1, 50, px, UP + 12, 50, B.iron); w.box(px - 1, UP + 12, 50, px + 1, UP + 12, 50, B.iron); }
       w.line(TX0 + TS, UP + 13, 40, 76, UP + 13, 50, B.copper, 0.7); w.line(76, UP + 13, 50, 84, UP + 13, 50, B.copper, 0.7); w.line(84, UP + 13, 50, 96, LO + 14, 72, B.copper, 0.7);
       for (const [lx, lz, y] of [[44, 50, UP], [84, 56, UP], [50, 78, LO], [70, 78, LO], [96, 100, LO]]) if (!w.get(lx, y + 1, lz)) lights.push({ p: MH.lamp(w, lx, lz, { m: { post: B.iron, glow: B.lamp, found: B.found }, h: 6 }), c: '#ffe0a0', i: 1, d: 13, flicker: 0.05, night: true });
+      // ── 증기 해머(아랫단 남쪽): 해머(부품)가 달군 쇠를 내리친다 ──
+      const HX = 100, HZ = 108, hy = LO + 1;
+      for (const x of [HX - 3, HX + 3]) w.box(x, hy, HZ, x, hy + 14, HZ, B.iron);
+      w.box(HX - 3, hy + 14, HZ - 1, HX + 3, hy + 14, HZ + 1, B.ironDk); w.box(HX - 1, hy + 15, HZ - 1, HX + 1, hy + 16, HZ + 1, B.copper); w.set(HX, hy + 17, HZ, B.iron);
+      w.box(HX - 1, hy, HZ - 1, HX + 1, hy + 1, HZ + 1, B.ironDk); w.box(HX - 2, hy, HZ - 2, HX + 2, hy, HZ + 2, B.found); w.box(HX - 1, hy + 2, HZ, HX + 1, hy + 2, HZ, B.hot);
+      const ham = w.prop({ name: 'hammer', pivot: [HX + 0.5, hy + 9, HZ + 0.5] });
+      ham.box(HX - 2, hy + 7, HZ - 1, HX + 2, hy + 9, HZ + 1, B.iron); ham.box(HX - 2, hy + 7, HZ - 1, HX + 2, hy + 7, HZ + 1, B.ironDk); ham.box(HX, hy + 10, HZ, HX, hy + 13, HZ, B.brass);
+      lights.push({ name: 'forge', p: [HX + 0.5, hy + 3, HZ + 0.5], c: '#ff8a30', i: 1.4, d: 16, flicker: 0.3 });
+      steam.push({ n: 18, colors: ['#e8e0d8', '#c8c0b8'], mode: 'rise', speed: 0.6, area: [HX + 0.5, HZ + 0.5, 0.5], y0: hy + 18, y1: hy + 32, glow: false });
+      acts.push({
+        name: '증기 해머', hint: '증기 해머가 쾅쾅 내리치며 불꽃이 튀어요', hit: [HX - 4, hy, HZ - 2, HX + 4, hy + 17, HZ + 2],
+        run: async a => {
+          for (let k = 0; k < 5; k++) {
+            await a.move('hammer', [0, -4, 0], 0.22, t => t * t);
+            a.flash('forge', 4, 0.3);
+            a.burst([HX + 0.5, hy + 3, HZ + 0.5], { n: 40, colors: ['#ffb040', '#ffe0a0', '#ff6a20'], speed: 10, up: 4, life: 0.9, gravity: 12, spread: 1 });
+            a.burst([HX + 0.5, hy + 17, HZ + 0.5], { n: 14, colors: ['#ffffff', '#d8d0c8'], speed: 2, up: 5, life: 1.4, gravity: -0.5, spread: 1 });
+            await a.wait(0.12); await a.move('hammer', [0, 0, 0], 0.55);
+          }
+        },
+      });
+      landmarks.push({ name: '증기 해머', note: '달군 쇠를 두드리는 대장간', p: [HX + 0.5, hy + 22, HZ + 0.5] });
+      // ── 화물 승강기(옹벽 동쪽): 발판(부품)이 아랫단과 윗단을 오간다 ──
+      const LX0 = 111, LX1 = 115, LZ0 = 61, LZ1 = 64, lift = UP - LO, RX0 = 113;
+      for (const x of [LX0 - 1, LX1 + 1]) { w.box(x, LO + 1, 63, x, UP + 6, 63, B.iron); w.box(x, LO + 1, 62, x, UP + 6, 62, B.brassDk); }
+      w.box(LX0 - 1, UP + 6, 62, LX1 + 1, UP + 6, 63, B.ironDk); w.set(RX0, UP + 7, 63, B.brass);
+      const plat = w.prop({ name: 'lift' });
+      plat.box(LX0, LO + 1, LZ0, LX1, LO + 1, LZ1, B.plank); plat.box(LX0, LO + 2, LZ1, LX1, LO + 2, LZ1, B.iron);
+      plat.box(LX0, LO + 2, LZ0, LX0 + 1, LO + 3, LZ0 + 1, B.plank); plat.set(LX1, LO + 2, LZ0, B.copper); plat.set(LX1, LO + 3, LZ0, B.brass);
+      MH.rope(w, 'liftRope', RX0, UP + 5, 63, UP + 5 - (LO + 2) + 1, B.ironDk);
+      acts.push({
+        name: '화물 승강기', hint: '짐을 실은 발판이 옹벽을 따라 윗단까지 올라갔다 내려와요', hit: [LX0 - 2, LO + 1, LZ0 - 1, LX1 + 2, UP + 7, LZ1 + 1],
+        run: async a => {
+          const L0 = UP + 5 - (LO + 2) + 1;
+          a.burst([RX0, LO + 2, 63], { n: 20, colors: ['#ffffff', '#d8d0c8'], speed: 3, up: 2, life: 1, gravity: -0.5, spread: 2 });
+          a.rope('liftRope', L0, L0 - lift, 2.6); await a.move('lift', [0, lift, 0], 2.6);
+          a.burst([RX0, UP + 2, 63], { n: 24, colors: ['#ffe0a0', '#ffb040'], speed: 4, up: 1, life: 0.8, gravity: 4, spread: 2, flat: true });
+          await a.wait(1.4);
+          a.rope('liftRope', L0, L0, 2.4); await a.move('lift', [0, 0, 0], 2.4);
+        },
+      });
+      // ── 비행선(윗단 서쪽 계류탑): 탑을 한 바퀴 돌고 돌아온다(부품) ──
+      const MX = 40, MZ = 36;
+      w.box(MX, UP + 1, MZ, MX, UP + 17, MZ, B.iron); w.box(MX - 1, UP + 1, MZ - 1, MX + 1, UP + 2, MZ + 1, B.found); w.box(MX - 1, UP + 17, MZ, MX + 1, UP + 17, MZ, B.brass); w.set(MX, UP + 18, MZ, B.runeO);
+      const ship = w.prop({ name: 'airship', pivot: [MX - 6.5, UP + 15.5, MZ + 0.5] });
+      ship.ellipsoid(MX - 7, UP + 16, MZ, 6, 3.2, 3.2, B.canvas);
+      for (const dx of [-4, 0, 4]) ship.ellipsoid(MX - 7 + dx, UP + 16, MZ, 0.6, 3.3, 3.3, B.canvasDk);
+      ship.box(MX - 13, UP + 15, MZ, MX - 12, UP + 20, MZ, B.copper); ship.box(MX - 13, UP + 16, MZ - 3, MX - 12, UP + 16, MZ + 3, B.copper);
+      ship.box(MX - 9, UP + 11, MZ - 1, MX - 5, UP + 12, MZ + 1, B.brass); ship.box(MX - 8, UP + 12, MZ, MX - 6, UP + 12, MZ, B.win);
+      ship.box(MX - 8, UP + 13, MZ, MX - 8, UP + 13, MZ, B.iron); ship.box(MX - 6, UP + 13, MZ, MX - 6, UP + 13, MZ, B.iron); ship.box(MX - 10, UP + 11, MZ, MX - 10, UP + 12, MZ, B.runeO);
+      const air = [[MX - 7, MZ], [50, 58], [84, 60], [94, 34], [84, 10], [46, 8], [32, 22], [MX - 7, MZ]];
+      const shipPts = [[0, 6, 0, 0]].concat(MH.relPath(air, 0).map(q => [q[0], 18, q[2], q[3]]));
+      shipPts.push([0, 0, 0, shipPts[shipPts.length - 1][3]]);
+      acts.push({
+        name: '비행선', hint: '계류탑의 비행선이 떠올라 시계탑을 한 바퀴 돌고 와요', hit: [MX - 14, UP + 10, MZ - 4, MX + 1, UP + 20, MZ + 4],
+        run: async a => {
+          a.burst([MX - 7, UP + 10, MZ + 0.5], { n: 30, colors: ['#ffffff', '#e8e0d8'], speed: 3, up: 2, life: 1.4, gravity: -0.3, spread: 3 });
+          await a.path('airship', shipPts, 14);
+          a.unwind('airship'); await a.turn('airship', [0, 0, 0], 0.8);
+          a.burst([MX, UP + 18, MZ + 0.5], { n: 20, colors: ['#ffb040', '#ffe0a0'], speed: 3, up: 2, life: 1, gravity: 2, spread: 1 });
+        },
+      });
+      landmarks.push({ name: '비행선 계류탑', note: '시계탑을 도는 유람 비행선', p: [MX - 6.5, UP + 26, MZ + 0.5] });
+      // ── 태엽 오르골(아랫단 남쪽): 핀 박힌 원통(부품)이 돌며 음표가 튄다 ──
+      const OX = 70, OZ = 114, oy = LO + 1;
+      w.box(OX - 1, oy, OZ - 3, OX + 11, oy + 2, OZ + 3, B.brassDk); w.box(OX - 1, oy + 3, OZ - 3, OX + 11, oy + 3, OZ + 3, B.brass);
+      for (const x of [OX - 1, OX + 11]) w.box(x, oy + 4, OZ, x, oy + 7, OZ, B.brass);
+      for (let x = OX + 1; x <= OX + 9; x++) w.box(x, oy + 4, OZ - 3, x, oy + 4 + (x % 3), OZ - 3, B.iron);
+      const drum = w.prop({ name: 'drum', pivot: [OX + 5.5, oy + 7.5, OZ + 0.5], axis: 'x', speed: 0.5 });
+      for (let x = OX; x <= OX + 10; x++) for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const d = Math.hypot(u, v); if (d <= 2.4) drum.set(x, oy + 7 + v, OZ + u, x === OX || x === OX + 10 ? B.copper : B.brass); else if (d <= 3.2 && hash3(x, u + 9, v + 9) > 0.8 && x > OX && x < OX + 10) drum.set(x, oy + 7 + v, OZ + u, B.runeO); }
+      const mstar = w.prop({ name: 'mstar', pivot: [OX + 5.5, oy + 12, OZ + 0.5], axis: 'y', speed: 0.8 });
+      mstar.box(OX + 5, oy + 11, OZ, OX + 5, oy + 14, OZ, B.brass); mstar.box(OX + 3, oy + 13, OZ, OX + 7, oy + 13, OZ, B.note); mstar.box(OX + 5, oy + 13, OZ - 2, OX + 5, oy + 13, OZ + 2, B.rune);
+      w.box(OX + 5, oy + 10, OZ, OX + 5, oy + 10, OZ, B.brass);
+      lights.push({ name: 'mbox', p: [OX + 5.5, oy + 13, OZ + 0.5], c: '#ffb0e0', i: 1.2, d: 14, flicker: 0.1 });
+      acts.push({
+        name: '태엽 오르골', hint: '거대한 오르골의 원통이 돌며 음표가 춤추듯 튀어나와요', hit: [OX - 1, oy, OZ - 4, OX + 11, oy + 14, OZ + 4],
+        run: async a => {
+          a.flash('mbox', 3, 6); a.spin('drum', 5, 6); a.spin('mstar', 6, 6);
+          for (let k = 0; k < 12; k++) { a.burst([OX + 1 + (k * 7) % 10, oy + 11, OZ - 2], { n: 8, colors: [['#ff8ad0', '#ffffff'], ['#5affff', '#ffffff'], ['#ffb040', '#ffe0a0']][k % 3], speed: 2, up: 5, life: 1.8, gravity: 1, spread: 0.6 }); await a.wait(0.45); }
+        },
+      });
+      landmarks.push({ name: '태엽 오르골', note: '광장의 거대한 오르골', p: [OX + 5.5, oy + 20, OZ + 0.5] });
+      // ── 증기 크레인(아랫단 남동쪽): 팔(부품)이 돌며 짐을 옮긴다 ──
+      const KX = 104, KZ = 96, ky = LO + 1;
+      w.box(KX - 1, ky, KZ - 1, KX + 1, ky + 1, KZ + 1, B.found);
+      for (let y = ky + 2; y <= ky + 15; y++) { w.set(KX, y, KZ, B.iron); if (y % 4 === 0) { w.set(KX - 1, y, KZ, B.brassDk); w.set(KX + 1, y, KZ, B.brassDk); w.set(KX, y, KZ - 1, B.brassDk); w.set(KX, y, KZ + 1, B.brassDk); } }
+      const jib = w.prop({ name: 'jib', pivot: [KX + 0.5, ky + 16, KZ + 0.5], axis: 'y' });
+      jib.box(KX - 1, ky + 16, KZ - 1, KX + 1, ky + 18, KZ + 1, B.copper); jib.set(KX, ky + 19, KZ, B.iron);
+      jib.box(KX - 6, ky + 17, KZ, KX + 9, ky + 17, KZ, B.brass); jib.box(KX - 6, ky + 15, KZ - 1, KX - 4, ky + 16, KZ + 1, B.ironDk);
+      jib.box(KX + 8, ky + 9, KZ, KX + 8, ky + 16, KZ, B.ironDk); jib.box(KX + 7, ky + 6, KZ - 1, KX + 9, ky + 8, KZ + 1, B.plank); jib.set(KX + 8, ky + 8, KZ, B.copper);
+      acts.push({
+        name: '증기 크레인', hint: '크레인 팔이 돌아 짐을 옮겼다가 제자리로 돌아와요', hit: [KX - 2, ky, KZ - 2, KX + 10, ky + 19, KZ + 2],
+        run: async a => {
+          a.burst([KX + 0.5, ky + 20, KZ + 0.5], { n: 24, colors: ['#ffffff', '#d8d0c8'], speed: 2, up: 5, life: 1.6, gravity: -0.5, spread: 1 });
+          await a.turn('jib', [0, -1.57, 0], 2.4);
+          a.burst([KX + 0.5, ky + 6, KZ + 8.5], { n: 20, colors: ['#d8d0c8', '#8a8078'], speed: 3, up: 1, life: 0.8, gravity: 3, spread: 2, flat: true });
+          await a.wait(1);
+          a.burst([KX + 0.5, ky + 20, KZ + 0.5], { n: 24, colors: ['#ffffff', '#d8d0c8'], speed: 2, up: 5, life: 1.6, gravity: -0.5, spread: 1 });
+          await a.turn('jib', [0, 0, 0], 2.4);
+        },
+      });
       return { lights, landmarks, acts, particles: steam };
     },
   });

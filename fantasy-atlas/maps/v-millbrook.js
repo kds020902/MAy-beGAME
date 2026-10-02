@@ -99,7 +99,7 @@
       MH.path(w, [[brx - 13, bz], [40, 86], [26, 78], [24, 64]], 1.6, B.path);
       const hm = k => ({ found: B.found, wall: k % 2 ? B.plaster2 : B.plaster, frame: B.frame, quoin: k % 3 === 0 ? B.found : null, win: B.win, shutter: k % 2 ? B.shutter : B.shutter2, sill: B.wood, flower: B.flower, door: B.door,
         roof: k % 2 ? B.thatch : B.tile, eave: B.tileDk, ridge: B.frame, chimney: k % 2 ? B.found : null, lamp: B.lamp });
-      const houses = [[82, 96, 11, 9, 'n'], [104, 94, 10, 9, 'w'], [110, 76, 10, 11, 'w'], [84, 62, 11, 9, 'e'], [108, 56, 11, 9, 'w'], [86, 110, 10, 9, 'n'], [102, 110, 11, 9, 'n']];
+      const houses = [[82, 96, 11, 9, 'n'], [115, 93, 10, 9, 'w'], [110, 76, 10, 11, 'w'], [84, 62, 11, 9, 'e'], [108, 56, 11, 9, 'w'], [86, 110, 10, 9, 'n'], [102, 110, 11, 9, 'n']];
       const smokes = [];
       houses.forEach(([x, z, sx, sz, face], k) => {
         const h = MH.houseX(w, { x, z, sx, sz, floors: k % 3 === 0 ? 1 : 2, fh: 6, face, jetty: k % 2 === 1, studs: true, dormers: k % 3 === 1 ? 1 : 0, m: hm(k) });
@@ -122,14 +122,21 @@
       MH.rope(w, 'wrope', SX, sg + 7, SZ, 3, B.rope);
       const bucket = w.prop({ name: 'bucket', pivot: [SX + 0.5, sg + 4, SZ + 0.5] });
       bucket.box(SX - 1, sg + 3, SZ - 1, SX + 1, sg + 4, SZ + 1, B.wood); bucket.walls(SX - 1, sg + 4, SZ - 1, SX + 1, sg + 4, SZ + 1, B.iron); bucket.set(SX, sg + 4, SZ, B.water || B.wood);
+      // 물통: 길어 올린 물을 우물 남쪽 나무 물통에 붓는다
+      w.box(SX - 2, sg + 1, SZ + 4, SX + 2, sg + 2, SZ + 6, B.wood); w.box(SX - 1, sg + 2, SZ + 5, SX + 1, sg + 2, SZ + 5, B.water || B.foam2);
       acts.push({
-        name: '우물 두레박', hint: '밧줄이 풀리며 두레박이 물을 길어 와요', hit: [SX - 3, sg + 1, SZ - 3, SX + 3, sg + 9, SZ + 3],
+        name: '우물 두레박', hint: '두레박이 물을 길어 올려 물통에 부어요', hit: [SX - 3, sg + 1, SZ - 3, SX + 3, sg + 9, SZ + 7],
         run: async a => {
-          await Promise.all([a.move('bucket', [0, -10, 0], 1.8, t => t), a.rope('wrope', 3, 13, 1.8, t => t)]);
-          a.burst([SX + 0.5, sg - 6, SZ + 0.5], { n: 18, colors: ['#e0f6ff', '#8ac8f0'], speed: 2, up: 3, life: 0.8, gravity: 7, spread: 1 });
-          await a.wait(0.7);
-          await Promise.all([a.move('bucket', [0, 0, 0], 2.2, t => t), a.rope('wrope', 3, 3, 2.2, t => t)]);
-          a.burst([SX + 0.5, sg + 4.5, SZ + 0.5], { n: 22, colors: ['#e0f6ff', '#8ac8f0'], speed: 2.4, up: 1.5, life: 0.9, gravity: 7, spread: 1.4 });
+          await Promise.all([a.move('bucket', [0, -8, 0], 1.1, t => t), a.rope('wrope', 3, 11, 1.1, t => t)]);
+          a.burst([SX + 0.5, sg - 5, SZ + 0.5], { n: 18, colors: ['#e0f6ff', '#8ac8f0'], speed: 2, up: 3, life: 0.8, gravity: 7, spread: 1 });
+          await a.wait(0.4);
+          await Promise.all([a.move('bucket', [0, 0, 0], 1.3, t => t), a.rope('wrope', 3, 3, 1.3, t => t)]);
+          // 밧줄에서 내려 물통 위로 옮겨 기울여 붓고 제자리로
+          await a.move('bucket', [0, 1, 4], 0.9);
+          await a.turn('bucket', [0.9, 0, 0], 0.6);
+          for (let k = 0; k < 4; k++) { a.burst([SX + 0.5, sg + 4, SZ + 5.5], { n: 22, colors: ['#e0f6ff', '#8ac8f0', '#ffffff'], speed: 2, up: 1, life: 0.8, gravity: 9, spread: 1.2 }); await a.wait(0.35); }
+          await a.turn('bucket', [0, 0, 0], 0.6);
+          await a.move('bucket', [0, 0, 0], 0.9);
         },
       });
       MH.tree(w, SX + 6, sg + 1, SZ - 6, { kind: 'oak', h: 11, bark: B.bark, leaves: [B.leaf2, B.leaf, B.leafDk], r: 4.6, trunkR: 1.3 });

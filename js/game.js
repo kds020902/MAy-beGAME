@@ -50,7 +50,9 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms / S.speed));
   const SFX = window.SFX || { play() {}, setMuted() {}, unlock() {}, muted: false };
   SFX.setMuted(store.get('muted', false));
-  const sfx = name => SFX.play(name);
+  const sfx = (name, vol) => SFX.play(name, vol == null ? undefined : { vol });
+  // 주사위 종류별 적중음
+  const hitSound = t => D.TYPE_OF[t] || 'blunt';
 
   // ───────── 진행 저장 ─────────
   // 지도·상점·지역 선택 화면에서 저장한다. 전투 중에 나가면 그 칸에 들어가기 전으로 돌아온다.
@@ -324,6 +326,7 @@
     const g = meetDistance();
     const mid = (stagePos.p + stagePos.e) / 2;
     const rush = 'cubic-bezier(.55, 0, 1, .55)';
+    sfx('swing', engaged ? 0.45 : 0.8);
     await Promise.all([move('p', mid + g, engaged ? 150 : 200, rush), move('e', mid - g, engaged ? 150 : 200, rush)]);
     engaged = true;
     spark();
@@ -332,6 +335,7 @@
     popDie('p', pd.t, ev.pv, win === 'p' ? 'win' : win === 'e' ? 'lose' : 'even');
     popDie('e', ed.t, ev.ev, win === 'e' ? 'win' : win === 'p' ? 'lose' : 'even');
     if (win === 'tie') {
+      sfx('slide', 0.35);
       await Promise.all([move('p', stagePos.p - 34, 180), move('e', stagePos.e + 34, 180)]);
     } else {
       const lose = other(win);
@@ -341,7 +345,9 @@
       flashHurt(lose);
       if (winDie.t === 'E') { hop(win); evadeVfx(win); sfx('evade'); }
       else if (winDie.t === 'G') { guardVfx(win); sfx('guard'); }
-      else { hitVfx(winDie.t, lose); sfx('hit'); }
+      else { hitVfx(winDie.t, lose); sfx(hitSound(winDie.t)); }
+      // 밀려나는 거리만큼 바닥을 긁는 소리
+      sfx('slide', Math.min(1.2, 0.3 + push / 150));
       await Promise.all([
         move(lose, backClamp(lose, stagePos[lose] - DIR[lose] * push), 300, 'cubic-bezier(.15, .85, .3, 1)'),
         move(win, stagePos[win] + DIR[win] * 14, 300),
@@ -356,17 +362,19 @@
     if (!moverEl(side)) { await sleep(250); return; }
     const to = contactPos(side, 0.85);
     const dist = Math.abs(to - stagePos[side]);
+    sfx('swing', dist > 60 ? 0.9 : 0.55);
     await move(side, to, Math.max(110, Math.min(200, dist * 0.8)), 'cubic-bezier(.55, 0, 1, .55)');
     engaged = true;
   }
   // 피격: 맞은 쪽이 피해만큼 밀려난다 (제자리로 돌아가지 않음)
   async function hitMotion(tgt, dmg, die) {
     if (die) hitVfx(die, tgt);
-    sfx(dmg >= 15 ? 'heavy' : 'hit');
-    if (dmg >= 15) screenFlash();
+    sfx(hitSound(die), Math.min(1.2, 0.7 + dmg / 30));
+    if (dmg >= 15) { sfx('heavy'); screenFlash(); }
     setPose(tgt, 'hit', true);
     flashHurt(tgt);
     const push = Math.min(90, 10 + dmg * 3);
+    if (push >= 30) sfx('slide', Math.min(1, push / 90));
     await move(tgt, backClamp(tgt, stagePos[tgt] - DIR[tgt] * push), 220, 'cubic-bezier(.15, .85, .3, 1)');
   }
   // 한 줄의 주사위를 다 쓰면 둘 다 제자리로

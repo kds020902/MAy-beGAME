@@ -69,7 +69,7 @@
       lights.push({ p: [millX + 15, my + 4, mz], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
       // 물레방아: 강 한가운데 바퀴 아랫부분만 물에 잠기고, 굴대가 방앗간 벽까지 이어진다
       const WR = 8, wy = UPL + WR - 1, wx = mrx + 2;
-      w.box(wx + 2, wy, mz, millX, wy, mz, B.wood);
+      w.box(wx + 3, wy, mz, millX, wy, mz, B.wood);
       for (const dz of [-1, 1]) w.box(millX - 2, my - 1, mz + dz * 2, millX - 2, wy - 1, mz + dz * 2, B.wood);
       const wheel = w.prop({ name: 'wheel', pivot: [wx, wy + 0.5, mz + 0.5], axis: 'x', speed: -0.7 });
       for (let dy = -WR - 1; dy <= WR + 1; dy++) for (let dz = -WR - 1; dz <= WR + 1; dz++) {

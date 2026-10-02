@@ -885,3 +885,14 @@ h2.screen-title {
 .vfx.pt.el-ice { background: radial-gradient(circle, #fff, #8fd3ff 45%, transparent 75%); width: 11px; height: 11px; }
 .vfx.pt.el-holy { background: radial-gradient(circle, #fff, #fff2b8 45%, transparent 75%); width: 13px; height: 13px; }
 .float.elem { color: #fff2b8; font-size: 20px; }
+
+/* 승천 보상 */
+.asc-rewards { max-width: 980px; margin: 10px auto 0; padding: 10px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.asc-rewards-head { color: var(--gold); font-weight: 800; margin-bottom: 8px; }
+.asc-rewards-head small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.asc-reward-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.asc-reward { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); background: var(--bg-2); cursor: help; }
+.asc-reward.on { border-color: var(--gold); color: var(--gold-2); }
+.passive.cls { border-color: #6a4a6a; }
+.passive .p-cost em { font-style: normal; font-size: 10px; margin-left: 6px; color: var(--r-exclusive); letter-spacing: 0; }
+.shop-head .restock { margin-left: 10px; vertical-align: middle; }

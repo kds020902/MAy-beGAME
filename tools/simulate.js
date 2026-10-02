@@ -14,10 +14,10 @@ const MAX_FLOOR = 40;
 const ASC = Number(process.argv[3]) || 0; // 승천 단계
 const ALL_UNLOCKED = G.unlockedIds({ bossKills: 99, wins: 99, maxFloor: 99, runs: 99, ascension: {} });
 
-function randomPassives() {
+function randomPassives(classId) {
   const ids = [];
   let left = G.lightPoints(ASC);
-  const pool = D.PASSIVES.slice().sort(() => rng() - 0.5);
+  const pool = D.PASSIVES.filter(p => !p.cls || (p.cls === classId && (p.ascReq || 0) <= ASC)).sort(() => rng() - 0.5);
   for (const p of pool) if (p.cost <= left) { ids.push(p.id); left -= p.cost; }
   return ids;
 }
@@ -122,7 +122,8 @@ function battle(run) {
 }
 
 function playRun(classId) {
-  const run = G.createRun(classId, randomPassives(), { asc: ASC, unlocked: ALL_UNLOCKED });
+  const run = G.createRun(classId, randomPassives(classId), { asc: ASC, unlocked: ALL_UNLOCKED, ascReached: ASC });
+  if (G.hasAscReward(run, 'startRelic')) G.applyReward(run, G.startRelicChoices(run, rng)[0]);
   G.startRegion(run, rng);
   while (run.floor <= MAX_FLOOR) {
     const c = pickNode(run);

@@ -78,6 +78,9 @@
     },
   ];
 
+  // 승천 보상 카드: 직업별 { 단계: [카드 id] }. 그 단계에 도달한 뒤 보상·상점·사건에 나온다.
+  const ASC_CARDS = {};
+
   // 방랑검사 — 검만 쓰는 딜러
   defCards([
     ['s_quick', '빠른 베기', 0, [['S', 2, 5]]],
@@ -100,7 +103,14 @@
     ['s_thousand', '천의 검', 5, [['S', 4, 8], ['S', 4, 8], ['S', 4, 8], ['S', 4, 8], ['S', 4, 8]], { bleed: 1 }, 'legendary'],
     ['s_nameless', '무명검', 5, [['S', 9, 15], ['S', 8, 13]], { bleed: 2, fragile: 2 }, 'legendary'],
     ['s_mirror', '거울 검', 3, [['E', 6, 9], ['E', 6, 9], ['S', 6, 10]], null, 'legendary'],
+    // 승천 보상 카드
+    ['s_bloodlet', '방혈', 2, [['S', 3, 6], ['S', 3, 6]], { bleed: 3 }, 'common'],
+    ['s_shadow', '그림자 베기', 1, [['E', 4, 7], ['S', 3, 6]], { bleed: 1 }, 'common'],
+    ['s_crimson', '진홍 참', 3, [['S', 5, 9], ['S', 5, 9]], { bleed: 2, fragile: 1 }, 'rare'],
+    ['s_afterimage', '잔상', 2, [['E', 5, 8], ['E', 4, 7], ['S', 4, 7]], null, 'rare'],
+    ['s_reaper', '혈마검', 5, [['S', 8, 13], ['S', 7, 12], ['S', 6, 10]], { bleed: 3, fragile: 2 }, 'legendary'],
   ], { owner: 'swordsman' });
+  ASC_CARDS.swordsman = { 1: ['s_bloodlet', 's_shadow'], 5: ['s_crimson', 's_afterimage'], 8: ['s_reaper'] };
 
   // 전령 — 창과 성령 (회복, 기도)
   defCards([
@@ -124,7 +134,14 @@
     ['h_choir', '천사의 합창', 4, [['G', 4, 8], ['P', 4, 8], ['P', 4, 8]], { start: { might: 2 }, element: 'lightning' }, 'rare'],
     ['h_revive', '부활의 기도', 4, [['G', 6, 10]], { start: { heal: 18 } }, 'legendary'],
     ['h_heaven', '천상의 창', 5, [['P', 7, 12], ['P', 6, 11], ['P', 6, 11]], { element: 'holy' }, 'legendary'],
+    // 승천 보상 카드
+    ['h_spark', '불꽃 창', 1, [['P', 3, 6], ['P', 3, 6]], { element: 'fire' }, 'common'],
+    ['h_frost', '서리 창', 1, [['P', 3, 6], ['G', 3, 5]], { element: 'ice' }, 'common'],
+    ['h_thunder', '뇌격', 3, [['P', 5, 9], ['P', 5, 9]], { element: 'lightning' }, 'rare'],
+    ['h_grace', '은총', 2, [['G', 4, 8], ['P', 3, 6]], { element: 'holy', start: { heal: 5 } }, 'rare'],
+    ['h_seraph', '세라핌의 창', 5, [['P', 7, 12], ['P', 7, 12], ['P', 6, 10]], { element: 'holy' }, 'legendary'],
   ], { owner: 'herald' });
+  ASC_CARDS.herald = { 1: ['h_spark', 'h_frost'], 5: ['h_thunder', 'h_grace'], 8: ['h_seraph'] };
 
   // 중기병 — 메이스와 튼튼한 갑옷
   defCards([
@@ -148,7 +165,14 @@
     ['c_juggernaut', '저거너트', 5, [['B', 8, 13], ['B', 7, 12], ['G', 6, 10]], { smash: 2, rupture: 2 }, 'legendary'],
     ['c_bastion', '불굴의 성채', 4, [['G', 7, 11], ['G', 7, 11], ['B', 6, 10]], { start: { protect: 3 } }, 'legendary'],
     ['c_earthfall', '지축 붕괴', 5, [['B', 5, 9], ['B', 5, 9], ['B', 5, 9], ['B', 5, 9]], { weak: 2, rupture: 1 }, 'legendary'],
+    // 승천 보상 카드
+    ['c_hammer', '전쟁 망치', 2, [['B', 4, 8], ['B', 4, 8]], { smash: 2 }, 'common'],
+    ['c_bulwark', '보루', 1, [['G', 5, 8], ['G', 4, 7]], null, 'common'],
+    ['c_shatter', '분쇄 강타', 3, [['B', 6, 10], ['B', 5, 9]], { smash: 2, rupture: 2 }, 'rare'],
+    ['c_ironwill', '철의 의지', 2, [['G', 6, 9], ['B', 4, 7]], { start: { protect: 2 } }, 'rare'],
+    ['c_meteor', '운석 낙하', 5, [['B', 9, 14], ['B', 8, 13]], { smash: 2, rupture: 3 }, 'legendary'],
   ], { owner: 'cavalry' });
+  ASC_CARDS.cavalry = { 1: ['c_hammer', 'c_bulwark'], 5: ['c_shatter', 'c_ironwill'], 8: ['c_meteor'] };
 
   CLASSES.forEach(c => {
     c.pool = Object.values(CARDS).filter(x => x.owner === c.id && !c.starter.includes(x.id)).map(x => x.id);
@@ -175,6 +199,10 @@
     { id: 'l_third', name: '세 번째 손', cost: 4, desc: '턴당 코스트 +2', mods: { energy: 2 } },
     { id: 'l_radiance', name: '광휘의 가호', cost: 4, desc: '매 턴 첫 번째로 쓰는 카드의 주사위 위력 +2', mods: { firstSkillBonus: 2 } },
     { id: 'l_saint', name: '성인의 생명력', cost: 4, desc: '최대 체력 +40, 매 턴 종료 시 체력 2 회복', mods: { maxHp: 40, regen: 2 } },
+    // 직업 전용 가호 (승천 2 보상)
+    { id: 'l_sw_blood', name: '혈기', cost: 2, cls: 'swordsman', ascReq: 2, desc: '전투 시작 시 적에게 출혈 3', mods: { openBleed: 3 } },
+    { id: 'l_h_fervor', name: '열성', cost: 2, cls: 'herald', ascReq: 2, desc: '속성을 처음 걸 때도 1단계 효과가 터진다', mods: { elementPrime: 1 } },
+    { id: 'l_c_wall', name: '방벽', cost: 2, cls: 'cavalry', ascReq: 2, desc: '방어·회피 주사위 위력 +1', mods: { guardPower: 1 } },
   ];
 
   // ───────── 아이템 ─────────
@@ -306,6 +334,22 @@
         { label: '무시한다', hint: '아무 일도 없음', fx: {} },
       ] },
   ];
+
+  // 승천 6 보상 사건
+  EVENTS.push(
+    { id: 'relicseller', icon: '🧳', name: '성유물 상인', ascReq: 6, text: '검은 외투의 상인이 천에 싸인 유물을 보여 줍니다. "값은 비싸지만, 가짜는 아니오."',
+      choices: [
+        { label: '은화 70을 낸다', hint: '희귀 유물 획득', fx: { gold: -70, relic: 'rare' }, need: { gold: 70 } },
+        { label: '물약으로 흥정한다', hint: '치유 물약 획득, 체력 -10', fx: { hp: -10, potion: 'it_potion' } },
+        { label: '떠난다', hint: '아무 일도 없음', fx: {} },
+      ] },
+    { id: 'arena', icon: '🏟️', name: '고대 훈련장', ascReq: 6, text: '무너진 훈련장에 낡은 허수아비가 서 있습니다. 검을 휘두르기 좋은 곳입니다.',
+      choices: [
+        { label: '훈련한다', hint: '체력 -15, 카드 1장 모든 주사위 +1', fx: { hp: -15, upgrade: { ub: 1 } } },
+        { label: '허수아비를 뒤진다', hint: '60%: 은화 50 / 40%: 체력 -12', fx: { chance: { p: 0.6, win: { gold: 50 }, lose: { hp: -12 } } } },
+        { label: '지나친다', hint: '아무 일도 없음', fx: {} },
+      ] },
+  );
 
   // ───────── 지역 / 몬스터 ─────────
   // 몬스터 덱은 반드시 9장. 중간 보스/보스는 지역 카드 6장 + 전용 카드 3장 + 고유 스킬 1개.
@@ -554,6 +598,21 @@
   ];
   const MAX_ASCENSION = ASCENSION.length;
 
+  // 승천 보상: 그 직업으로 단계 n 에 도달하면 이후 모든 판에서 쓸 수 있다
+  const ASC_REWARDS = [
+    { level: 1, name: '전용 카드 2장', desc: '직업 전용 일반 카드 2장이 보상·상점에 추가', key: 'cards1' },
+    { level: 2, name: '전용 가호', desc: '직업 전용 가호 1개 (빛 2)', key: 'passive' },
+    { level: 3, name: '물약 벨트 4칸', desc: '물약을 하나 더 들고 다닌다', key: 'potion4' },
+    { level: 4, name: '시작 유물', desc: '순례 시작 시 일반 유물 3개 중 1개 선택', key: 'startRelic' },
+    { level: 5, name: '전용 희귀 카드 2장', desc: '직업 전용 희귀 카드 2장이 추가', key: 'cards5' },
+    { level: 6, name: '새 사건 2종', desc: '성유물 상인, 고대 훈련장', key: 'events' },
+    { level: 7, name: '모닥불 명상', desc: '모닥불에서 명상: 다음 전투 시작 시 힘 2, 보호 2', key: 'focus' },
+    { level: 8, name: '전용 전설 카드', desc: '직업 전용 전설 카드 1장이 추가', key: 'cards8' },
+    { level: 9, name: '상점 재입고', desc: '상점에서 은화 30으로 하단 물건을 새로 뽑는다 (1회)', key: 'restock' },
+    { level: 10, name: '황금 순례자', desc: '시작 은화 50', key: 'gold' },
+  ];
+  const RESTOCK_PRICE = 30;
+
   // 해금: 조건을 채우면 열린다. meta = { bossKills, wins, maxFloor, runs }
   const UNLOCKS = [
     { id: 'u_herald', kind: 'class', target: 'herald', name: '전령', need: m => m.bossKills >= 1, desc: '보스 1회 처치' },
@@ -571,7 +630,7 @@
 
   const DATA = {
     CARDS, CLASSES, CLASS_MAP, DICE, ATK_TYPES, TYPE_OF, TYPES, RES_NAME, LIGHT_POINTS, PASSIVES, ITEMS,
-    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, ELEMENTS, WIN_FLOOR, ASCENSION, MAX_ASCENSION, UNLOCKS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
+    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, ELEMENTS, WIN_FLOOR, ASCENSION, MAX_ASCENSION, ASC_REWARDS, ASC_CARDS, RESTOCK_PRICE, UNLOCKS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = DATA;

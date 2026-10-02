@@ -131,6 +131,16 @@
     return out;
   }
   const lightPoints = level => D.LIGHT_POINTS + ascMods(level).light;
+  // 승천 보상: run.ascReached(그 직업으로 열어 둔 최고 승천 단계)가 보상 단계 이상이면 사용 가능
+  const ascRewardLevel = key => (D.ASC_REWARDS.find(r => r.key === key) || { level: 99 }).level;
+  const hasAscReward = (run, key) => (run.ascReached || 0) >= ascRewardLevel(key);
+  const potionSlots = run => D.POTION_SLOTS + (hasAscReward(run, 'potion4') ? 1 : 0);
+  // 승천 보상 카드인지, 쓸 수 있는지
+  function ascCardLevel(classId, id) {
+    const t = D.ASC_CARDS[classId] || {};
+    const lv = Object.keys(t).find(l => t[l].includes(id));
+    return lv ? Number(lv) : 0;
+  }
   // 보스 처치·판 종료를 기록해 해금 조건을 갱신한다
   function recordBossKill(meta) { meta.bossKills++; return meta; }
   function recordRun(meta, run, won) {
@@ -158,9 +168,11 @@
     const A = ascMods(asc);
     const unlocked = opts.unlocked || unlockedIds(null);
     if (passiveCost(passiveIds) > lightPoints(asc)) throw new Error('빛 수치를 초과했습니다');
+    const ascReached = opts.ascReached || 0;
     passiveIds.forEach(id => {
       const x = D.PASSIVES.find(y => y.id === id);
       if (x.cost >= 4 && !isUnlocked(unlocked, 'passive', 4)) throw new Error('아직 열리지 않은 가호입니다');
+      if (x.cls && (x.cls !== classId || (x.ascReq || 0) > ascReached)) throw new Error('이 직업·승천에서는 고를 수 없는 가호입니다');
     });
     const p = baseCombatant();
     p.isPlayer = true;
@@ -177,7 +189,8 @@
     applyMods(p, cls.trait.mods);
     passiveIds.forEach(id => applyMods(p, D.PASSIVES.find(x => x.id === id).mods));
     const start = D.REGIONS[0].id;
-    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [], asc, unlocked, won: false };
+    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [], asc, unlocked, ascReached, won: false, nextBuff: null };
+    if (hasAscReward(run, 'gold')) run.gold = 50;
     return run;
   }
 
@@ -258,6 +271,11 @@
       applyMods(p, { heal: amount });
       return { ok: true, amount };
     }
+    if (choice === 'focus') {
+      if (!hasAscReward(run, 'focus')) return { ok: false, msg: '승천 7 보상입니다' };
+      run.nextBuff = { might: 2, protect: 2 };
+      return { ok: true };
+    }
     if (choice === 'upgrade') {
       const c = p.deck.find(x => x.uid === targetUid);
       if (!c) return { ok: false, msg: '단련할 카드를 고르세요' };
@@ -282,8 +300,9 @@
 
   // ───────── 사건 ─────────
   function rollEvent(run, rng) {
-    const pool = D.EVENTS.filter(e => !run.seen.includes(e.id));
-    const ev = pick(pool.length ? pool : D.EVENTS, rng);
+    const avail = D.EVENTS.filter(e => (e.ascReq || 0) <= (run.ascReached || 0));
+    const pool = avail.filter(e => !run.seen.includes(e.id));
+    const ev = pick(pool.length ? pool : avail, rng);
     run.seen.push(ev.id);
     return ev;
   }
@@ -350,7 +369,7 @@
   // ───────── 물약 ─────────
   // 벨트에 넣는다. 가득 차면 바로 마신다(회복만 적용).
   function addPotion(run, id) {
-    if (run.potions.length < D.POTION_SLOTS) { run.potions.push(id); return { stored: true }; }
+    if (run.potions.length < potionSlots(run)) { run.potions.push(id); return { stored: true }; }
     const it = D.ITEMS.find(x => x.id === id);
     if (it.potion.heal) applyMods(run.player, { heal: it.potion.heal });
     return { stored: false };
@@ -393,6 +412,7 @@
     p.drawPile = []; p.hand = []; p.discard = [];
     run.unlocked = run.unlocked || unlockedIds(null);
     run.asc = run.asc || 0;
+    run.ascReached = run.ascReached || 0;
     p.hemorrhage = !!D.CLASS_MAP[run.classId].trait.hemorrhage;
     const maxUid = Math.max(0, ...p.deck.map(c => c.uid));
     if (maxUid >= uidSeq) uidSeq = maxUid + 1;
@@ -466,6 +486,12 @@
     prepCombatant(b.player, rng);
     prepCombatant(enemy, rng);
     startTurn(b, rng);
+    if (run.nextBuff) {
+      b.player.status.might += run.nextBuff.might || 0;
+      b.player.status.protect += run.nextBuff.protect || 0;
+      run.nextBuff = null;
+    }
+    if (b.player.openBleed) enemy.status.bleed += b.player.openBleed;
     return b;
   }
 
@@ -502,7 +528,7 @@
     const dice = cardDice(c).map(d => {
       const atk = isAtk(d.t);
       const bonus = owner.basePower + first + (d.t === 'S' ? owner.slashPower : 0) +
-        (atk ? st.might + buff.might - st.weak : st.endure + buff.endure);
+        (atk ? st.might + buff.might - st.weak : st.endure + buff.endure + (owner.guardPower || 0));
       const min = Math.max(0, d.min + owner.diceMin + bonus);
       const max = Math.max(min, d.max + owner.diceMax + bonus);
       return { t: d.t, atk, min, max };
@@ -769,6 +795,14 @@
             } else {
               tgt.status.element = { type: fx.element, n: 1 };
               push({ t: 'status', side: sideOf(tgt), key: 'element', amount: 1, element: fx.element });
+              if (X.owner.elementPrime) {
+                const per = D.ELEMENTS[fx.element].per;
+                push({ t: 'element', side: sideOf(tgt), type: fx.element, n: 1 });
+                if (fx.element === 'fire') addStatus(tgt, 'burn', per);
+                else if (fx.element === 'ice') addStatus(tgt, 'weakNext', per);
+                else if (fx.element === 'lightning') { damage(tgt, per); push({ t: 'proc', side: sideOf(tgt), key: 'lightning', amount: per }); }
+                else if (fx.element === 'holy') heal(X.owner, per);
+              }
             }
           }
           if (fx.bleed) addBleed(X.owner, tgt, fx.bleed);
@@ -844,7 +878,7 @@
 
   const itemOk = (run, it) => (!it.cond || it.cond(run.player)) && isUnlocked(run.unlocked, 'item', it.id)
     && (it.type !== 'relic' || isUnlocked(run.unlocked, 'relics', it.rarity));
-  const cardOk = (run, id) => isUnlocked(run.unlocked, 'cards', D.CARDS[id].rarity);
+  const cardOk = (run, id) => isUnlocked(run.unlocked, 'cards', D.CARDS[id].rarity) && ascCardLevel(run.classId, id) <= (run.ascReached || 0);
 
   // 희귀도에 맞는 아이템 하나 (카드 아이템이면 직업 카드도 정한다). 이미 뽑힌 것은 제외.
   function rollItem(run, rarity, taken, rng) {
@@ -910,6 +944,23 @@
     return { fixed, random };
   }
 
+  // 승천 9 보상: 은화를 내고 하단 물건을 새로 뽑는다 (상점마다 1회)
+  function restock(run, shop, rng) {
+    if (!hasAscReward(run, 'restock')) return { ok: false, msg: '승천 9 보상입니다' };
+    if (shop.restocked) return { ok: false, msg: '이미 재입고했습니다' };
+    if (run.gold < D.RESTOCK_PRICE) return { ok: false, msg: '은화가 부족합니다' };
+    run.gold -= D.RESTOCK_PRICE;
+    shop.random = rollShop(run, rng).random;
+    shop.restocked = true;
+    return { ok: true };
+  }
+
+  // 승천 4 보상: 시작 유물 후보 (일반 유물 3개)
+  function startRelicChoices(run, rng) {
+    const items = shuffle(D.ITEMS.filter(it => it.type === 'relic' && it.rarity === 'common' && itemOk(run, it)), rng);
+    return items.slice(0, 3).map(item => ({ item }));
+  }
+
   function buy(run, entry, targetUid) {
     if (entry.sold) return { ok: false, msg: '이미 판매된 물건입니다.' };
     if (run.gold < entry.price) return { ok: false, msg: '은화가 부족합니다.' };
@@ -942,6 +993,7 @@
     makeMap, mapChoices, enterNode, currentNode, finishNode, startRegion, rest, rollTreasure,
     rollEvent, canChoose, applyEventChoice, swapEventCard, upgradeCard, addPotion, usePotion, serializeRun, loadRun,
     freshMeta, unlockedIds, isUnlocked, ascensionOf, ascMods, lightPoints, recordBossKill, recordRun,
+    hasAscReward, potionSlots, ascCardLevel, restock, startRelicChoices,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

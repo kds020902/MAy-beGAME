@@ -1,430 +1,381 @@
-// 쇄빙선 — 핀란드만 얼음에 갇힌 원자력 쇄빙선 「보레아스」(아르크티카급) 전체: 남쪽을 향한 숟가락 뱃머리, 앞쪽 3분의 1에 선 줄무늬 상부 구조물과 조타실, 긴 뒤갑판의 구명정·크레인·컨테이너, 고물의 팔각 헬리패드, 둘레의 갈라진 얼음판과 검은 물길 (168칸)
-// 배는 "배 좌표"(x: 고물→이물, z: 가로)로 짓고 월드에는 전치(월드 x = 배 z, 월드 z = 배 x)해서 놓는다 → 이물은 남쪽, 오른쪽 뱃전은 동쪽(기본 카메라 쪽)
+// 쇄빙선 — 핀란드만 얼음에 갇힌 원자력 쇄빙선 「보레아스」의 앞부분만: 상부 구조물 정면(붉은·파란·흰 띠, 위로 갈수록 뒤로 눕는 정면), 넓은 날개의 조타실, 앞갑판(접어 둔 크레인 둘, 높은 앞 갑판실, V자 양묘기 넷, 앞 돛대), 숟가락 뱃머리
+// 비율은 re3mr 측면도와 tarkov.dev 평면도를 따랐다(한 층 ≈ 5칸, 앞갑판 길이 ≈ 배 폭). 뱃머리는 남쪽, 오른쪽 뱃전은 동쪽(기본 카메라 쪽), 배 뒤쪽은 북쪽 가장자리 밖으로 이어진다
 (function () {
   'use strict';
   const { hash3 } = VX;
-  const W = 168, D = 168, Hh = 120;
+  const W = 136, D = 154, Hh = 124;
   MAPS.push({
-    id: 'icebreaker', cat: 'tarkov', name: '쇄빙선', en: 'Icebreaker · Boreas', color: '#5a8ab0', seed: 603, base: 22, time: 'night', size: [W, D, Hh],
-    desc: '타르코프 봉쇄선 안쪽 핀란드만, 얼음에 갇힌 원자력 쇄빙선 「보레아스」. 물류 회사 파라다임 해운의 배지만 무엇을 싣고 어디로 가던 길인지는 아무도 모른다. 남쪽을 향한 뱃머리 뒤로 붉고 푸른 띠를 두른 상부 구조물이 솟고, 고물의 팔각 헬리패드에는 헬기가 앉아 있다. 조타실 탐조등만이 눈보라 속 얼음판을 훑는다.',
-    info: { title: '구역 정보', en: 'LOCATION', rows: [['위치', '핀란드만 · 타르코프 봉쇄선 안'], ['소속', '파라다임 해운(Paradigm Shipping)'], ['층', '0층 창고 · 2층 헬리패드 · 3층 체육관 · 9층 조타실'], ['보스', '웨지(3층 체육관) · 나이트(0층)'], ['탈출', '헬리패드 · 녹색 신호탄'], ['모델', '원자력 쇄빙선 「아르크티카」급']] },
+    id: 'icebreaker', cat: 'tarkov', name: '쇄빙선', en: 'Icebreaker · Boreas', color: '#5a8ab0', seed: 603, base: 20, time: 'night', size: [W, D, Hh],
+    desc: '타르코프 봉쇄선 안쪽 핀란드만, 얼음에 갇힌 원자력 쇄빙선 「보레아스」의 앞부분. 검은 선체 뱃머리에 「БОРЕЙ」, 그 뒤로 붉고 푸르고 흰 띠를 두른 상부 구조물이 위로 갈수록 뒤로 누우며 솟고, 꼭대기에는 배 폭만큼 넓은 조타실이 탐조등을 켜고 있다. 앞갑판에는 접어 둔 크레인, 갑판실, V자로 놓인 양묘기와 앞 돛대가 눈을 뒤집어쓰고 있다.',
+    info: { title: '구역 정보', en: 'LOCATION', rows: [['위치', '핀란드만 · 타르코프 봉쇄선 안'], ['소속', '파라다임 해운(Paradigm Shipping)'], ['이 지도', '상부 구조물 정면 · 앞갑판 · 뱃머리'], ['층', '3층 식당·체육관 ~ 9층 조타실 · 10층 지붕'], ['보스', '웨지(3층 체육관) · 나이트(0층)'], ['탈출', '헬리패드(고물) · 녹색 신호탄']] },
     sky: ['#1a2638', '#05080f', '#2c4462'], stars: true,
-    hemi: ['#9ab4d8', '#141a24', 0.5], sun: ['#c0d4f4', 0.42, [0.5, 1, 0.7]],
+    hemi: ['#9ab4d8', '#141a24', 0.52], sun: ['#c0d4f4', 0.42, [0.5, 1, 0.7]],
     day: { sky: ['#a8b4c0', '#6a7c90', '#dce4ea'], stars: false, hemi: ['#e8f0f8', '#4a5462', 0.6], sun: ['#f0f4ff', 0.6, [0.5, 1, 0.7]], haze: '#b8c6d4' },
     liquid: ['#0a141e', '#16283a', '#4a6a84'], liqSpeed: 0.12,
-    fog: { box: [84, 84, 92, 92], start: 0.84, floor: 10, depth: 10, haze: [30, 0.3, 10], hazeColor: '#3a4c62' },
-    camY: 6, zoom: 1.15,
+    fog: { box: [68, 77, 72, 81], start: 0.86, floor: 8, depth: 10, haze: [28, 0.28, 10], hazeColor: '#3a4c62' },
+    camY: 14, zoom: 1.15,
     particles: [
-      { n: 1100, colors: ['#ffffff', '#e4eef8', '#c0d4e8'], mode: 'fall', speed: 0.9, wind: 1.6, y0: 18, y1: 116, glow: false },
-      { n: 34, colors: ['#5affb0', '#3ae0c8', '#a0ffd8'], mode: 'wisp', speed: 0.3, size: 2, y0: 104, glow: true },
+      { n: 1100, colors: ['#ffffff', '#e4eef8', '#c0d4e8'], mode: 'fall', speed: 0.9, wind: 1.6, y0: 18, y1: 120, glow: false },
     ],
     blocks: {
       // 얼음판
       snowI: { c: '#9eb2c4', top: '#e2ebf2', v: 0.04 }, snow2: { c: '#94a8bc', top: '#d0dce8', v: 0.05 }, iceB: { c: '#7aa0b8', top: '#a4c6da', v: 0.05 },
       iceThin: { c: '#5a7e98', top: '#6e94ae', v: 0.05 }, crack: { c: '#3a5268', top: '#466078', v: 0.04 }, sea: { c: '#0e1820', v: 0.03 },
       iceBlk: { c: '#a8cce0', top: '#e8f4fa', v: 0.06 }, iceBlk2: { c: '#7eaac4', top: '#c8e0ee', v: 0.06 },
-      // 선체: 짙은 남색 윗선체, 붉은 아랫선체, 흰 흘수선, 초록 갑판
-      hullN: { c: '#1e2a3a', v: 0.04 }, hullR: { c: '#8a2a24', v: 0.05 }, hullW: { c: '#d8dcdc', v: 0.02 }, rust: { c: '#5a3226', v: 0.06 },
-      deck: { c: '#3e4a3a', top: '#4c5a46', v: 0.05, pat: 'floor' }, snowD: { c: '#b4c2ce', top: '#e0e8f0', v: 0.04 },
-      rail: { c: '#9aa0a6', v: 0.03 }, iron: { c: '#2c3036', v: 0.03 }, chain: { c: '#3a3634', v: 0.04 }, port: { c: '#ffe2a8', night: true, day: '#3a4650' },
-      // 상부 구조물: 밝은 회색 벽에 흰·파랑·빨강 띠
-      sWall: { c: '#a8b0b8', v: 0.03, pat: 'big' }, sTrim: { c: '#d4d8dc', v: 0.02 }, sRoof: { c: '#3c4248', v: 0.03 }, stripeB: { c: '#2a5a9a', v: 0.03 }, stripeR: { c: '#a8362e', v: 0.03 }, stripeW: { c: '#e4e8ec', v: 0.02 },
-      win: { c: '#ffe0a0', night: true, day: '#3a4a58' }, winD: { c: '#2a3440', v: 0.03 }, brWin: { c: '#c4f0ff', night: true, day: '#2a4652' }, frame: { c: '#2a2e34', v: 0.02 },
-      gymWin: { c: '#ffb058', night: true, day: '#4a4032' }, doorS: { c: '#4a525a', v: 0.03 }, boatO: { c: '#e8702a', v: 0.04 }, brass: { c: '#c8a050', v: 0.05 },
-      mastN: { c: '#24324a', v: 0.03 }, dome: { c: '#e8ecee', v: 0.02 },
-      // 원자로·헬리패드·크레인
-      vent: { c: '#8a9298', v: 0.04, pat: 'plank' }, ventG: { c: '#6affc8', glow: true }, hazY: { c: '#e8c030', v: 0.03 }, hazK: { c: '#1a1a1a', v: 0.02 },
-      pad: { c: '#2e3434', top: '#3a4242', v: 0.03, pat: 'check', alt: '#323a3a' }, padW: { c: '#e8ecec', v: 0.02 }, padG: { c: '#5aff7a', glow: true }, padL: { c: '#ffb040', glow: true },
-      craneO: { c: '#c8482a', v: 0.04 }, cable: { c: '#1e2024', v: 0.02 },
-      cOr: { c: '#c8642a', top: '#d8e2ea', v: 0.04, pat: 'plank' }, cBl: { c: '#2e5a8a', top: '#d8e2ea', v: 0.04, pat: 'plank' }, cGr: { c: '#3e6a4a', top: '#d8e2ea', v: 0.04, pat: 'plank' },
-      cGy: { c: '#7a8088', top: '#d8e2ea', v: 0.04, pat: 'plank' }, cWh: { c: '#c8ccc8', top: '#e4eaee', v: 0.03, pat: 'plank' }, cTeal: { c: '#2a8a8a', v: 0.03 },
-      hatch: { c: '#5a6068', top: '#6a7078', v: 0.04, pat: 'plank' },
+      // 선체: 검은 남색 윗선체, 얼음 위로 살짝 보이는 붉은 아랫선체와 흰 줄, 초록빛 도는 갑판
+      hullN: { c: '#1c2432', v: 0.04 }, hullR: { c: '#8a2a24', v: 0.05 }, hullW: { c: '#d8dcdc', v: 0.02 }, rust: { c: '#4e3026', v: 0.06 },
+      deck: { c: '#3a4440', top: '#46524c', v: 0.05, pat: 'floor' }, snowD: { c: '#b4c2ce', top: '#e4ecf2', v: 0.04 },
+      rail: { c: '#9aa0a6', v: 0.03 }, iron: { c: '#2c3036', v: 0.03 }, chain: { c: '#4a4440', v: 0.05 }, wlass: { c: '#3a4658', v: 0.04 },
+      // 상부 구조물: 밝은 회색 벽, 흰·파랑·빨강 띠
+      sWall: { c: '#b4bac0', v: 0.03, pat: 'big' }, sLine: { c: '#8a9298', v: 0.02 }, sRoof: { c: '#4a5056', top: '#c4d0da', v: 0.03 },
+      stripeB: { c: '#2a5694', v: 0.03 }, stripeR: { c: '#b03a30', v: 0.03 }, stripeW: { c: '#e8ecf0', v: 0.02 },
+      win: { c: '#ffe0a0', night: true, day: '#3a4a58' }, winD: { c: '#26303a', v: 0.03 }, brWin: { c: '#b4e8ff', night: true, day: '#2a4652' }, frame: { c: '#2a2e34', v: 0.02 },
+      doorS: { c: '#5a646c', v: 0.03 }, signW: { c: '#eef0f0', v: 0.02 }, signK: { c: '#1e2630', v: 0.02 },
+      mastN: { c: '#24324a', v: 0.03 }, dome: { c: '#e8ecee', v: 0.02 }, crane: { c: '#d8dcd8', v: 0.03 }, craneY: { c: '#e0a830', v: 0.03 },
+      cBl: { c: '#2e5a8a', top: '#d8e2ea', v: 0.04, pat: 'plank' }, cGr: { c: '#3e6a4a', top: '#d8e2ea', v: 0.04, pat: 'plank' }, cWh: { c: '#d8dcdc', v: 0.02 },
+      hatch: { c: '#8a9298', top: '#c8d4dc', v: 0.04 },
       // 불빛
-      lampW: { c: '#f4fbff', glow: true }, redL: { c: '#ff3a2a', glow: true }, navW: { c: '#ffffff', glow: true }, navG: { c: '#3aff6a', glow: true }, beamL: { c: '#cfeeff', glow: true },
-      // 얼음 위 야영지·헬기·호버크래프트
-      tent: { c: '#4a5238', v: 0.04 }, tentDk: { c: '#384028', v: 0.04 }, crateM: { c: '#4e5a3a', top: '#c8d4dc', v: 0.05, pat: 'plank' }, sandbag: { c: '#8a7e62', top: '#b4b0a0', v: 0.08 },
-      gen: { c: '#b89a3a', v: 0.04 }, barrelB: { c: '#2e4a7a', v: 0.04 }, barrelR: { c: '#8a3a2a', v: 0.04 }, sled: { c: '#a8282a', v: 0.04 },
-      heliO: { c: '#d8642a', v: 0.04 }, heliWt: { c: '#dcdcd8', v: 0.03 }, heliDk: { c: '#2e342e', v: 0.03 }, heliGl: { c: '#9ac8d8', night: true, day: '#5a7a88' },
-      skirt: { c: '#1e2022', v: 0.04 }, hover: { c: '#5a6a5a', v: 0.04 }, flareG: { c: '#5aff7a', glow: true },
+      lampW: { c: '#f4fbff', glow: true }, flood: { c: '#fff4d8', glow: true }, redL: { c: '#ff3a2a', glow: true }, navW: { c: '#ffffff', glow: true }, navG: { c: '#3aff6a', glow: true }, beamL: { c: '#cfeeff', glow: true },
+      // 호버크래프트·사륜 오토바이·상자
+      skirt: { c: '#1e2022', v: 0.04 }, hover: { c: '#2e4a7a', v: 0.04 }, hoverW: { c: '#c8ccc8', v: 0.03 }, hoverR: { c: '#a8322a', v: 0.04 }, fan: { c: '#1a2a4a', v: 0.03 }, glass: { c: '#9ac8d8', night: true, day: '#5a7a88' },
+      quad: { c: '#2e342e', v: 0.03 }, tail: { c: '#ff2a1a', glow: true }, crateM: { c: '#4e5a3a', top: '#c8d4dc', v: 0.05, pat: 'plank' },
+      // 이정표(오라리오와 같은 방식): 회색 받침, 강철 기둥, 노란 판, 초록 비상구 끝, 등
+      stoneG: { c: '#6a7078', v: 0.04 }, timber: { c: '#3a4048', v: 0.03 }, door: { c: '#d8b030', v: 0.03 }, gold: { c: '#3ad06a', v: 0.03 }, mlamp: { c: '#fff0c0', glow: true },
     },
     build(w) {
       const B = w.id, G = w.base, n = w.noise;
       const lights = [], acts = [], landmarks = [];
-      // ── 배 좌표 ↔ 월드 좌표(전치) ──
-      const wrap = t => ({
-        set: (x, y, z, b) => t.set(z, y, x, b), get: (x, y, z) => t.get(z, y, x),
-        box: (x0, y0, z0, x1, y1, z1, b) => t.box(z0, y0, x0, z1, y1, x1, b),
-        cyl: (cx, cz, y0, y1, r, b) => t.cyl(cz, cx, y0, y1, r, b), sphere: (cx, cy, cz, r, b) => t.sphere(cz, cy, cx, r, b),
-        ellipsoid: (cx, cy, cz, rx, ry, rz, b) => t.ellipsoid(cz, cy, cx, rz, ry, rx, b),
-        line: (x0, y0, z0, x1, y1, z1, b) => t.line(z0, y0, x0, z1, y1, x1, b), liquid: (x, z, y) => t.liquid(z, x, y),
-      });
-      const S = wrap(w), T = p => [p[2], p[1], p[0]], TH = h => [h[2], h[1], h[0], h[5], h[4], h[3]], TR = r => [-r[2], -r[1], -r[0]];
-      const sprop = o => wrap(w.prop(Object.assign({}, o, { pivot: T(o.pivot) }, o.rot0 ? { rot0: TR(o.rot0) } : {})));
-      const burst = (a, p, o) => a.burst(T(p), o);
-      const yawTo = (a, name, ang, d) => a.turn(name, [0, -ang, 0], d);     // 배 좌표에서 +x → +z 쪽으로 도는 각
+      w.hm = new Int16Array(W * D).fill(G);                                  // 이정표(MH.g)용 높이표
 
-      const CZ = 60, HW = 15, DK = G + 13;                                  // 중심선(월드 x), 반폭, 주갑판
-      const deckY = x => DK + Math.floor(Math.max(0, x - 118) * 0.14);
-      const tipX = y => 136 + (y - G);                                      // 숟가락 뱃머리
-      const hwAt = (x, y) => {
-        let b = HW - (y < G + 3 ? (G + 3 - y) * 0.5 : 0);
-        if (x < 4) return -1;
-        if (x < 20) b *= 0.7 + 0.3 * (x - 4) / 16;                          // 넓적한 고물
-        if (x <= 112) return b;
-        const t = (x - 112) / (tipX(y) - 112);
-        return t >= 1 ? -1 : b * Math.pow(1 - Math.pow(t, 2.2), 0.5);
+      // ── 배 치수: 중심선 x=74, 반폭 30, 주갑판 G+16. 상부 구조물 정면 z=60, 뱃머리 끝 z≈128(갑판) ──
+      const CX = 64, HW = 30, DK = G + 16, ZF = 60;
+      const dxOf = x => x + 0.5 - CX;
+      const deckY = z => DK + Math.floor(Math.max(0, z - 92) * 0.14);        // 뱃머리 쪽으로 오르는 현호
+      const tipZ = y => 116 + (y - G) * 0.75;                                // 앞으로 누운 숟가락 뱃머리
+      const hwAt = (z, y) => {
+        let b = HW - Math.max(0, DK - y) * 0.12;                            // 얼음 쪽으로 좁아지는 뱃전
+        if (z <= 84) return b;
+        const t = (z - 84) / (tipZ(y) - 84);
+        return t >= 1 ? -1 : b * Math.sqrt(Math.max(0, 1 - Math.pow(t, 2.4)));
       };
-      const inHull = (x, y, z) => Math.abs(z + 0.5 - CZ) <= hwAt(x, y);
-      const segD = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t); };
+      const inHull = (x, y, z) => Math.abs(dxOf(x)) <= hwAt(z, y);
 
-      // ── 얼음판(월드 좌표): 눈 덮인 해빙, 맨얼음, 금, 고물 뒤 항적 물길, 동쪽 뱃전에서 남동쪽으로 뻗은 물길, 웅덩이 둘 ──
-      const LEAD = [[76, 112], [90, 122], [104, 134], [120, 142], [140, 152], [167, 160]];
+      // ── 얼음판: 눈 덮인 해빙, 맨얼음, 금, 남서쪽으로 뻗은 물길 ──
+      const LEAD = [[0, 140], [22, 136], [40, 132], [48, 128]];
+      const segD = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t); };
       const wm = new Uint8Array(W * D);
       for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-        let wet = false, floeT = 0.6;
         let dl = 1e9; for (let k = 0; k < LEAD.length - 1; k++) dl = Math.min(dl, segD(x, z, LEAD[k], LEAD[k + 1]));
-        if (dl < 2.2 + n.fbm(x * 0.07, z * 0.07) * 4 + Math.max(0, x - 76) * 0.02) wet = true;
-        if (z < 22 && Math.abs(x + 0.5 - CZ) < 24 - z * 0.4 + n.fbm(x * 0.1 + 4, z * 0.1) * 6) { wet = true; floeT = 0.5; }
-        if (Math.hypot(x - 130, (z - 70) * 1.3) < 7 + n.fbm(x * 0.2, z * 0.2) * 4) wet = true;
-        if (Math.hypot((x - 20) * 1.3, z - 118) < 6 + n.fbm(x * 0.2, z * 0.2) * 4) wet = true;
-        if (wet && n.fbm(x * 0.16 + 11, z * 0.16 + 3) > floeT) wm[x + W * z] = 2;   // 떠다니는 얼음 조각
-        else if (wet) wm[x + W * z] = 1;
+        if (dl < 1.6 + n.fbm(x * 0.08, z * 0.08) * 3.5) wm[x + W * z] = n.fbm(x * 0.2 + 7, z * 0.2) > 0.62 ? 2 : 1;
       }
-      const nearWet = (x, z, r) => { for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < D && wm[xx + W * zz] === 1) return true; } return false; };
       for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
         const m = wm[x + W * z];
-        if (m === 1) { w.set(x, G - 3, z, B.sea); continue; }
-        if (m === 2) { w.box(x, G - 3, z, x, G - 1, z, hash3(x, 2, z) > 0.5 ? B.iceBlk : B.iceBlk2); continue; }
+        if (m === 1) { w.set(x, G - 3, z, B.sea); w.liquid(x, z, G - 1); continue; }
+        if (m === 2) { w.box(x, G - 3, z, x, G - 1, z, B.iceBlk2); continue; }
         const n1 = n.fbm(x * 0.05, z * 0.05), cr = n.ridge(x * 0.035 + 5, z * 0.035 + 9);
-        let b = cr > 0.84 ? B.crack : n1 > 0.62 ? B.iceB : (hash3(x, 1, z) > 0.92 ? B.snow2 : B.snowI);
-        if (b !== B.crack && nearWet(x, z, 2)) b = B.iceThin;
+        const b = cr > 0.9 ? B.crack : n1 > 0.7 ? B.iceB : (n1 > 0.6 || hash3(x, 1, z) > 0.96 ? B.snow2 : B.snowI);
         w.box(x, G - 3, z, x, G - 1, z, B.iceB); w.set(x, G, z, b);
         if (b === B.snowI && n.fbm(x * 0.09 + 3, z * 0.09 + 7) > 0.66) w.set(x, G + 1, z, B.snowI);   // 눈 둔덕
       }
-      const wet = (x, z) => wm[z + W * x] === 1;                             // 배 좌표로 물인지
 
-      // ── 선체(배 좌표) ──
-      for (let x = 4; x <= 156; x++) {
-        const dy = deckY(x);
-        for (let y = G - 3; y <= dy; y++) for (let z = CZ - HW - 1; z <= CZ + HW + 1; z++) {
+      // ── 선체 ──
+      for (let z = 0; z <= 132; z++) {
+        const dy = deckY(z);
+        for (let y = G - 3; y <= dy; y++) for (let x = CX - HW - 1; x <= CX + HW; x++) {
           if (!inHull(x, y, z)) continue;
-          let b = y <= G + 4 ? B.hullR : y === G + 5 ? B.hullW : B.hullN;
-          if (y === dy) b = hash3(x, 5, z) > 0.72 ? B.snowD : B.deck;
-          S.set(x, y, z, b);
+          let b = y <= G + 1 ? B.hullR : y === G + 2 ? B.hullW : B.hullN;
+          if (y === dy) b = n.fbm(x * 0.15, z * 0.15) < 0.3 && hash3(x, 5, z) > 0.3 ? B.deck : B.snowD;
+          w.set(x, y, z, b);
         }
-        for (let z = CZ - HW - 1; z <= CZ + HW + 1; z++) {                  // 갑판 가장자리: 앞은 높은 현장, 나머지는 난간
+        for (let x = CX - HW - 1; x <= CX + HW; x++) {                       // 갑판 가장자리: 앞갑판은 검은 현장, 상부 구조물 옆은 난간
           if (!inHull(x, dy, z)) continue;
-          if (inHull(x, dy, z + 1) && inHull(x, dy, z - 1) && inHull(x + 1, dy, z) && inHull(x - 1, dy, z)) continue;
-          if (x >= 116) { S.set(x, dy + 1, z, B.hullN); S.set(x, dy + 2, z, B.hullW); }
-          else { if (x % 3 === 0) S.set(x, dy + 1, z, B.rail); S.set(x, dy + 2, z, B.rail); }
+          if (inHull(x + 1, dy, z) && inHull(x - 1, dy, z) && inHull(x, dy, z + 1) && (z === 0 || inHull(x, dy, z - 1))) continue;
+          const bh = z >= ZF ? (z > 112 ? 3 : 2) : 0;
+          if (bh) { w.box(x, dy + 1, z, x, dy + bh - 1, z, B.hullN); w.set(x, dy + bh, z, B.hullW); }
+          else { if (z % 3 === 0) w.set(x, dy + 1, z, B.rail); w.set(x, dy + 2, z, B.rail); }
         }
       }
-      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) if (wm[x + W * z] === 1 && !w.get(x, G - 1, z)) w.liquid(x, z, G - 1);
-      const outZ = (x, y) => { for (let z = CZ + HW + 1; z > CZ; z--) if (S.get(x, y, z) && inHull(x, y, z)) return z; return -1; };   // 동쪽 뱃전 바깥 면
-      for (let x = 10; x <= 112; x += 4) for (const y of [G + 8, G + 11]) {   // 둥근 창과 녹물
-        const z = outZ(x, y); if (z < 0) continue;
-        S.set(x, y, z, hash3(x, y, 2) > 0.45 ? B.port : B.winD);
-        if (hash3(x, y, 9) > 0.6) for (let k = 1; k <= 1 + (hash3(x, 3, y) * 4 | 0); k++) { const zz = outZ(x, y - k); if (zz > 0 && y - k > G + 5) S.set(x, y - k, zz, B.rust); }
+      const outX = (z, y) => { for (let x = CX + HW; x > CX; x--) if (w.get(x, y, z) && inHull(x, y, z)) return x; return -1; };   // 동쪽 뱃전 바깥 면
+      for (let z = 4; z <= 100; z += 5) for (const y of [DK - 4, DK - 8]) {   // 녹물 줄
+        const x = outX(z, y); if (x < 0 || hash3(z, y, 4) < 0.5 || (z > 86 && z < 116)) continue;
+        for (let k = 0; k <= 1 + (hash3(z, 3, y) * 4 | 0); k++) { const xx = outX(z, y - k); if (xx > 0 && y - k > G + 3) w.set(xx, y - k, z, B.rust); }
       }
-      // 뱃머리 이름 「БОРЕЙ」: 동쪽에서 보면 왼쪽→오른쪽이 배 x가 줄어드는 쪽
-      const FONT = { Б: ['111', '100', '110', '101', '110'], О: ['111', '101', '101', '101', '111'], Р: ['110', '101', '110', '100', '100'], Е: ['111', '100', '110', '100', '111'], Й: ['0110', '1001', '1011', '1101', '1001'] };
-      let off = 0;
-      for (const ch of 'БОРЕЙ') { const g = FONT[ch]; g.forEach((row, r) => [...row].forEach((c, k) => { if (c !== '1') return; const x = 138 - off - k, y = G + 14 - r, z = outZ(x, y); if (z > 0) S.set(x, y, z, B.hullW); })); off += g[0].length + 1; }
-      { const ax = 142, az = outZ(ax, G + 12);                               // 닻
-        if (az > 0) { S.box(ax - 1, G + 11, az, ax + 1, G + 13, az, B.iron); S.box(ax, G + 8, az + 1, ax, G + 12, az + 1, B.chain); S.box(ax - 1, G + 7, az + 1, ax + 1, G + 7, az + 1, B.chain); S.set(ax - 2, G + 8, az + 1, B.chain); S.set(ax + 2, G + 8, az + 1, B.chain); } }
+      // 뱃머리 이름 「БОРЕЙ」: 동쪽에서 보면 남쪽(뱃머리)이 왼쪽
+      const FONT = { Б: ['111', '100', '110', '101', '110'], О: ['111', '101', '101', '101', '111'], Р: ['110', '101', '110', '100', '100'], Е: ['111', '100', '110', '100', '111'], Й: ['0110', '1001', '1011', '1101', '1001'],
+        B: ['110', '101', '110', '101', '110'], O: ['111', '101', '101', '101', '111'], R: ['110', '101', '110', '101', '101'], E: ['111', '100', '110', '100', '111'], A: ['010', '101', '111', '101', '101'], S: ['111', '100', '111', '001', '111'] };
+      { let off = 0;
+        for (const ch of 'БОРЕЙ') { const g = FONT[ch]; g.forEach((row, r) => [...row].forEach((c, k) => { if (c !== '1') return; const z = 112 - off - k, y = DK - 2 - r, x = outX(z, y); if (x > 0) w.set(x, y, z, B.hullW); })); off += g[0].length + 1; } }
+      // 닻(동쪽 뱃머리, 부품)과 닻줄 구멍
+      const AZ = 116, AY = DK - 3; let AXo = 0; for (let z = AZ - 2; z <= AZ + 2; z++) for (let y = AY - 3; y <= AY + 1; y++) AXo = Math.max(AXo, outX(z, y) + 1);
+      w.box(AXo - 1, AY + 1, AZ - 1, AXo - 1, AY + 2, AZ + 1, B.iron);
+      const anchor = w.prop({ name: 'anchor', pivot: [AXo + 0.5, AY + 1, AZ + 0.5] });
+      anchor.box(AXo, AY - 3, AZ, AXo, AY + 1, AZ, B.iron); anchor.box(AXo, AY - 3, AZ - 2, AXo, AY - 3, AZ + 2, B.iron); anchor.set(AXo, AY - 2, AZ - 2, B.iron); anchor.set(AXo, AY - 2, AZ + 2, B.iron); anchor.box(AXo, AY + 1, AZ - 1, AXo, AY + 1, AZ + 1, B.iron);
 
-      // ── 선체에 밀려 쌓인 얼음 능선, 뱃머리 앞 얼음 더미, 쇄빙 돌진용 깨진 얼음 자리 ──
-      const SLAB = [139, 151, CZ - 7, CZ + 7], inSlab = (x, z) => x >= SLAB[0] && x <= SLAB[1] && z >= SLAB[2] && z <= SLAB[3];
-      for (let x = 4; x <= 138; x++) for (const s of [-1, 1]) {
-        if (s > 0 && x >= 34 && x <= 56) continue;                            // 사다리 아래는 비운다
-        const hw = hwAt(x, G + 1); if (hw < 0) continue;
-        const zE = s > 0 ? Math.floor(CZ + hw - 0.5) : Math.ceil(CZ - hw - 0.5);
-        for (let k = 1; k <= 6; k++) {
-          const z = zE + s * k; if (z < 0 || z >= W || wet(x, z)) continue;
-          const h = Math.floor(hash3(x, k, z) * 4.2 * (1 - k / 7) + n.fbm(x * 0.2, z * 0.2) * 1.5);
-          for (let y = G + 1; y <= G + h; y++) S.set(x, y, z, hash3(x, y, z) > 0.4 ? B.iceBlk : B.iceBlk2);
+      // ── 선체에 밀려 쌓인 얼음 능선, 뱃머리 둘레 얼음 더미 ──
+      const SLAB = [127, 146, CX - 9, CX + 8], inSlab = (x, z) => z >= SLAB[0] && z <= SLAB[1] && x >= SLAB[2] && x <= SLAB[3];
+      for (let z = 0; z <= 124; z++) for (const s of [-1, 1]) {
+        const hw = hwAt(z, G + 1); if (hw < 0) continue;
+        const xE = s > 0 ? Math.floor(CX + hw - 0.5) : Math.ceil(CX - hw - 0.5);
+        for (let k = 1; k <= 7; k++) {
+          const x = xE + s * k; if (x < 0 || x >= W || wm[x + W * z] || inSlab(x, z)) continue;
+          const h = Math.floor(hash3(x, k, z) * 4.4 * (1 - k / 8) + n.fbm(x * 0.2, z * 0.2) * 1.5 + (z > 96 ? 1 : 0));
+          for (let y = G + 1; y <= G + h; y++) if (!w.get(x, y, z)) w.set(x, y, z, hash3(x, y, z) > 0.4 ? B.iceBlk : B.iceBlk2);
         }
       }
-      for (let x = 134; x < D; x++) for (let z = CZ - 18; z <= CZ + 18; z++) {
-        if (inSlab(x, z) || wet(x, z)) continue;
-        const d = Math.hypot((x - 138) * 0.8, z + 0.5 - CZ); if (d > 17) continue;
-        const h = Math.floor(hash3(x, 7, z) * 4.5 * (1 - d / 18) + 0.6);
-        for (let y = G + 1; y <= G + h; y++) if (!S.get(x, y, z)) S.set(x, y, z, hash3(x, y, z) > 0.5 ? B.iceBlk : B.iceBlk2);
+      for (let z = 112; z < 150; z++) for (let x = CX - 22; x <= CX + 22; x++) {
+        if (z >= SLAB[0] - 3 && x >= SLAB[2] - 3 && x <= SLAB[3] + 3 || wm[x + W * z]) continue;
+        const d = Math.hypot((z - 118) * 0.9, x + 0.5 - CX); if (d > 22) continue;
+        const h = Math.floor(hash3(x, 7, z) * 4.5 * (1 - d / 23) + 0.6);
+        for (let y = G + 1; y <= G + h; y++) if (!w.get(x, y, z)) w.set(x, y, z, hash3(x, y, z) > 0.5 ? B.iceBlk : B.iceBlk2);
       }
-      for (let x = SLAB[0]; x <= SLAB[1]; x++) for (let z = SLAB[2]; z <= SLAB[3]; z++) { S.box(x, G - 2, z, x, G + 3, z, 0); S.set(x, G - 3, z, B.sea); S.liquid(x, z, G - 1); }
+      for (let z = SLAB[0]; z <= SLAB[1]; z++) for (let x = SLAB[2]; x <= SLAB[3]; x++) { if (w.get(x, G + 6, z)) continue; for (let y = G - 2; y <= G + 5; y++) if (!inHull(x, y, z)) w.set(x, y, z, 0); w.set(x, G - 3, z, B.sea); w.liquid(x, z, G - 1); }
 
-      // ── 상부 구조물: 앞쪽 3분의 1에 선다. 2·3층은 뒤로 길고, 4~6층은 앞 모서리를 깎은 넓은 덩어리에 빨강·파랑·흰 띠, 7·8층은 좁다 ──
-      const FH = 5;
-      const LV = [[66, 118, 13, 0], [70, 118, 13, 0], [84, 116, 13, 5], [84, 116, 13, 5], [84, 116, 13, 5], [92, 112, 10, 3], [92, 112, 10, 3]];   // [x0, x1, 반폭, 앞 모서리 깎기]
-      const lvIn = (L, x, z) => { const dz = Math.abs(z + 0.5 - CZ); return x >= L[0] && x <= L[1] && dz <= L[2] + 0.5 && (L[1] - x) + (L[2] + 0.5 - dz) >= L[3]; };
-      const lvWall = [B.sWall, B.sWall, B.stripeR, B.stripeB, B.stripeW, B.sWall, B.sWall];
-      LV.forEach((L, k) => {
-        const y0 = DK + 1 + k * FH;
-        for (let x = L[0]; x <= L[1]; x++) for (let z = CZ - L[2] - 1; z <= CZ + L[2]; z++) {
-          if (!lvIn(L, x, z)) continue;
-          const sh = !lvIn(L, x + 1, z) || !lvIn(L, x - 1, z) || !lvIn(L, x, z + 1) || !lvIn(L, x, z - 1);
-          for (let y = y0; y < y0 + FH; y++) {
-            if (!sh) { S.set(x, y, z, B.sWall); continue; }
-            const fy = y - y0, u = x + z;
-            let b = fy === 0 ? B.sTrim : lvWall[k];
-            if (fy >= 2 && fy <= 3 && u % 4 >= 1 && u % 4 <= 2) b = hash3(u >> 2, k, x * 3 + z) > 0.5 ? B.win : B.winD;
-            S.set(x, y, z, b);
+      // ── 상부 구조물: 반폭 23, 3~8층(한 층 5칸). 정면은 한 칸 오를 때 0.4칸씩 뒤로 눕고, 앞 모서리는 깎았다 ──
+      const SH = 23, FH = 5, LVN = 6, TOPY = DK + LVN * FH;                   // TOPY = 조타실 바닥
+      const zf = y => ZF - Math.floor((y - DK - 1) * 0.4);
+      const ssIn = (x, y, z) => { const ax = Math.abs(dxOf(x)); return z <= zf(y) && ax <= SH && (zf(y) - z) + (SH - ax) >= 3; };
+      const lvWall = [B.sWall, B.stripeR, B.stripeB, B.stripeW, B.sWall, B.sWall];
+      for (let y = DK + 1; y <= TOPY; y++) {
+        const k = Math.min(LVN - 1, Math.floor((y - DK - 1) / FH)), fy = (y - DK - 1) % FH;
+        for (let z = 0; z <= ZF; z++) for (let x = CX - SH - 1; x <= CX + SH; x++) {
+          if (!ssIn(x, y, z)) continue;
+          const sh = z === 0 || !ssIn(x + 1, y, z) || !ssIn(x - 1, y, z) || !ssIn(x, y, z + 1) || !ssIn(x, y, z - 1);
+          if (!sh) { if (y === TOPY || y % FH === 0) w.set(x, y, z, B.sWall); continue; }
+          if (z === 0) { w.set(x, y, z, y === TOPY ? B.sRoof : B.sWall); continue; }            // 지도 가장자리 단면(배는 북쪽으로 이어진다)
+          const front = !ssIn(x, y, z + 1), u = front ? x : z;
+          let b = y === TOPY ? B.sRoof : fy === 0 ? B.sLine : lvWall[k];
+          if (y < TOPY) {
+            if (k === 0 && front && fy >= 1 && fy <= 3) b = (x % 6 === 0) ? B.frame : (hash3(x, 2, 9) > 0.35 ? B.win : B.winD);   // 3층 식당의 긴 창
+            else if (fy >= 2 && fy <= 3 && u % 4 >= 1 && u % 4 <= 2) b = hash3(u >> 2, k, x * 3 + z) > 0.72 ? B.win : B.winD;
           }
-          if (sh && !S.get(x, y0 + FH, z)) S.set(x, y0 + FH, z, B.rail);    // 층 지붕 둘레 난간
+          w.set(x, y, z, b);
         }
+      }
+      for (const s of [-1, 1]) { const x = Math.round(CX - 0.5 + s * 6); w.box(x, DK + 1, zf(DK + 1), x + 1, DK + 3, zf(DK + 1), B.doorS); }   // 3층 정면 문 둘
+      // 동쪽 옆면 바깥 계단(층마다 꺾이며 오른다)
+      for (let k = 0; k < LVN - 1; k++) for (let s = 0; s < FH; s++) {
+        const y = DK + 1 + k * FH + s, z = ZF - 8 - (k % 2 ? FH - s : s) - 1, x = CX + SH;
+        w.set(x, y, z, B.rail); w.set(x + 1, y + 1, z, B.rail);
+        if (s === FH - 1) w.box(x, y + 1, z - 1, x, y + 1, z + 1, B.rail);
+      }
+      landmarks.push({ name: '3층 식당 · 체육관', note: '상부 구조물 맨 아래층 · 웨지(The Wedge)와 블랙 디비전이 지키는 체육관', p: [CX + 0.5, DK + 12, ZF + 2], boss: true });
+
+      // ── 9층 조타실: 배 폭만큼 넓은 앞쪽(바깥 날개는 조금 더 앞으로), 깎은 바깥 모서리, 뒤쪽은 비스듬히 좁아져 가운데 해도실로 ──
+      const BY = TOPY, ZB = zf(TOPY) + 3;
+      const brIn = (x, z) => {
+        const ax = Math.abs(dxOf(x));
+        if (ax > 29.5) return false;
+        const fz = ax > 20 ? ZB + 1 : ZB;
+        if (z > fz || fz - z + (29.5 - ax) < 4) return false;
+        if (z >= ZB - 6) return true;
+        const bz = ZB - 6 - (29.5 - ax) * 0.45;                              // 비스듬한 뒷벽
+        return ax <= 12 ? z >= ZB - 26 : z >= bz;
+      };
+      for (let z = ZB - 30; z <= ZB + 2; z++) for (let x = CX - 31; x <= CX + 31; x++) {
+        if (!brIn(x, z)) continue;
+        const sh = !brIn(x + 1, z) || !brIn(x - 1, z) || !brIn(x, z + 1) || !brIn(x, z - 1), ax = Math.abs(dxOf(x));
+        w.set(x, BY, z, B.sRoof); w.set(x, BY + 6, z, B.sRoof);
+        if (!sh) continue;
+        for (let y = BY + 1; y <= BY + 5; y++) {
+          let b = y === BY + 1 || y === BY + 5 ? B.sWall : B.sWall;
+          if (y >= BY + 2 && y <= BY + 4 && !(ax <= 12 && z < ZB - 10)) b = ((x + z) % 4 === 0) ? B.frame : B.brWin;
+          w.set(x, y, z, b);
+        }
+        w.set(x, BY + 7, z, B.rail);                                           // 지붕 난간
+      }
+      for (const s of [-1, 1]) {                                               // 정면 투광등 둘(조타실 정면에 박힌 흰 등 덩어리)
+        const x0 = Math.round(CX - 0.5 + s * 9) - 2;
+        w.box(x0, BY + 2, ZB, x0 + 4, BY + 4, ZB, B.flood); w.box(x0 - 1, BY + 1, ZB + 1, x0 + 5, BY + 1, ZB + 1, B.iron);
+      }
+      lights.push({ name: 'flood', p: [CX + 0.5, BY + 3, ZB + 3.5], c: '#fff0d0', i: 0.9, d: 60, flicker: 0.04, srcR: 12 });
+      lights.push({ name: 'bridge', p: [CX + 0.5, BY + 3, ZB - 3], c: '#bfe8ff', i: 0.4, d: 26, flicker: 0.05, srcR: 6 });
+      // 지붕 집: 정면에 「BOREAS」 흰 간판, 좌우 레이돔, 남색 돛대, 날개 끝 탐조등
+      const RZ0 = ZB - 22, RZ1 = ZB - 12;
+      w.box(CX - 12, BY + 7, RZ0, CX + 11, BY + 11, RZ1, B.sWall); w.box(CX - 13, BY + 12, RZ0 - 1, CX + 12, BY + 12, RZ1 + 1, B.sRoof);
+      w.box(CX - 12, BY + 7, RZ1 + 1, CX + 11, BY + 11, RZ1 + 1, B.signW);
+      { let off = 0; for (const ch of 'BOREAS') { FONT[ch].forEach((row, r) => [...row].forEach((c, k) => { if (c === '1') w.set(CX - 12 + off + k, BY + 11 - r, RZ1 + 1, B.signK); })); off += 4; } }
+      for (const s of [-1, 1]) { const x = Math.round(CX - 0.5 + s * 17); w.box(x, BY + 7, ZB - 8, x, BY + 8, ZB - 8, B.rail); w.sphere(x, BY + 11, ZB - 8, 2.6, B.dome); }
+      const MZ = ZB - 18, MTOP = BY + 32;
+      w.box(CX - 1, BY + 13, MZ - 1, CX, BY + 20, MZ, B.mastN); w.box(CX - 1, BY + 21, MZ - 1, CX - 1, MTOP, MZ - 1, B.mastN);
+      w.box(CX - 8, BY + 24, MZ - 1, CX + 7, BY + 24, MZ - 1, B.mastN); w.box(CX - 5, BY + 28, MZ - 1, CX + 4, BY + 28, MZ - 1, B.mastN);
+      w.set(CX - 1, MTOP + 1, MZ - 1, B.redL); w.set(CX - 8, BY + 25, MZ - 1, B.redL); w.set(CX + 7, BY + 25, MZ - 1, B.redL); w.set(CX - 1, BY + 29, MZ, B.navW);
+      w.box(CX + 1, BY + 18, MZ - 1, CX + 2, BY + 19, MZ, B.craneY);             // 기적
+      lights.push({ name: 'mast', p: [CX - 0.5, MTOP + 1, MZ - 0.5], c: '#ff4a3a', i: 0.4, d: 26, flicker: 0.1, srcR: 3 });
+      for (const s of [-1, 1]) { const x = Math.round(CX - 0.5 + s * 27); w.box(x, BY + 7, ZB - 1, x, BY + 8, ZB - 1, B.iron); w.set(x, BY + 9, ZB - 1, B.lampW); }
+      lights.push({ name: 'search', p: [CX + 27.5, BY + 9, ZB + 0.5], c: '#e8f6ff', i: 0.45, d: 40, flicker: 0.05, srcR: 3 });
+      landmarks.push({ name: '조타실', note: '9층 · 배 폭만큼 넓은 함교, 날개 끝 탐조등', p: [CX + 0.5, BY + 20, ZB], tag: 'BRIDGE' });
+
+      // ── 앞갑판(상부 구조물 정면 → 뱃머리): 접어 둔 크레인 둘, 컨테이너, 작은 돔, 앞 갑판실, V자 양묘기 넷, 앞 돛대, 계선주 ──
+      const DY = z => deckY(z) + 1;
+      for (const [s, z] of [[-1, 66], [1, 69]]) {
+        const px = Math.round(CX - 0.5 + s * 22), ex = Math.round(CX - 0.5 - s * 9);
+        w.cyl(px, z, DY(z), DY(z) + 5, 1.6, B.crane); w.box(px - 2, DY(z) + 6, z - 1, px + 2, DY(z) + 8, z + 2, B.crane); w.set(px - s * 2, DY(z) + 7, z + 2, B.brWin);
+        w.box(Math.min(px, ex), DY(z) + 7, z, Math.max(px, ex), DY(z) + 8, z, B.crane);        // 배를 가로질러 눕힌 붐
+        w.box(ex, DY(z), z, ex, DY(z) + 6, z, B.iron); w.box(ex - s, DY(z) + 7, z, ex - s * 2, DY(z) + 8, z, B.craneY);
+      }
+      const cont = (x0, x1, z0, b) => { w.box(x0, DY(z0), z0, x1, DY(z0) + 2, z0 + 2, b); w.box(x0, DY(z0), z0, x0, DY(z0) + 2, z0 + 2, B.iron); w.box(x1, DY(z0), z0, x1, DY(z0) + 2, z0 + 2, B.iron); };
+      cont(CX + 6, CX + 17, 73, B.cBl); for (let x = CX + 8; x <= CX + 15; x++) w.set(x, DY(73) + 1, 75, x % 2 ? B.cWh : B.cBl);   // MS LOOPS & RINGS
+      cont(CX - 18, CX - 10, 74, B.cGr);
+      w.box(CX - 3, DY(77), 77, CX - 2, DY(77), 78, B.iron); w.sphere(CX - 2, DY(77) + 2, 77, 1.8, B.dome);
+      const FX0 = CX - 9, FX1 = CX + 5, FZ0 = 82, FZ1 = 91, FH2 = 4;              // 앞 갑판실
+      for (let z = FZ0; z <= FZ1; z++) for (let x = FX0; x <= FX1; x++) {
+        if (z > 87 && Math.min(x - FX0, FX1 - x) + (FZ1 - z) < 4) continue;
+        w.box(x, DY(z), z, x, DY(z) + FH2 - 1, z, B.hatch); w.set(x, DY(z) + FH2, z, hash3(x, 3, z) > 0.4 ? B.snowD : B.hatch);
+      }
+      w.box(CX - 3, DY(FZ0), FZ0, CX - 2, DY(FZ0) + 2, FZ0, B.doorS); w.box(FX0, DY(FZ0) + FH2 + 1, FZ0, FX1, DY(FZ0) + FH2 + 1, FZ0, B.rail);
+      // 양묘기: 받침, 가로 드럼, 체인 바퀴(부품)
+      const drum = (t, xc, yc, zc, r, len, b) => { for (let i = -len; i <= len; i++) for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) if (dy * dy + dz * dz <= r * r) t.set(xc + i, yc + dy, zc + dz, b); };
+      const WL = [[-5, 96], [-3, 103], [4, 96], [2, 103]];                       // 바깥쪽 둘은 앞으로, 안쪽 둘은 뒤로: 위에서 보면 V자
+      WL.forEach(([dx, z], k) => {
+        const x = CX + dx, y = DY(z), s = dx < 0 ? -1 : 1, gx = x + s * 3;
+        w.box(x - 2, y, z - 2, x + 2, y, z + 2, B.iron); drum(w, x, y + 3, z, 2, 2, B.wlass);
+        w.box(x - s * 3, y + 1, z - 2, x - s * 3, y + 4, z + 2, B.wlass); w.box(x - s * 4, y + 1, z - 1, x - s * 4, y + 3, z + 1, B.iron);   // 모터 함
+        const gy = w.prop({ name: 'gypsy' + k, pivot: [gx + 0.5, y + 3.5, z + 0.5], axis: 'x', speed: 0.01 });
+        for (let dy = -3; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const r = Math.hypot(dy, dz); if (r <= 3.2 && r > 0.8) gy.set(gx, y + 3 + dy, z + dz, r > 2.4 ? ((dy + dz) & 1 ? B.chain : B.iron) : B.wlass); }
+        gy.set(gx, y + 3, z, B.iron);
+        w.line(gx, y + 1, z + 3, CX + s * (k % 2 ? 8 : 10), DY(114), 113 + (k % 2), B.chain);   // 닻줄 → 닻줄 구멍
       });
-      // 3층 체육관(배 앞쪽 동면): 넓은 주황 창과 바벨 걸이
-      const GY = DK + 1 + FH, GZ = CZ + 13;
-      for (let x = 98; x <= 114; x++) for (let y = GY + 1; y <= GY + 3; y++) S.set(x, y, GZ, (x % 5 === 0 && y === GY + 2) ? B.iron : (x % 6 === 2 ? B.frame : B.gymWin));
-      lights.push({ name: 'gym', p: T([106.5, GY + 2, GZ + 1.5]), c: '#ffb060', i: 0.45, d: 22, flicker: 0.15, srcR: 4 });
-      landmarks.push({ name: '3층 체육관', note: '웨지(The Wedge)와 중무장 경호대가 지키는 곳', p: T([106.5, GY + 10, GZ + 2]), boss: true });
-      acts.push({
-        name: '3층 체육관', hint: '3층 체육관 창에 불이 번쩍 들어오고, 웨지 일당의 운동기구가 쩔그렁 울려요', hit: TH([98, GY, GZ - 1, 114, GY + 4, GZ + 1]),
-        run: async a => {
-          a.flash('gym', 6, 4.5);
-          for (let k = 0; k < 9; k++) { burst(a, [98.5 + (k * 7) % 17, GY + 2, GZ + 1.2], { n: 12, colors: ['#ffb058', '#ffe0a0', '#ffffff'], speed: 1.6, up: 1, life: 0.7, gravity: 2, spread: 0.6 }); await a.wait(0.35); }
-        },
-      });
-      // 앞면 출입문, 갑판 투광등
-      S.box(118, DK + 1, CZ - 2, 118, DK + 3, CZ + 1, B.doorS);
-      for (const z of [CZ - 8, CZ + 7]) S.box(117, DK + 12, z, 117, DK + 12, z + 1, B.lampW);
-      lights.push({ name: 'deck', p: T([119, DK + 11, CZ]), c: '#ffe8c0', i: 0.55, d: 38, flicker: 0.05, srcR: 10 });
-      // 구명정(주황 캡슐): 상부 구조물 뒤쪽 양 뱃전
-      for (const bx of [74, 88]) for (const s of [-1, 1]) {
-        const bz = CZ - 0.5 + s * 16.5;
-        S.ellipsoid(bx, DK + 8, Math.round(bz), 5.4, 1.8, 1.6, B.boatO); S.box(bx - 3, DK + 10, Math.round(bz), bx + 3, DK + 10, Math.round(bz), B.hullW);
-        for (const dx of [-4, 4]) { const z0 = Math.round(CZ - 0.5 + s * 14); S.box(bx + dx, DK + 6, z0, bx + dx, DK + 11, z0, B.iron); S.box(bx + dx, DK + 11, Math.min(z0, Math.round(bz)), bx + dx, DK + 11, Math.max(z0, Math.round(bz)), B.iron); }
+      for (const s of [-1, 1]) w.cyl(CX + s * 10, 114, DY(114) - 1, DY(114) - 1, 1.2, B.iron);
+      // 앞 돛대: 굵은 기둥, 앞뒤로 긴 발판과 투광등, 꼭대기 흰 등·양옆 붉고 푸른 등
+      const FMZ = 116, FY = DY(FMZ);
+      w.cyl(CX, FMZ, FY, FY + 10, 1.7, B.mastN); w.cyl(CX, FMZ, FY + 11, FY + 26, 0.9, B.mastN);
+      w.box(CX - 1, FY + 12, FMZ - 4, CX + 1, FY + 12, FMZ + 5, B.iron); w.box(CX - 2, FY + 13, FMZ - 4, CX + 2, FY + 13, FMZ - 4, B.rail); w.box(CX - 2, FY + 13, FMZ + 5, CX + 2, FY + 13, FMZ + 5, B.rail);
+      for (const s of [-2, 2]) w.box(CX + s, FY + 13, FMZ - 4, CX + s, FY + 13, FMZ + 5, B.rail);
+      w.box(CX - 1, FY + 14, FMZ - 5, CX, FY + 14, FMZ - 5, B.lampW); w.box(CX - 4, FY + 20, FMZ, CX + 4, FY + 20, FMZ, B.mastN);
+      w.set(CX, FY + 27, FMZ, B.navW); w.set(CX - 4, FY + 21, FMZ, B.redL); w.set(CX + 4, FY + 21, FMZ, B.navG);
+      for (let y = FY; y <= FY + 11; y++) w.set(CX, y, FMZ - 2, y % 2 ? B.rail : 0);
+      lights.push({ name: 'bow', p: [CX - 0.5, FY + 14, FMZ - 5.5], c: '#fff4dc', i: 0.6, d: 36, flicker: 0.05, srcR: 3 });
+      lights.push({ name: 'deck', p: [CX + 0.5, DK + 6, ZF + 8], c: '#ffe8c0', i: 0.45, d: 30, flicker: 0.05, srcR: 14 });
+      for (const z of [70, 92, 108]) for (const s of [-1, 1]) { const x = Math.round(CX - 0.5 + s * (hwAt(z, deckY(z)) - 3)); w.box(x, DY(z), z, x, DY(z) + 1, z, B.iron); w.box(x, DY(z), z + 2, x, DY(z) + 1, z + 2, B.iron); }
+      landmarks.push({ name: '앞갑판', note: 'V자 양묘기 넷과 앞 돛대 · 그 아래 0층에 나이트(Knight)가 머문다', p: [CX + 0.5, DK + 14, 102] });
+      // 동쪽 뱃전 줄사다리(얼음으로 내려간다)
+      { const z = 80, x = outX(z, DK - 1) + 1; for (let y = G + 1; y <= DK; y++) { w.set(x, y, z, B.rail); w.set(x, y, z + 2, B.rail); if (y % 2 === 0) w.set(x, y, z + 1, B.crateM); } }
+
+      // ── 이정표: 3층 정면 오른쪽 문 앞, 조타실로 들어간다 ──
+      { const sx = CX + 9, sz = ZF + 3; w.hm[sx + W * sz] = deckY(sz);
+        const sp = OR.signpost(w, B, sx, sz, { dir: [1, 0], h: 6, boards: 1 });
+        acts.push(OR.goAct({ at: sp, name: '조타실로 올라가기', goto: 'icebreaker-in', hint: '상부 구조물 계단을 올라 9층 조타실 안으로 들어가요' })); }
+
+      // ── 얼음 위: 남동쪽 호버크래프트(부품), 뱃머리 앞 사륜 오토바이 둘, 상자 ──
+      for (const [x, z, h] of [[CX + 36, 92, 2], [CX + 38, 92, 1], [CX + 36, 95, 1]]) w.box(x, G + 1, z, x + 1, G + h, z + 1, B.crateM);
+      for (const [qx, qz] of [[CX - 22, 140], [CX + 14, 145]]) {
+        w.box(qx, G + 1, qz, qx + 2, G + 1, qz + 4, B.iron); w.box(qx, G + 2, qz + 1, qx + 2, G + 2, qz + 3, B.quad); w.set(qx + 1, G + 3, qz + 2, B.quad);
+        w.box(qx, G + 3, qz + 1, qx + 2, G + 3, qz + 1, B.iron); w.set(qx, G + 2, qz + 4, B.tail); w.set(qx + 2, G + 2, qz + 4, B.tail); w.set(qx + 1, G + 2, qz, B.lampW);
       }
-
-      // ── 9층 조타실: 앞과 넓은 날개로 이어진 창 띠, 10층 지붕에 레이돔 둘·남색 돛대·레이더·탐조등 ──
-      const BY = DK + 1 + LV.length * FH, BX0 = 96, BX1 = 114, WX0 = 106;
-      S.box(BX0, BY, CZ - 10, BX1, BY + 4, CZ + 9, B.sWall); S.box(WX0, BY, CZ - 16, BX1, BY + 4, CZ + 15, B.sWall);
-      const bwin = (x, y, z) => S.set(x, y, z, ((x + z) % 4 === 0) ? B.frame : B.brWin);
-      for (let y = BY + 1; y <= BY + 3; y++) {
-        for (let z = CZ - 15; z <= CZ + 14; z++) bwin(BX1, y, z);
-        for (let x = WX0 + 1; x < BX1; x++) { bwin(x, y, CZ + 15); bwin(x, y, CZ - 16); }
-        for (let x = BX0 + 1; x < WX0; x++) { bwin(x, y, CZ + 9); bwin(x, y, CZ - 10); }
-      }
-      S.box(BX0, BY, CZ - 10, BX1, BY, CZ + 9, B.sTrim); S.box(WX0, BY, CZ - 16, BX1, BY, CZ + 15, B.sTrim);
-      S.box(BX0, BY + 5, CZ - 10, BX1 + 1, BY + 5, CZ + 9, B.sRoof); S.box(WX0, BY + 5, CZ - 17, BX1 + 1, BY + 5, CZ + 16, B.sRoof);
-      lights.push({ name: 'bridge', p: T([BX1 + 1.5, BY + 2, CZ]), c: '#bfe8ff', i: 0.5, d: 30, flicker: 0.05, srcR: 4 });
-      for (const z of [CZ - 7, CZ + 6]) { S.box(102, BY + 6, z, 102, BY + 7, z, B.rail); S.sphere(102, BY + 9, z, 1.8, B.dome); }   // 레이돔
-      const MX = 99, MTOP = BY + 24;
-      S.box(MX - 1, BY + 6, CZ - 2, MX + 1, BY + 12, CZ + 1, B.mastN); S.box(MX, BY + 13, CZ - 1, MX + 1, MTOP, CZ, B.mastN);
-      S.box(MX, BY + 18, CZ - 7, MX, BY + 18, CZ + 6, B.rail);
-      S.set(MX, MTOP + 1, CZ - 1, B.redL); S.set(MX + 1, MTOP + 1, CZ, B.redL); S.set(MX, BY + 19, CZ - 7, B.redL); S.set(MX, BY + 19, CZ + 6, B.redL);
-      S.box(MX + 2, BY + 14, CZ - 1, MX + 3, BY + 15, CZ, B.brass);           // 기적
-      lights.push({ name: 'mast', p: T([MX + 0.5, MTOP + 1, CZ]), c: '#ff4a3a', i: 0.35, d: 22, flicker: 0.1, srcR: 3 });
-      for (const [x, z, h] of [[97, CZ - 9, 6], [97, CZ + 8, 5], [108, CZ - 12, 4]]) S.box(x, BY + 6, z, x, BY + 5 + h, z, B.rail);
-      S.box(110, BY + 6, CZ, 110, BY + 8, CZ, B.iron);                       // 레이더 받침
-      for (const z of [CZ - 16, CZ + 14]) { S.box(BX1 - 1, BY + 6, z, BX1 - 1, BY + 7, z + 1, B.iron); S.box(BX1, BY + 6, z, BX1, BY + 7, z + 1, B.lampW); }   // 탐조등
-      lights.push({ name: 'search', p: T([BX1 + 1.5, BY + 7, CZ + 15]), c: '#e8f6ff', i: 0.35, d: 40, flicker: 0.05, srcR: 3 });
-      landmarks.push({ name: '조타실', note: '9층 · 「보레아스」의 심장, 날개 끝에 탐조등', p: T([108.5, BY + 30, CZ]), tag: 'BRIDGE' });
-
-      // ── 원자로 환기탑: 상부 구조물 뒤쪽 낮은 데크하우스 지붕 위 ──
-      const VX0 = 71, VX1 = 81, VZ0 = CZ - 7, VZ1 = CZ + 6, VT = DK + 26;
-      S.box(VX0, DK + 11, VZ0, VX1, VT, VZ1, B.vent);
-      for (let y = VT - 3; y <= VT - 1; y++) {
-        for (let x = VX0; x <= VX1; x++) if (x % 2 === 0) { S.set(x, y, VZ1, B.ventG); S.set(x, y, VZ0, B.ventG); }
-        for (let z = VZ0; z <= VZ1; z++) if (z % 2 === 0) { S.set(VX1, y, z, B.ventG); S.set(VX0, y, z, B.ventG); }
-      }
-      S.box(VX0 - 1, VT + 1, VZ0 - 1, VX1 + 1, VT + 1, VZ1 + 1, B.sRoof);
-      const PIPES = [[73, VZ0 + 2], [78, VZ0 + 2], [73, VZ1 - 3], [78, VZ1 - 3]];
-      for (const [x, z] of PIPES) S.box(x, VT + 2, z, x + 1, VT + 5, z + 1, B.rail);
-      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {     // 방사능 표지(동면)
-        const r = Math.hypot(dx, dy), th = Math.atan2(dy, dx), blade = r >= 1.2 && r <= 3 && Math.cos(3 * (th - Math.PI / 2)) > 0.5;
-        S.set(76 - dx, DK + 18 + dy, VZ1 + 1, (r < 0.8 || blade) ? B.hazK : B.hazY);
-      }
-      lights.push({ name: 'reactor', p: T([76.5, VT - 2, VZ1 + 1.5]), c: '#6affc8', i: 0.4, d: 26, flicker: 0.2, srcR: 3 });
-      landmarks.push({ name: '원자로 환기탑', note: '선체 깊은 곳 원자로의 숨구멍', p: T([76.5, VT + 12, CZ]) });
-      acts.push({
-        name: '원자로 환기탑', hint: '환기탑 창살에 청록빛이 차오르고, 굴뚝 넷에서 하얀 김이 뿜어져 나와요', hit: TH([VX0, VT - 4, VZ0, VX1, VT + 5, VZ1]),
-        run: async a => {
-          a.flash('reactor', 6, 5); a.glow(1.8, 5);
-          for (let k = 0; k < 12; k++) { const [x, z] = PIPES[k % 4]; burst(a, [x + 1, VT + 6, z + 1], { n: 16, colors: ['#ffffff', '#d8e8f0', '#a8ffe0'], speed: 1.4, up: 7, life: 2, gravity: -1, spread: 1 }); await a.wait(0.35); }
-        },
-      });
-
-      // ── 고물의 팔각 헬리패드: 2층 높이, 어두운 그물판에 노란 원과 흰 H, 가장자리 주황·초록 등 ──
-      const PCX = 22, PY = DK + 5, PR = 14;
-      const padIn = (dx, dz) => Math.max(Math.abs(dx), Math.abs(dz)) <= PR && Math.abs(dx) + Math.abs(dz) <= 19;
-      for (let dz = -PR; dz <= PR; dz++) for (let dx = -PR; dx <= PR; dx++) {
-        if (!padIn(dx, dz + 0.5)) continue;
-        const x = PCX + dx, z = Math.floor(CZ + dz), r = Math.hypot(dx, z + 0.5 - CZ);
-        const edge = !padIn(dx + 1, dz + 0.5) || !padIn(dx - 1, dz + 0.5) || !padIn(dx, dz + 1.5) || !padIn(dx, dz - 0.5);
-        let b = B.pad;
-        if (edge) { b = (x + z) % 3 === 0 ? ((x + z) % 2 ? B.padG : B.padL) : B.rail; S.set(x, PY + 1, z, (x + z) % 3 === 0 ? 0 : B.rail); }
-        else if (r > 8 && r < 9.3) b = B.hazY;
-        else if ((Math.abs(z + 0.5 - CZ) >= 2.5 && Math.abs(z + 0.5 - CZ) <= 3.5 && Math.abs(dx) <= 4) || (Math.abs(dx) === 0 && Math.abs(z + 0.5 - CZ) < 3)) b = B.padW;
-        S.set(x, PY, z, b);
-      }
-      for (const [dx, dz] of [[-12, -8], [-12, 7], [12, -8], [12, 7], [0, -13], [0, 12]]) S.box(PCX + dx, DK + 1, CZ + dz, PCX + dx, PY - 1, CZ + dz, B.iron);
-      lights.push({ name: 'pad', p: T([PCX + 0.5, PY + 2, CZ + 14]), c: '#ffc070', i: 0.35, d: 26, flicker: 0.1, srcR: 4 });
-      landmarks.push({ name: '헬리패드', note: '2층 고물 · 녹색 신호탄을 쏘아 올리면 헬기가 오는 탈출 지점', p: T([PCX + 0.5, PY + 16, CZ]) });
-
-      // ── 뒤갑판: 주황빛 크레인 둘, 컨테이너, 화물 상자 / 앞갑판: 화물창 덮개, 양묘기, 기관총 둥지, 앞 돛대 ──
-      const CRX = 48;
-      for (const cz of [CZ - 11, CZ + 10]) { S.cyl(CRX, cz, DK + 1, DK + 6, 1.6, B.craneO); S.cyl(CRX, cz, DK + 6, DK + 6, 2.2, B.iron); }
-      S.box(CRX - 1, DK + 7, CZ - 12, CRX + 2, DK + 9, CZ - 9, B.craneO); S.set(CRX - 1, DK + 8, CZ - 10, B.brWin);   // 서쪽 크레인(고정): 붐을 높이 세웠다
-      S.line(CRX - 1, DK + 9, CZ - 11, CRX - 8, DK + 26, CZ - 11, B.craneO); S.line(CRX - 1, DK + 9, CZ - 10, CRX - 8, DK + 26, CZ - 10, B.craneO);
-      S.box(CRX - 8, DK + 20, CZ - 11, CRX - 8, DK + 25, CZ - 11, B.cable);
-      const cont = (x0, y0, z0, b) => { S.box(x0, y0, z0, x0 + 6, y0 + 2, z0 + 2, b); S.box(x0, y0, z0, x0, y0 + 2, z0 + 2, B.iron); S.box(x0 + 6, y0, z0, x0 + 6, y0 + 2, z0 + 2, B.iron); };
-      cont(54, DK + 1, CZ - 7, B.cBl); cont(54, DK + 1, CZ - 3, B.cOr); cont(54, DK + 4, CZ - 7, B.cGr); cont(54, DK + 1, CZ + 1, B.cGy); cont(54, DK + 4, CZ - 3, B.cWh);
-      for (let x = 55; x <= 59; x++) S.set(x, DK + 5, CZ - 1, x % 2 ? B.cTeal : B.cWh);   // 파라다임 해운 띠
-      for (const [x, z, h] of [[38, CZ - 6, 2], [40, CZ - 6, 1], [38, CZ + 3, 1], [42, CZ + 4, 2]]) S.box(x, DK + 1, z, x + 1, DK + h, z + 1, B.crateM);
-      for (let x = 120; x <= 128; x++) for (let z = CZ - 6; z <= CZ + 5; z++) S.box(x, deckY(x) + 1, z, x, DK + 3, z, (z === CZ - 6 || z === CZ + 5 || x === 120 || x === 128) ? B.iron : B.hatch);
-      for (const x of [62, 124, 134]) for (const s of [-1, 1]) { const z = Math.round(CZ - 0.5 + s * (hwAt(x, deckY(x)) - 2.5)); S.box(x, deckY(x) + 1, z, x, deckY(x) + 2, z, B.iron); S.box(x + 2, deckY(x) + 1, z, x + 2, deckY(x) + 2, z, B.iron); }
-      const WY = deckY(132);
-      S.box(131, WY + 1, CZ - 6, 134, WY + 2, CZ - 4, B.iron); S.box(131, WY + 1, CZ + 3, 134, WY + 2, CZ + 5, B.iron); S.box(132, WY + 1, CZ - 3, 133, WY + 1, CZ + 2, B.rail);
-      S.line(135, WY + 1, CZ - 5, 142, deckY(142) + 1, CZ - 10, B.chain); S.line(135, WY + 1, CZ + 4, 142, deckY(142) + 1, CZ + 9, B.chain);
-      const NX = 146, NY = deckY(NX);                                          // 기관총 둥지(로그의 흔적)
-      for (let dz = -4; dz <= 4; dz++) for (let dx = -3; dx <= 3; dx++) { const r = Math.hypot(dx, dz * 0.8); if (r > 2.4 && r < 3.6 && !(dx < -1 && Math.abs(dz) < 2)) S.box(NX + dx, NY + 1, CZ + dz, NX + dx, NY + 2, CZ + dz, B.sandbag); }
-      S.box(NX, NY + 1, CZ, NX, NY + 2, CZ, B.iron); S.box(NX - 1, NY + 3, CZ, NX + 4, NY + 3, CZ, B.iron); S.set(NX - 1, NY + 1, CZ + 1, B.crateM);
-      landmarks.push({ name: '뱃머리', note: '남쪽 얼음을 밀어붙인 숟가락 뱃머리 · 그 아래 0층에 나이트(Knight)가 머문다', p: T([142.5, NY + 14, CZ]) });
-      const FMX = 138, FMY = deckY(FMX);
-      S.box(FMX, FMY + 1, CZ, FMX, FMY + 12, CZ, B.rail); S.box(FMX, FMY + 9, CZ - 3, FMX, FMY + 9, CZ + 3, B.rail); S.set(FMX, FMY + 13, CZ, B.navW);
-      S.set(FMX, FMY + 10, CZ - 3, B.redL); S.set(FMX, FMY + 10, CZ + 3, B.navG);
-      lights.push({ name: 'bow', p: T([FMX + 0.5, FMY + 13, CZ + 0.5]), c: '#e8f4ff', i: 0.4, d: 32, flicker: 0.05, srcR: 3 });
-
-      // ── 동쪽 뱃전에서 얼음으로 내려가는 사다리 ──
-      for (let k = 0; k <= 12; k++) { const x = 52 - k, y = DK - k; S.box(x, y, CZ + 16, x, y, CZ + 17, B.rail); S.set(x, y + 2, CZ + 18, B.rail); if (k % 3 === 0) S.box(x, y, CZ + 18, x, y + 1, CZ + 18, B.rail); }
-      S.box(37, G + 1, CZ + 16, 39, G + 1, CZ + 18, B.iron);
-
-      // ── 얼음 위 야영지(블랙 디비전, 월드 좌표: 동쪽 뱃전 옆) ──
-      for (const [tx, tz] of [[84, 30], [84, 42]]) for (let x = tx; x <= tx + 6; x++) {   // 천막 둘(남북으로 긴 A자)
-        const h = 4 - Math.abs(x - tx - 3);
-        for (let z = tz; z <= tz + 9; z++) { w.set(x, G + 1 + h, z, h === 4 ? B.tentDk : B.tent); if (z === tz || z === tz + 9) w.box(x, G + 1, z, x, G + h, z, B.tent); }
-      }
-      w.box(87, G + 1, 52, 87, G + 3, 52, B.tentDk);
-      w.box(94, G + 1, 50, 96, G + 3, 53, B.gen); w.box(95, G + 4, 51, 95, G + 4, 52, B.iron);
-      w.box(92, G + 1, 58, 92, G + 9, 58, B.iron); w.box(91, G + 10, 57, 93, G + 10, 59, B.iron); w.box(91, G + 9, 59, 93, G + 9, 59, B.lampW); w.box(91, G + 9, 57, 91, G + 9, 58, B.lampW);
-      lights.push({ name: 'camp', p: [92.5, G + 8, 60.5], c: '#ffe0b0', i: 0.55, d: 28, flicker: 0.1, srcR: 3 });
-      w.box(100, G + 1, 40, 101, G + 2, 42, B.crateM); w.set(100, G + 3, 41, B.flareG);
-      for (let z = 26; z <= 62; z++) if (z % 9 !== 4) w.box(104 + (z > 44 ? 1 : 0), G + 1, z, 104 + (z > 44 ? 1 : 0), G + 2, z, B.sandbag);
-      for (const [x, z, h] of [[82, 56, 2], [82, 58, 1], [84, 56, 1], [96, 34, 2], [98, 30, 1], [94, 60, 1]]) w.box(x, G + 1, z, x + 1, G + h, z + 1, B.crateM);
-      for (const [x, z, b] of [[90, 54, B.barrelB], [91, 55, B.barrelR], [90, 40, B.barrelB], [82, 28, B.barrelR]]) w.box(x, G + 1, z, x, G + 2, z, b);
-      w.box(108, G + 1, 50, 110, G + 1, 54, B.sled); w.box(108, G + 2, 51, 110, G + 2, 52, B.sled); w.box(109, G + 2, 54, 109, G + 3, 54, B.frame); w.box(108, G + 1, 49, 110, G + 1, 49, B.rail);
-      landmarks.push({ name: '얼음 위 야영지', note: '블랙 디비전이 동쪽 뱃전 옆에 세운 전진 기지', p: [92.5, G + 14, 44.5] });
-
-      // ── 호버크래프트(월드 좌표, 남동쪽 얼음): 검은 고무 치마, 조종실, 뒤쪽 덕트 프로펠러 둘 ──
-      const HX0 = 112, HX1 = 120, HZ0 = 90, HZ1 = 106, HCX = 116;
+      lights.push({ name: 'quad', p: [CX + 15.5, G + 3, 149.5], c: '#ff4030', i: 0.35, d: 18, flicker: 0.1, srcR: 12 });
+      const HCX = CX + 47, HX0 = HCX - 6, HX1 = HCX + 6, HZ0 = 100, HZ1 = 118;
+      for (let z = HZ0 - 1; z <= HZ1 + 1; z++) w.box(HX0 - 1, G + 1, z, HX1 + 1, G + 12, z, 0);
+      const hov = w.prop({ name: 'hover', pivot: [HCX + 0.5, G + 1, (HZ0 + HZ1) / 2] });
       for (let z = HZ0; z <= HZ1; z++) for (let x = HX0; x <= HX1; x++) {
         if ((x === HX0 || x === HX1) && (z === HZ0 || z === HZ1)) continue;
-        w.box(x, G + 1, z, x, G + 2, z, B.skirt); w.set(x, G + 3, z, B.hover);
+        hov.box(x, G + 1, z, x, G + 2, z, B.skirt); hov.set(x, G + 3, z, z < HZ0 + 3 ? B.hoverR : B.hover);
       }
-      w.box(114, G + 4, 96, 118, G + 6, 103, B.hover); w.box(114, G + 5, 103, 118, G + 5, 103, B.heliGl); w.box(118, G + 5, 97, 118, G + 5, 102, B.heliGl); w.box(114, G + 7, 96, 118, G + 7, 103, B.heliDk);
-      for (const fx of [HCX - 2.5, HCX + 2.5]) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
-        const r = Math.hypot(dy, dx); if ((r > 2.2 && r < 3.3) || (r < 2.2 && (dy === 0 || dx === 0))) w.set(Math.round(fx + dx - 0.5), G + 7 + dy, 91, r > 2.2 ? B.heliDk : B.iron);
-      }
-      landmarks.push({ name: '호버크래프트', note: '등대·해안선 부두에서 얼음 위로 건너온 탈것', p: [116.5, G + 14, 98.5] });
+      hov.box(HX0 + 2, G + 4, HZ0 + 2, HX1 - 2, G + 6, HZ0 + 11, B.hoverW); hov.box(HX0 + 2, G + 5, HZ0 + 2, HX1 - 2, G + 5, HZ0 + 2, B.glass);
+      for (let z = HZ0 + 3; z <= HZ0 + 10; z += 2) { hov.set(HX0 + 2, G + 5, z, B.glass); hov.set(HX1 - 2, G + 5, z, B.glass); }
+      hov.box(HX0 + 2, G + 7, HZ0 + 2, HX1 - 2, G + 7, HZ0 + 11, B.hover); hov.set(HCX, G + 8, HZ0 + 3, B.lampW);
+      const fans = [HCX - 3, HCX + 3];
+      fans.forEach((fx, k) => {
+        for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const r = Math.hypot(dy, dx); if (r > 2.3 && r < 3.4) hov.set(fx + dx, G + 7 + dy, HZ1 - 1, B.fan); }
+        hov.box(fx, G + 4, HZ1 - 1, fx, G + 4, HZ1 - 1, B.fan);
+        const f = w.prop({ name: 'fan' + k, pivot: [fx + 0.5, G + 7.5, HZ1 - 0.5], axis: 'z', speed: 0.01 });
+        f.box(fx - 2, G + 7, HZ1, fx + 2, G + 7, HZ1, B.iron); f.box(fx, G + 5, HZ1, fx, G + 9, HZ1, B.iron);
+      });
+      lights.push({ name: 'hover', p: [HCX + 0.5, G + 9, HZ0 + 2.5], c: '#e8f0ff', i: 0.4, d: 22, flicker: 0.05, srcR: 3 });
+      landmarks.push({ name: '호버크래프트', note: '등대·해안선 부두에서 얼음 위로 건너오는 탈것', p: [HCX + 0.5, G + 14, 141] });
 
-      // ════ 움직이는 부품(맨 마지막: 월드와 겹치지 않게) ════
-      // 탐조등 빛줄기(동쪽 날개 끝): 처음엔 접혀 있다가 펼쳐져 얼음판을 훑는다
-      const BP = [BX1 + 1, BY + 7, CZ + 15], th0 = 0.9, slope = 1.0;
-      const beam = sprop({ name: 'beam', pivot: [BP[0], BP[1] + 0.5, BP[2] + 0.5], scl0: [0, 0, 0] });
+      // ════ 상호작용 ════
+      // 조타실 탐조등 빛줄기(동쪽 날개 끝, 부품): 펼쳐져 얼음판을 훑는다
+      const BP = [CX + 27, BY + 9, ZB - 1], th0 = 0.75, slope = 0.8;
+      const beam = w.prop({ name: 'beam', pivot: [BP[0] + 0.5, BP[1] + 0.5, BP[2] + 0.5], scl0: [0, 0, 0] });
       let end = null;
-      for (let s = 0; s < 120; s += 0.5) {
+      for (let s = 1.5; s < 140; s += 0.5) {
         const cx = BP[0] + Math.cos(th0) * s, cy = BP[1] - slope * s, cz = BP[2] + Math.sin(th0) * s;
         if (cy < G + 1.5) { end = [cx, cz]; break; }
         const r = 0.35 + s * 0.05, R = Math.ceil(r);
         for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
           if (dx * dx + dy * dy + dz * dz > r * r) continue;
           const x = Math.round(cx + dx), y = Math.round(cy + dy), z = Math.round(cz + dz);
-          if (S.get(x, y, z) || hash3(x, y, z) < 0.45) continue;
+          if (w.get(x, y, z) || hash3(x, y, z) < 0.45) continue;
           beam.set(x, y, z, B.beamL);
         }
       }
-      if (end) for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) { const x = Math.round(end[0] + dx), z = Math.round(end[1] + dz); if (Math.hypot(dx, dz * 0.8) <= 5 && !S.get(x, G + 1, z)) beam.set(x, G + 1, z, B.beamL); }
+      if (end) for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) { const x = Math.round(end[0] + dx), z = Math.round(end[1] + dz); if (Math.hypot(dx, dz) <= 5 && !w.get(x, G + 1, z)) beam.set(x, G + 1, z, B.beamL); }
       acts.push({
-        name: '조타실 탐조등', hint: '조타실 날개 끝 탐조등이 켜지며 눈보라 속 얼음판을 천천히 훑어요', hit: TH([BX1 - 2, BY + 4, CZ + 12, BX1 + 2, BY + 8, CZ + 17]),
+        name: '조타실 탐조등', hint: '조타실 동쪽 날개 끝 탐조등이 켜지며 눈보라 속 얼음판을 천천히 훑어요', hit: [BP[0] - 2, BY + 6, BP[2] - 2, BP[0] + 2, BY + 10, BP[2] + 2],
         run: async a => {
           a.flash('search', 6, 8.5); a.flash('bridge', 2, 8.5);
           await a.tween('beam', { scl: [1, 1, 1] }, 0.8);
-          await yawTo(a, 'beam', 0.45, 2.4); await yawTo(a, 'beam', -0.35, 3);
-          await yawTo(a, 'beam', 0, 1.2); await a.tween('beam', { scl: [0, 0, 0] }, 0.6);
+          await a.turn('beam', [0, -0.45, 0], 2.4); await a.turn('beam', [0, 0.4, 0], 3);
+          await a.turn('beam', [0, 0, 0], 1.2); await a.tween('beam', { scl: [0, 0, 0] }, 0.6);
         },
       });
       acts.push({
-        name: '뱃고동', hint: '남색 돛대의 놋쇠 기적에서 김이 뿜어지며 얼어붙은 바다에 긴 뱃고동이 울려요', hit: TH([MX - 1, BY + 12, CZ - 3, MX + 4, BY + 17, CZ + 3]),
+        name: '정면 투광등', hint: '조타실 정면의 커다란 투광등 둘이 번쩍 켜지며 눈 덮인 앞갑판을 하얗게 비춰요', hit: [CX - 12, BY + 1, ZB - 1, CX + 12, BY + 5, ZB + 2],
+        run: async a => {
+          a.flash('flood', 4, 5); a.flash('deck', 3, 5); a.glow(2, 5);
+          for (let k = 0; k < 10; k++) { a.burst([CX - 8 + (k % 2) * 17, BY + 3, ZB + 2], { n: 14, colors: ['#ffffff', '#fff4d8', '#e4eef8'], speed: 2, up: -1, life: 1.6, gravity: 1, spread: 2.5 }); await a.wait(0.4); }
+        },
+      });
+      const radar = w.prop({ name: 'radar', pivot: [CX - 0.5, BY + 15, RZ1 - 1.5], speed: 0.9 });
+      radar.box(CX - 1, BY + 13, RZ1 - 2, CX - 1, BY + 14, RZ1 - 2, B.iron); radar.box(CX - 5, BY + 15, RZ1 - 2, CX + 3, BY + 15, RZ1 - 2, B.frame); radar.box(CX - 5, BY + 16, RZ1 - 2, CX + 3, BY + 16, RZ1 - 2, B.rail);
+      acts.push({
+        name: '레이더 · 항공등', hint: '조타실 지붕의 레이더가 빙글빙글 빨라지고 남색 돛대의 붉은 항공등이 깜박여요', hit: [CX - 8, BY + 12, MZ - 3, CX + 8, MTOP + 2, RZ1],
+        run: async a => { a.flash('mast', 6, 4.5); for (let k = 0; k < 4; k++) a.burst([CX - 0.5, MTOP + 1.5, MZ - 0.5], { n: 10, colors: ['#ff4a3a', '#ffb0a0'], speed: 1, up: 0.5, life: 0.8, gravity: 0, spread: 0.4 }); await a.spin('radar', 7, 4.5); },
+      });
+      acts.push({
+        name: '뱃고동', hint: '남색 돛대의 놋쇠 기적에서 김이 뿜어지며 얼어붙은 바다에 긴 뱃고동이 울려요', hit: [CX - 3, BY + 16, MZ - 3, CX + 4, BY + 21, MZ + 2],
         run: async a => {
           a.flash('mast', 5, 5); a.wind(2.4, 5);
           for (let k = 0; k < 3; k++) {
-            for (let j = 0; j < 5; j++) { burst(a, [MX + 4, BY + 15, CZ], { n: 22, colors: ['#ffffff', '#e0ecf4', '#b8c8d8'], speed: 2.2, up: 5, life: 2.2, gravity: -0.8, spread: 0.8 }); await a.wait(0.18); }
+            for (let j = 0; j < 5; j++) { a.burst([CX + 2.5, BY + 20, MZ], { n: 22, colors: ['#ffffff', '#e0ecf4', '#b8c8d8'], speed: 2.2, up: 5, life: 2.2, gravity: -0.8, spread: 0.8 }); await a.wait(0.18); }
             await a.wait(0.5);
           }
         },
       });
-      const radar = sprop({ name: 'radar', pivot: [110.5, BY + 9, CZ + 0.5], speed: 0.9 });
-      radar.set(110, BY + 9, CZ, B.iron); radar.box(110, BY + 10, CZ - 5, 110, BY + 10, CZ + 4, B.rail); radar.box(110, BY + 11, CZ - 5, 110, BY + 11, CZ + 4, B.frame);
       acts.push({
-        name: '레이더 마스트', hint: '조타실 지붕의 레이더가 빙글빙글 빨라지고 남색 돛대의 붉은 항공등이 깜박여요', hit: TH([96, BY + 6, CZ - 8, 114, MTOP + 2, CZ + 7]),
-        run: async a => { a.flash('mast', 6, 4.5); for (let k = 0; k < 4; k++) burst(a, [MX + 0.5, MTOP + 1.5, CZ], { n: 10, colors: ['#ff4a3a', '#ffb0a0'], speed: 1, up: 0.5, life: 0.8, gravity: 0, spread: 0.4 }); await a.spin('radar', 7, 4.5); },
-      });
-      // 동쪽 크레인(부품): 컨테이너를 매단 채 뱃전 밖 얼음판 위로 돈다
-      const CEZ = CZ + 10;
-      const crane = sprop({ name: 'crane', pivot: [CRX + 0.5, DK + 7, CEZ + 0.5] });
-      crane.box(CRX - 1, DK + 7, CEZ - 1, CRX + 2, DK + 9, CEZ + 2, B.craneO); crane.set(CRX + 2, DK + 8, CEZ, B.brWin); crane.box(CRX - 1, DK + 10, CEZ - 1, CRX + 2, DK + 10, CEZ + 2, B.iron);
-      crane.line(CRX + 2, DK + 10, CEZ, CRX + 14, DK + 20, CEZ, B.craneO); crane.line(CRX + 2, DK + 10, CEZ + 1, CRX + 14, DK + 20, CEZ + 1, B.craneO);
-      crane.box(CRX + 14, DK + 15, CEZ, CRX + 14, DK + 19, CEZ, B.cable);
-      crane.box(CRX + 11, DK + 12, CEZ - 1, CRX + 17, DK + 14, CEZ + 1, B.cOr); crane.box(CRX + 11, DK + 12, CEZ - 1, CRX + 11, DK + 14, CEZ + 1, B.iron);
-      acts.push({
-        name: '갑판 크레인', hint: '주황빛 갑판 크레인이 컨테이너를 매단 채 뱃전 밖 얼음판 위로 돌아가요', hit: TH([CRX - 1, DK + 7, CEZ - 1, CRX + 17, DK + 20, CEZ + 2]),
+        name: '양묘기 · 닻 내리기', hint: '앞갑판 양묘기의 체인 바퀴가 돌며 동쪽 뱃머리의 닻이 얼음 위로 내려가요', hit: [CX - 10, DK + 1, 93, CX + 9, DK + 9, 106],
         run: async a => {
-          a.flash('camp', 2, 7.5);
-          await yawTo(a, 'crane', 1.3, 3.2);
-          burst(a, [CRX + 0.5 + 14 * Math.cos(1.3), DK + 13, CEZ + 0.5 + 14 * Math.sin(1.3)], { n: 30, colors: ['#ffffff', '#dfe9f2'], speed: 1.5, up: 0.5, life: 1.6, gravity: 6, spread: 2 });
-          await a.wait(1.2); await yawTo(a, 'crane', 0, 3);
+          a.flash('bow', 3, 6);
+          for (let k = 0; k < 4; k++) a.spin('gypsy' + k, 300, 5.5);
+          for (let k = 0; k < 6; k++) { a.burst([CX + (k % 2 ? 7 : -8), DK + 8, 99], { n: 8, colors: ['#c8d4dc', '#ffffff', '#6a6058'], speed: 1.5, up: 2, life: 0.8, gravity: 4, spread: 1 }); await a.wait(0.25); }
+          await a.move('anchor', [0, -(AY - G - 5), 0], 2.2);
+          a.burst([AXo + 0.5, G + 2, AZ + 0.5], { n: 40, colors: ['#ffffff', '#c8e0ee', '#7aa0b8'], speed: 4, up: 3, life: 1.2, gravity: 8, spread: 1.5 });
+          await a.wait(1.2); await a.move('anchor', [0, 0, 0], 2.5);
         },
       });
       // 쇄빙 돌진: 뱃머리 앞 깨진 얼음판(부품)이 들려 갈라진다
-      const slabs = [[139, CZ - 7, CZ - 1], [140, CZ, CZ + 6], [145, CZ - 7, CZ], [146, CZ + 1, CZ + 7]], tilt0 = k => [(k % 2 ? 0.07 : -0.06), 0, 0.05 + (k % 3) * 0.04];
-      slabs.forEach(([x0, z0, z1], k) => {
-        const zc = (z0 + z1) / 2, hz = (z1 - z0) / 2 + 0.6;
-        const p = sprop({ name: 'slab' + k, pivot: [x0, G, zc + 0.5], rot0: tilt0(k) });
-        for (let x = x0; x <= x0 + 4; x++) for (let z = z0; z <= z1; z++) {
-          if (Math.abs(x - x0 - 2) / 2.8 + Math.abs(z - zc) / hz > 1.15 + hash3(x, 3, z) * 0.3 || S.get(x, G, z)) continue;
-          p.set(x, G, z, hash3(x, k, z) > 0.3 ? B.iceBlk : B.iceBlk2);
-          if (hash3(x, 9, z) > 0.8) p.set(x, G + 1, z, B.snowI);
+      const slabs = [[128, CX - 9, CX - 1], [129, CX, CX + 8], [136, CX - 9, CX], [137, CX + 1, CX + 8]], tilt0 = k => [-0.1 - (k % 3) * 0.05, 0, (k % 2 ? 0.08 : -0.07)];
+      slabs.forEach(([z0, x0, x1], k) => {
+        const xc = (x0 + x1) / 2, hx = (x1 - x0) / 2 + 0.6;
+        const p = w.prop({ name: 'slab' + k, pivot: [xc + 0.5, G + 1, z0], rot0: tilt0(k) });
+        for (let z = z0; z <= z0 + 6; z++) for (let x = x0; x <= x1; x++) {
+          if (Math.abs(z - z0 - 3) / 3.6 + Math.abs(x - xc) / hx > 1.15 + hash3(x, 3, z) * 0.3 || w.get(x, G, z)) continue;
+          p.set(x, G, z, B.iceBlk2); p.set(x, G + 1, z, hash3(x, k, z) > 0.3 ? B.iceBlk : B.snowI);
         }
       });
       acts.push({
-        name: '쇄빙 돌진', hint: '배가 얼음을 밀어붙이자 뱃머리 앞 얼음판이 들려 쩍 갈라지고 검은 물이 튀어요', hit: TH([136, G, CZ - 8, 152, G + 8, CZ + 8]),
+        name: '쇄빙 돌진', hint: '배가 얼음을 밀어붙이자 뱃머리 앞 얼음판이 들려 쩍 갈라지고 검은 물이 튀어요', hit: [CX - 10, G, 127, CX + 9, G + 8, 146],
         run: async a => {
           a.flash('bow', 4, 4); a.lightning(0.3);
           for (let k = 0; k < 4; k++) {
-            a.turn('slab' + k, TR([k % 2 ? 0.25 : -0.25, 0, 0.55 + k * 0.1]), 0.5);
-            burst(a, [141 + (k >> 1) * 6, G + 2, CZ - 4 + (k & 1) * 7], { n: 34, colors: ['#e8f4ff', '#a4c6da', '#ffffff', '#16283a'], speed: 5, up: 7, life: 1.4, gravity: 12, spread: 1.6 });
+            a.turn('slab' + k, [-0.55 - k * 0.1, 0, k % 2 ? 0.2 : -0.2], 0.5);
+            a.burst([CX - 4 + (k & 1) * 8, G + 2, 131 + (k >> 1) * 7], { n: 34, colors: ['#e8f4ff', '#a4c6da', '#ffffff', '#16283a'], speed: 5, up: 7, life: 1.4, gravity: 12, spread: 1.6 });
             await a.wait(0.3);
           }
-          burst(a, [138, G + 3, CZ], { n: 70, colors: ['#ffffff', '#c8e0ee', '#2a4054'], speed: 8, up: 6, life: 1.6, gravity: 10, spread: 3, flat: true });
+          a.burst([CX, G + 3, 128], { n: 70, colors: ['#ffffff', '#c8e0ee', '#2a4054'], speed: 8, up: 6, life: 1.6, gravity: 10, spread: 3, flat: true });
           await a.wait(1.4);
-          await Promise.all([0, 1, 2, 3].map(k => a.turn('slab' + k, TR(tilt0(k)), 1.6)));
+          await Promise.all([0, 1, 2, 3].map(k => a.turn('slab' + k, tilt0(k), 1.6)));
         },
       });
-      // 헬기(주황·흰 구조 헬기)와 회전날개(부품): 녹색 신호탄이 오르면 이륙해 야영지 위를 돌고 돌아온다
-      const HY = PY + 1, HZ = CZ;
-      const heli = sprop({ name: 'heli', pivot: [PCX + 0.5, HY, HZ] });
-      heli.box(17, HY, HZ - 3, 26, HY, HZ - 3, B.iron); heli.box(17, HY, HZ + 2, 26, HY, HZ + 2, B.iron);
-      for (const x of [19, 24]) { heli.set(x, HY + 1, HZ - 2, B.iron); heli.set(x, HY + 1, HZ + 1, B.iron); }
-      heli.box(17, HY + 2, HZ - 2, 26, HY + 3, HZ + 1, B.heliO); heli.box(17, HY + 4, HZ - 2, 26, HY + 5, HZ + 1, B.heliWt);
-      heli.box(27, HY + 2, HZ - 1, 28, HY + 4, HZ, B.heliGl); heli.box(19, HY + 4, HZ - 2, 24, HY + 4, HZ - 2, B.heliGl); heli.box(19, HY + 4, HZ + 1, 24, HY + 4, HZ + 1, B.heliGl);
-      heli.box(19, HY + 6, HZ - 1, 24, HY + 6, HZ, B.heliDk); heli.box(7, HY + 4, HZ - 1, 16, HY + 4, HZ - 1, B.heliO); heli.box(7, HY + 5, HZ - 1, 8, HY + 7, HZ - 1, B.heliWt);
-      heli.set(22, HY + 7, HZ - 1, B.iron);
-      const rotor = sprop({ name: 'rotor', pivot: [PCX + 0.5, HY + 8, HZ - 0.5], speed: 0.01 });
-      rotor.box(11, HY + 8, HZ - 1, 33, HY + 8, HZ - 1, B.heliDk); rotor.box(22, HY + 8, HZ - 12, 22, HY + 8, HZ + 10, B.heliDk);
       acts.push({
-        name: '녹색 신호탄 · 헬기 탈출', hint: '헬리패드에서 녹색 신호탄이 높이 오르면 헬기가 이륙해 야영지 위를 돌고 돌아와요', hit: TH([PCX - PR, PY, CZ - PR, PCX + PR, HY + 8, CZ + PR]),
+        name: '호버크래프트 도착', hint: '덕트 프로펠러 둘이 웅웅 돌며 호버크래프트가 눈보라를 일으키며 뱃머리 옆으로 미끄러져 와요', hit: [HX0, G + 1, HZ0, HX1, G + 10, HZ1],
         run: async a => {
-          a.flash('pad', 6, 13);
-          for (let k = 0; k < 9; k++) { burst(a, [PCX + 10, PY + 3 + k * 6, CZ + 9], { n: 8, colors: ['#5aff7a', '#c8ffd0'], speed: 0.6, up: 1, life: 1.2, gravity: 0.5, spread: 0.4 }); await a.wait(0.12); }
-          burst(a, [PCX + 10, PY + 58, CZ + 9], { n: 90, colors: ['#5aff7a', '#a8ffb8', '#ffffff'], speed: 9, up: 1, life: 2.4, gravity: 2, spread: 1 });
-          a.spin('rotor', 900, 13);
-          const pts = [[0, 4, 0], [0, 24, 0], [12, 24, 32], [16, -4, 32]].map(T), back = [[12, 24, 32], [0, 24, 0], [0, 0, 0]].map(T);
-          await a.wait(1);
-          await Promise.all([a.path('heli', pts, 6), a.path('rotor', pts, 6)]);
-          burst(a, [PCX + 16.5, G + 1, CZ + 32], { n: 50, colors: ['#ffffff', '#dfe9f2'], speed: 6, up: 1, life: 1.4, gravity: 1, spread: 3, flat: true });
+          a.flash('hover', 5, 9); a.spin('fan0', 1200, 9); a.spin('fan1', 1200, 9);
+          const pts = [[4, 0, 12], [-4, 0, 26]], back = [[4, 0, 12], [0, 0, 0]];
+          const spray = async () => { for (let k = 0; k < 8; k++) { a.burst([HCX + 0.5, G + 1.5, HZ1 + 1 + 3 * k], { n: 20, colors: ['#ffffff', '#dfe9f2'], speed: 3, up: 1.5, life: 1, gravity: 2, spread: 3, flat: true }); await a.wait(0.4); } };
+          await Promise.all([a.path('hover', pts, 3.2), a.path('fan0', pts, 3.2), a.path('fan1', pts, 3.2), spray()]);
           await a.wait(1.2);
-          await Promise.all([a.path('heli', back, 5.5), a.path('rotor', back, 5.5)]);
+          await Promise.all([a.path('hover', back, 3.4), a.path('fan0', back, 3.4), a.path('fan1', back, 3.4)]);
         },
       });
       return { lights, landmarks, acts };

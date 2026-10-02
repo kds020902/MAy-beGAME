@@ -184,6 +184,85 @@
         else MH.tree(w, x, g + 1, z, { kind: 'oak', h: w.ri(7, 10), bark: i % 4 === 0 ? B.birch : B.bark, barkDk: i % 4 === 0 ? B.frame : null, leaves: [B.leaf2, B.leaf, B.leafDk, i % 5 === 0 ? B.apple : null], r: w.r(3.2, 4.4) });
       }
       MH.scatter(w, 1600, (x, g, z, b) => { if ((b === B.grass || b === B.grass2 || b === B.grass3) && w.chance(0.18)) w.set(x, g + 1, z, w.chance(0.7) ? B.grass3 : w.pick([B.flower, B.flower2, B.flower3])); });
+
+      // ── 방앗간 박공의 자루 도르래: 다락에서 밀가루 자루를 내린다 ──
+      const HX = millX + 17, HZ = mz - 4, HY = my + 13;
+      w.box(millX + 14, HY + 1, HZ, HX, HY + 1, HZ, B.wood); w.line(millX + 14, HY - 3, HZ, millX + 16, HY, HZ, B.wood); w.set(HX, HY, HZ, B.iron);
+      w.box(HX - 1, my, HZ - 1, HX, my, HZ + 1, B.plank);
+      MH.rope(w, 'srope', HX, HY - 1, HZ, 2, B.rope);
+      const sack = w.prop({ name: 'sack', pivot: [HX + 0.5, HY - 3, HZ + 0.5] });
+      sack.box(HX - 1, HY - 6, HZ - 1, HX, HY - 4, HZ + 1, B.sail); sack.box(HX - 1, HY - 3, HZ, HX, HY - 3, HZ, B.rope);
+      const sDrop = (HY - 6) - (my + 1);
+      acts.push({
+        name: '자루 도르래', hint: '방앗간 다락에서 밀가루 자루가 내려와요', hit: [millX + 14, my + 1, HZ - 1, HX, HY + 1, HZ + 1],
+        run: async a => {
+          await Promise.all([a.move('sack', [0, -sDrop, 0], 2.2, t => t), a.rope('srope', 2, 2 + sDrop, 2.2, t => t)]);
+          for (let k = 0; k < 3; k++) { a.burst([HX, my + 2, HZ + 0.5], { n: 30, colors: ['#ffffff', '#f4ecd8', '#e8dcc0'], speed: 3, up: 2, life: 1.4, gravity: 1, spread: 1.5 }); await a.wait(0.35); }
+          await a.wait(0.6);
+          await Promise.all([a.move('sack', [0, 0, 0], 2.4, t => t), a.rope('srope', 2, 2, 2.4, t => t)]);
+        },
+      });
+      // ── 붉은 헛간의 큰 문짝(동쪽): 양쪽으로 열리면 건초가 날린다 ──
+      const BDX = 49, BY = 28, BZ = 99;
+      w.box(BDX, BY + 1, BZ, BDX, BY + 5, BZ + 3, 0);
+      const bdL = w.prop({ name: 'bdoorL', pivot: [BDX + 1, BY + 1, BZ] }), bdR = w.prop({ name: 'bdoorR', pivot: [BDX + 1, BY + 1, BZ + 4] });
+      for (const [p, z0] of [[bdL, BZ], [bdR, BZ + 2]]) { p.box(BDX, BY + 1, z0, BDX, BY + 5, z0 + 1, B.barnR); p.line(BDX, BY + 1, z0, BDX, BY + 5, z0 + 1, B.sail); p.box(BDX, BY + 5, z0, BDX, BY + 5, z0 + 1, B.sail); }
+      acts.push({
+        name: '헛간 문', hint: '붉은 헛간의 큰 문이 활짝 열리고 건초가 날려요', hit: [BDX - 1, BY + 1, BZ, BDX + 1, BY + 5, BZ + 3],
+        run: async a => {
+          await Promise.all([a.turn('bdoorL', [0, 1.5, 0], 1.3), a.turn('bdoorR', [0, -1.5, 0], 1.3)]);
+          for (let k = 0; k < 4; k++) { a.burst([BDX + 2, BY + 3, BZ + 2], { n: 26, colors: ['#dcb456', '#e8c870', '#c8a050'], speed: 5, up: 3, life: 1.6, gravity: 2, spread: 1.2 }); await a.wait(0.4); }
+          await a.wait(1);
+          await Promise.all([a.turn('bdoorL', [0, 0, 0], 1.2), a.turn('bdoorR', [0, 0, 0], 1.2)]);
+        },
+      });
+      // ── 나룻배: 다리 아래쪽 강물을 따라 내려갔다가 노 저어 돌아온다 ──
+      const RZ = 104, RX = Math.round(rX(RZ + 3));
+      const boat = w.prop({ name: 'rowboat', pivot: [RX + 0.5, UPL, RZ + 3.5], bob: 0.15, bobSpeed: 1.4, rock: 0.04, rockSpeed: 1.1, axis: 'z' });
+      boat.box(RX - 1, UPL, RZ + 1, RX + 1, UPL, RZ + 5, B.wood); boat.set(RX, UPL, RZ, B.wood); boat.set(RX, UPL, RZ + 6, B.wood);
+      boat.walls(RX - 1, UPL + 1, RZ + 1, RX + 1, UPL + 1, RZ + 5, B.plank); boat.set(RX, UPL + 1, RZ, B.plank); boat.set(RX, UPL + 2, RZ + 6, B.plank);
+      boat.box(RX - 1, UPL + 1, RZ + 3, RX + 1, UPL + 1, RZ + 3, B.wood); boat.box(RX, UPL + 2, RZ + 2, RX, UPL + 2, RZ + 2, B.hay);
+      boat.box(RX, UPL + 2, RZ + 5, RX, UPL + 4, RZ + 5, B.wood); boat.set(RX, UPL + 4, RZ + 6, B.lamp);
+      for (const s of [-1, 1]) boat.line(RX + s * 2, UPL + 2, RZ + 3, RX + s * 4, UPL, RZ + 4, B.wood);
+      const rDown = [0, 6, 12].map(dz => [rX(RZ + 3 + dz) - rX(RZ + 3), 0, dz]);
+      acts.push({
+        name: '나룻배', hint: '나룻배가 강물을 따라 내려갔다가 노 저어 돌아와요', hit: [RX - 4, UPL, RZ, RX + 4, UPL + 4, RZ + 6],
+        run: async a => {
+          for (let k = 0; k < 3; k++) a.burst([RX + 0.5 + (k - 1) * 3, UPL + 1, RZ + 4], { n: 10, colors: ['#ffffff', '#d8f0ff'], speed: 2, up: 1.5, life: 0.8, gravity: 6, spread: 0.6 });
+          await a.path('rowboat', rDown, 4.5);
+          await a.wait(0.6);
+          for (let k = 0; k < 2; k++) { a.burst([RX + rDown[2][0] + 0.5, UPL + 1, RZ + 15], { n: 18, colors: ['#ffffff', '#d8f0ff', '#8ac8f0'], speed: 3, up: 2, life: 0.9, gravity: 7, spread: 3 }); await a.wait(0.3); }
+          await a.path('rowboat', [rDown[1], [0, 0, 0]], 4);
+        },
+      });
+      // ── 우물가 사과나무: 흔들면 사과와 잎이 우수수 떨어진다 ──
+      const AX = SX + 6, AZ = SZ - 6;
+      acts.push({
+        name: '사과나무', hint: '바람에 우물가 사과나무가 흔들려 사과와 잎이 떨어져요', hit: [AX - 4, sg + 4, AZ - 4, AX + 4, sg + 16, AZ + 4],
+        run: async a => {
+          a.wind(3, 3.5);
+          for (let k = 0; k < 7; k++) {
+            // 잎 덩어리 남쪽 바깥 둘레와 꼭대기에서 떨어진다(속에서 터지면 가려진다)
+            const ang = 0.9 + (k % 4) * 0.35;
+            a.burst([AX + 0.5 + Math.cos(ang) * 6, sg + 9 + (k % 3), AZ + 0.5 + Math.sin(ang) * 6], { n: 14, colors: ['#4a8a3a', '#6aaa48', '#a8c860'], speed: 2.5, up: 1, life: 2.4, gravity: 1.2, spread: 1.5 });
+            a.burst([AX + 0.5 + Math.cos(ang + 0.3) * 6, sg + 8, AZ + 0.5 + Math.sin(ang + 0.3) * 6], { n: 6, colors: ['#d8403a', '#c03028'], speed: 0.6, up: 0.5, life: 0.9, gravity: 14, spread: 1.2 });
+            if (k % 2 === 0) a.burst([AX + 0.5, sg + 18, AZ + 0.5], { n: 16, colors: ['#4a8a3a', '#6aaa48', '#a8c860'], speed: 3, up: 2, life: 2.6, gravity: 0.8, spread: 3, flat: true });
+            await a.wait(0.45);
+          }
+        },
+      });
+      // ── 라벤더 밭: 바람이 지나가며 보랏빛 꽃잎과 벌이 날아오른다 ──
+      const lavs = [[41, 115], [26, 76], [11, 89]];
+      acts.push({
+        name: '라벤더 바람', hint: '바람이 밭을 쓸고 지나가며 보랏빛 꽃잎이 흩날려요', hit: [36, MH.g(w, 41, 115) + 1, 111, 47, MH.g(w, 41, 115) + 3, 120],
+        run: async a => {
+          a.wind(4, 4);
+          for (let k = 0; k < 8; k++) {
+            for (const [lx, lz] of lavs) a.burst([lx + (k % 4 - 1.5) * 2.5, MH.g(w, lx, lz) + 2, lz + (k % 3 - 1) * 2.5], { n: 16, colors: ['#8a6ac8', '#b89ae8', '#e0d0ff', '#fff080'], speed: 3.5, up: 2.5, life: 2.4, gravity: -0.2, spread: 3, flat: true });
+            await a.wait(0.4);
+          }
+        },
+      });
       const smoke = smokes.concat(mill.chimney ? [mill.chimney] : []).map(c => ({ n: 30, colors: ['#e8e8e8', '#c8c8c8'], mode: 'rise', speed: 0.6, area: [c[0], c[2], 0.6], y0: c[1], y1: c[1] + 20, glow: false }));
       return { lights, landmarks, acts, particles: smoke };
     },

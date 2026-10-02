@@ -188,7 +188,7 @@
         if (g < base - 10) continue;
         MH.setH(w, x, z, g - 1, B.basalt, B.basalt); w.liquid(x, z, g);
       }
-      lights.push({ p: [103.5, L + 1, 60], c: '#ff5a1a', i: 1.2, d: 16, flicker: 0.2, liquid: true });
+      lights.push({ name: 'chan', p: [103.5, L + 1, 60], c: '#ff5a1a', i: 1.2, d: 16, flicker: 0.2, liquid: true });
       // 용암 수로를 건너는 돌다리 두 곳(동쪽 승강기 쪽과 마을을 잇는다)
       for (const zb of [56, 74]) {
         w.box(99, L + 1, zb - 1, 108, L + 1, zb + 1, B.graniteDk);
@@ -203,6 +203,82 @@
       lights.push({ p: [tav.door[0] + 0.5, tav.door[1] + 3, tav.door[2] + 1.5], c: '#ffb050', i: 1, d: 12, flicker: 0.15, night: true });
       landmarks.push({ name: '돌망치 주점', note: '흑맥주가 끊이지 않는 곳', p: [35.5, tav.peak + 6, 51] });
       for (const [bx, bz2] of [[44, 76], [68, 78], [18, 78], [94, 76]]) { w.box(bx, L + 1, bz2, bx, L + 4, bz2, B.iron); w.box(bx - 1, L + 5, bz2, bx + 1, L + 5, bz2, B.iron); w.set(bx, L + 6, bz2, B.fireY); lights.push({ p: [bx + 0.5, L + 7, bz2 + 0.5], c: '#ffb050', i: 0.8, d: 11, flicker: 0.3 }); }
+      // ── 광산 문의 룬: 한 글자씩 불이 들어오고 문 앞에 금빛 불티가 쏟아진다 ──
+      acts.push({
+        name: '룬 각인', hint: '광산 입구의 룬이 차례로 타오르며 금빛 불티를 뿌려요', hit: [MX - 6, L + 11, cz, MX + 6, L + 16, cz + 1],
+        run: async a => {
+          a.flash('mine', 3, 4.5); a.glow(1.8, 4.5);
+          for (let x = MX - 5; x <= MX + 5; x += 2) { a.burst([x + 0.5, L + 12.5, cz + 1.8], { n: 16, colors: ['#ffd070', '#ffe8a0', '#ff9a3a'], speed: 1.5, up: 1.5, life: 1.2, gravity: -0.5, spread: 0.4 }); await a.wait(0.3); }
+          for (let k = 0; k < 3; k++) { a.burst([MX + 0.5, L + 15.5, cz + 2], { n: 40, colors: ['#e8c040', '#ffd070', '#ffffff'], speed: 6, up: 2, life: 1.4, gravity: 4, spread: 1 }); await a.wait(0.5); }
+        },
+      });
+      // ── 대장간 앞마당의 물레망치: 팔이 들렸다가 모루를 내리친다 ──
+      const TX = 84, TZ = 71, TY = L + 6;
+      for (const z of [TZ - 2, TZ + 2]) { w.box(TX, L + 1, z, TX, TY + 2, z, B.timber); w.box(TX - 1, L + 1, z, TX + 1, L + 1, z, B.graniteDk); }
+      w.box(TX, TY + 3, TZ - 2, TX, TY + 3, TZ + 2, B.timber); for (const z of [TZ - 1, TZ + 1]) w.set(TX, TY, z, B.iron);
+      w.box(TX - 5, L + 1, TZ - 1, TX - 3, L + 1, TZ + 1, B.graniteDk); w.box(TX - 5, L + 2, TZ - 1, TX - 4, L + 2, TZ + 1, B.iron);
+      const th = w.prop({ name: 'thammer', pivot: [TX + 0.5, TY + 0.5, TZ + 0.5], axis: 'z' });
+      th.box(TX - 6, TY, TZ, TX + 6, TY, TZ, B.timber); th.box(TX - 5, TY - 2, TZ - 1, TX - 4, TY - 1, TZ + 1, B.iron); th.box(TX + 5, TY - 1, TZ, TX + 6, TY + 1, TZ, B.bronze);
+      lights.push({ name: 'anvil', p: [TX - 4, L + 3, TZ + 2], c: '#ffb050', i: 0.4, d: 12, flicker: 0.3, srcR: 9 });
+      acts.push({
+        name: '물레망치', hint: '커다란 망치가 들렸다가 모루를 쾅쾅 내리쳐요', hit: [TX - 6, L + 1, TZ - 2, TX + 6, TY + 3, TZ + 2],
+        run: async a => {
+          for (let k = 0; k < 4; k++) {
+            await a.turn('thammer', [0, 0, -0.5], 0.55);
+            await a.turn('thammer', [0, 0, 0.2], 0.16, t => t * t);
+            a.flash('anvil', 6, 0.3);
+            a.burst([TX - 4, L + 3, TZ + 1.5], { n: 40, colors: ['#ffe08a', '#ffb04a', '#ff6a2a', '#ffffff'], speed: 7, up: 4, life: 0.8, gravity: 9, spread: 0.6, flat: true });
+            await a.wait(0.25);
+          }
+          await a.turn('thammer', [0, 0, 0], 0.5);
+        },
+      });
+      // ── 용암 분출: 협곡 바닥에서 불기둥이 솟는다 ──
+      lights.push({ name: 'geyser', p: [72, LAVA + 2, 88], c: '#ff6a2a', i: 0.8, d: 30, flicker: 0.3, liquid: true });
+      acts.push({
+        name: '용암 분출', hint: '협곡 바닥 용암이 끓어올라 불기둥이 치솟아요', hit: [66, LAVA, 85, 78, LAVA + 10, 92],
+        run: async a => {
+          a.flash('geyser', 5, 4); a.lightning(0.4);
+          for (let k = 0; k < 8; k++) {
+            a.burst([72 + (k % 3 - 1) * 2, LAVA + 1, 87 + (k % 2) * 2], { n: 50, colors: ['#ff5a1a', '#ffb04a', '#ffe08a', '#8a1a0a'], speed: 3, up: 22, life: 2, gravity: 14, spread: 1.4 });
+            if (k % 2) a.burst([72, L + 1, 88], { n: 24, colors: ['#ff5a1a', '#ffb04a', '#ffe08a'], speed: 4, up: 6, life: 1.4, gravity: 10, spread: 2 });
+            await a.wait(0.4);
+          }
+          a.burst([72, LAVA + 8, 88], { n: 60, colors: ['#5a504a', '#8a7a70'], speed: 2, up: 6, life: 2.6, gravity: -0.6, spread: 3 });
+        },
+      });
+      // ── 용암 수로 수문: 쇠 수문이 올라가면 막혔던 용암이 쏟아진다 ──
+      const GZ = 66;
+      for (const x of [100, 106]) w.box(x, L + 1, GZ, x, L + 9, GZ, B.graniteDk);
+      w.box(100, L + 10, GZ, 106, L + 10, GZ, B.iron); w.set(103, L + 9, GZ, B.bronze);
+      const gate = w.prop({ name: 'lgate', pivot: [103.5, L + 1, GZ + 0.5] });
+      for (let x = 101; x <= 105; x++) for (let y = L; y <= L + 4; y++) if (!w.get(x, y, GZ)) gate.set(x, y, GZ, y === L + 4 || x === 101 || x === 105 ? B.bronze : B.iron);
+      acts.push({
+        name: '용암 수문', hint: '쇠 수문이 올라가면 막혔던 용암이 불꽃을 튀기며 쏟아져요', hit: [100, L, GZ - 1, 106, L + 10, GZ + 1],
+        run: async a => {
+          await a.move('lgate', [0, 4, 0], 1.6);
+          a.flash('chan', 3, 3.2);
+          for (let k = 0; k < 7; k++) { a.burst([103.5, L + 1, GZ + 1.5 + k % 3], { n: 30, colors: ['#ff5a1a', '#ffb04a', '#ffe08a'], speed: 3, up: 4, life: 1, gravity: 9, spread: 1.4 }); await a.wait(0.4); }
+          await a.move('lgate', [0, 0, 0], 1.4);
+          a.burst([103.5, L + 1, GZ + 1], { n: 30, colors: ['#8a7a70', '#ff9a3a'], speed: 2, up: 3, life: 1.4, gravity: 1, spread: 1.5 });
+        },
+      });
+      // ── 교대 종: 광부들의 교대를 알리는 청동 종 ──
+      const KX = 88, KZ = 78, ky = L + 11;
+      for (const x of [KX - 3, KX + 3]) { w.box(x, L + 1, KZ, x, ky, KZ, B.timber); w.box(x - 1, L + 1, KZ - 1, x + 1, L + 1, KZ + 1, B.graniteDk); }
+      w.box(KX - 4, ky + 1, KZ, KX + 4, ky + 1, KZ, B.timber); w.box(KX - 3, ky + 2, KZ, KX + 3, ky + 2, KZ, B.slate);
+      const bell = w.prop({ name: 'kbell', pivot: [KX + 0.5, ky + 0.5, KZ + 0.5], axis: 'z' });
+      bell.box(KX, ky - 1, KZ, KX, ky, KZ, B.iron); bell.cyl(KX, KZ, ky - 4, ky - 2, 1.2, B.bronze); bell.cyl(KX, KZ, ky - 6, ky - 5, 1.9, B.bronze); bell.set(KX, ky - 7, KZ, B.gold);
+      acts.push({
+        name: '교대 종', hint: '청동 종이 크게 흔들리며 교대 시간을 알려요', hit: [KX - 3, L + 1, KZ - 2, KX + 3, ky + 2, KZ + 2],
+        run: async a => {
+          for (let k = 0; k < 5; k++) {
+            await a.turn('kbell', [0, 0, k % 2 ? -0.7 : 0.7], 0.45);
+            a.burst([KX + 0.5, ky - 5, KZ + 0.5], { n: 26, colors: ['#ffd070', '#e8c040', '#fff0c0'], speed: 7, up: 0.3, life: 0.7, gravity: 0, spread: 0.6, flat: true });
+          }
+          await a.turn('kbell', [0, 0, 0], 0.6);
+        },
+      });
       const smoke = [...hs, tav].filter(h => h.chimney).slice(0, 3).map(h => ({ n: 30, colors: ['#6a605a', '#8a8078'], mode: 'rise', speed: 0.6, area: [h.chimney[0], h.chimney[2], 0.6], y0: h.chimney[1], y1: h.chimney[1] + 22, glow: false }));
       smoke.push({ n: 50, colors: ['#5a504a', '#8a7a70'], mode: 'rise', speed: 0.9, area: [FX + 14, FZ + 3, 1], y0: forge.peak + 13, y1: forge.peak + 40, glow: false });
       return { lights, landmarks, acts, particles: smoke };

@@ -137,9 +137,22 @@
       landmarks.push({ name: '붉은 헛간', note: '겨울 곡식을 쌓아 두는 곳', p: [103, barn.peak + 5, 72.5] });
       // ── 허수아비(호박밭) ──
       const scx = 100, scz = 106, scg = MH.g(w, scx, scz);
-      w.box(scx, scg + 1, scz, scx, scg + 10, scz, B.log); w.box(scx - 4, scg + 8, scz, scx + 4, scg + 8, scz, B.log);
-      w.box(scx - 1, scg + 5, scz, scx + 1, scg + 8, scz, B.shirt); w.box(scx - 3, scg + 8, scz, scx + 3, scg + 8, scz, B.shirt);
-      w.box(scx - 1, scg + 10, scz, scx + 1, scg + 11, scz, B.pumpkin); w.box(scx - 1, scg + 12, scz, scx + 1, scg + 12, scz, B.straw); w.set(scx - 4, scg + 7, scz, B.straw); w.set(scx + 4, scg + 7, scz, B.straw);
+      // 기둥 아랫부분만 땅에 박히고, 윗몸(부품)은 바람에 빙글 돈다
+      w.box(scx, scg + 1, scz, scx, scg + 4, scz, B.log);
+      const sc = w.prop({ name: 'scarecrow', pivot: [scx + 0.5, scg + 5, scz + 0.5], axis: 'y' });
+      sc.box(scx, scg + 5, scz, scx, scg + 10, scz, B.log); sc.box(scx - 4, scg + 8, scz, scx + 4, scg + 8, scz, B.log);
+      sc.box(scx - 1, scg + 5, scz, scx + 1, scg + 8, scz, B.shirt); sc.box(scx - 3, scg + 8, scz, scx + 3, scg + 8, scz, B.shirt);
+      sc.box(scx - 1, scg + 10, scz, scx + 1, scg + 11, scz, B.pumpkin); sc.box(scx - 1, scg + 12, scz, scx + 1, scg + 12, scz, B.straw); sc.set(scx - 4, scg + 7, scz, B.straw); sc.set(scx + 4, scg + 7, scz, B.straw);
+      acts.push({
+        name: '허수아비', hint: '허수아비가 빙글 돌자 호박밭의 까마귀들이 놀라 날아가요', hit: [scx - 4, scg + 1, scz - 1, scx + 4, scg + 12, scz + 1],
+        run: async a => {
+          a.turn('scarecrow', [0, Math.PI * 4, 0], 2.6);
+          for (let k = 0; k < 6; k++) { const ang = k * 1.05; a.burst([scx + 0.5 + Math.cos(ang) * 5, scg + 2, scz + 0.5 + Math.sin(ang) * 5], { n: 6, colors: ['#1a1a20', '#2a2a34', '#3a3a44'], speed: 4, up: 5, life: 2.4, gravity: -0.8, spread: 1 }); await a.wait(0.3); }
+          await a.wait(0.8);
+          a.unwind('scarecrow');
+          a.burst([scx + 0.5, scg + 9, scz + 0.5], { n: 18, colors: ['#e0c070', '#dcb456'], speed: 2.5, up: 1, life: 1.6, gravity: 2, spread: 1.5 });
+        },
+      });
       landmarks.push({ name: '호박밭', note: '허수아비가 지키는 밭', p: [scx + 0.5, scg + 18, scz + 0.5] });
       // ── 사과 과수원 ──
       for (let z = 10; z <= 36; z += 9) for (let x = 90; x <= 120; x += 9) {
@@ -159,6 +172,71 @@
         if (g < 0 || w.get(x, g + 1, z) || w.get(x, g, z) === B.soil || nearRoad(x, z) || MH.dist(x, z, SX, SZ) < 22 || wet(x, z)) continue;
         MH.tree(w, x, g + 1, z, { kind: 'oak', h: w.ri(7, 11), bark: B.bark, leaves: [w.pick([B.leafY, B.leafO, B.leafR]), B.leafO, B.leafR], r: w.r(3.4, 4.6) });
       }
+      // ── 사과주 압착기: 나사가 돌며 내려가 사과즙이 흘러나온다 ──
+      const CPX = 53, CPZ = 63;
+      w.cyl(CPX, CPZ, sg + 1, sg + 2, 2.2, B.log); w.cyl(CPX, CPZ, sg + 2, sg + 2, 1.2, B.apple);
+      w.box(CPX, sg + 1, CPZ + 3, CPX, sg + 1, CPZ + 3, B.cart); w.set(CPX, sg + 2, CPZ + 3, B.pie);
+      for (const x of [CPX - 3, CPX + 3]) w.box(x, sg + 1, CPZ, x, sg + 10, CPZ, B.log);
+      w.box(CPX - 3, sg + 11, CPZ, CPX + 3, sg + 11, CPZ, B.log);
+      const press = w.prop({ name: 'press', pivot: [CPX + 0.5, sg + 6, CPZ + 0.5], axis: 'y' });
+      press.box(CPX, sg + 5, CPZ, CPX, sg + 10, CPZ, B.rock); press.cyl(CPX, CPZ, sg + 4, sg + 4, 1.5, B.cart);
+      press.box(CPX - 2, sg + 8, CPZ, CPX + 2, sg + 8, CPZ, B.log); press.box(CPX, sg + 8, CPZ - 2, CPX, sg + 8, CPZ + 2, B.log);
+      acts.push({
+        name: '사과주 압착기', hint: '나사를 돌려 누르면 사과즙이 쭉 흘러나와요', hit: [CPX - 3, sg + 1, CPZ - 2, CPX + 3, sg + 11, CPZ + 3],
+        run: async a => {
+          await a.tween('press', { off: [0, -1.5, 0], rot: [0, Math.PI * 3, 0] }, 2.4, t => t);
+          for (let k = 0; k < 6; k++) { a.burst([CPX + 0.5, sg + 2.5, CPZ + 3.5], { n: 16, colors: ['#e8a83a', '#f0c860', '#c8702a'], speed: 1, up: 1, life: 0.8, gravity: 10, spread: 0.3 }); a.burst([CPX + 0.5, sg + 3, CPZ + 0.5], { n: 8, colors: ['#c8302a', '#e8b83a'], speed: 2.5, up: 2, life: 0.6, gravity: 8, spread: 1.2 }); await a.wait(0.35); }
+          await a.tween('press', { off: [0, 0, 0], rot: [0, 0, 0] }, 2, t => t);
+        },
+      });
+      // ── 호박 수레: 남쪽 길에서 호박을 싣고 광장 앞까지 왔다가 돌아간다 ──
+      const route = [[88, 107], [84, 94], [77, 82]];
+      const WX = route[0][0], WZ = route[0][1], wy = MH.maxG(w, WX - 2, WZ - 5, WX + 2, WZ + 2);
+      const cart = w.prop({ name: 'pcart', pivot: [WX + 0.5, wy + 1, WZ + 0.5] });
+      cart.box(WX - 1, wy + 2, WZ - 2, WX + 1, wy + 2, WZ + 2, B.cart); cart.walls(WX - 1, wy + 3, WZ - 2, WX + 1, wy + 3, WZ + 2, B.cart);
+      cart.box(WX - 1, wy + 3, WZ - 1, WX + 1, wy + 4, WZ + 1, B.pumpkin); cart.set(WX, wy + 5, WZ, B.pumpkin); cart.set(WX, wy + 6, WZ, B.stem);
+      for (const [dx, dz] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) cart.box(WX + dx, wy + 1, WZ + dz, WX + dx, wy + 2, WZ + dz, B.log);
+      cart.box(WX, wy + 2, WZ - 4, WX, wy + 2, WZ - 3, B.log); cart.box(WX - 1, wy + 2, WZ - 5, WX + 1, wy + 2, WZ - 5, B.log);
+      // 수레는 -z(북쪽)를 보고 만들었으니 relPath 방향에서 π/2를 뺀다
+      const h0 = Math.atan2(-(route[1][1] - route[0][1]), route[1][0] - route[0][0]);
+      const cOut = MH.relPath(route, h0).map(p => [p[0], MH.g(w, WX + p[0], WZ + p[2]) - wy, p[2], p[3] - Math.PI / 2]);
+      acts.push({
+        name: '호박 수레', hint: '호박을 가득 실은 수레가 길을 따라 광장 앞까지 와요', hit: [WX - 2, wy + 1, WZ - 5, WX + 2, wy + 6, WZ + 2],
+        run: async a => {
+          await a.path('pcart', cOut, 5);
+          for (let k = 0; k < 3; k++) { a.burst([route[2][0] + 0.5, MH.g(w, route[2][0], route[2][1]) + 5, route[2][1] + 0.5], { n: 14, colors: ['#e8801a', '#ffb04a', '#4a7a2a'], speed: 2.5, up: 4, life: 1, gravity: 8, spread: 1 }); await a.wait(0.35); }
+          await a.wait(0.6);
+          await a.path('pcart', [[cOut[0][0], cOut[0][1], cOut[0][2], cOut[0][3]], [0, 0, 0, cOut[0][3]]], 5);
+          await a.turn('pcart', [0, 0, 0], 0.6);
+        },
+      });
+      // ── 헛간 지붕 풍향 닭: 바람을 받아 빙글빙글 ──
+      const VX0 = 103, VZ0 = 72;
+      w.box(VX0, barn.peak, VZ0, VX0, barn.peak + 2, VZ0, B.log);
+      const vane = w.prop({ name: 'vane', pivot: [VX0 + 0.5, barn.peak + 3, VZ0 + 0.5], axis: 'y', speed: 0.3 });
+      vane.box(VX0 - 3, barn.peak + 3, VZ0, VX0 + 3, barn.peak + 3, VZ0, B.log); vane.box(VX0 - 4, barn.peak + 3, VZ0, VX0 - 4, barn.peak + 5, VZ0, B.tentY); vane.set(VX0 + 4, barn.peak + 3, VZ0, B.tentY);
+      vane.box(VX0 - 1, barn.peak + 4, VZ0, VX0 + 1, barn.peak + 5, VZ0, B.rib1); vane.set(VX0 + 1, barn.peak + 6, VZ0, B.rib1); vane.set(VX0 + 2, barn.peak + 5, VZ0, B.tentY); vane.set(VX0 - 2, barn.peak + 6, VZ0, B.rib3);
+      acts.push({
+        name: '풍향 닭', hint: '헛간 지붕의 풍향 닭이 세찬 가을바람에 빙글빙글 돌아요', hit: [VX0 - 4, barn.peak, VZ0 - 1, VX0 + 4, barn.peak + 6, VZ0 + 1],
+        run: async a => {
+          a.wind(4, 3.5);
+          a.spin('vane', 14, 3.5);
+          for (let k = 0; k < 5; k++) { a.burst([VX0 + 0.5, barn.peak + 5, VZ0 + 0.5], { n: 12, colors: ['#e07a2a', '#c84a2a', '#f0b83a'], speed: 6, up: 1, life: 1.6, gravity: 0.5, spread: 1.5, flat: true }); await a.wait(0.6); }
+        },
+      });
+      // ── 낙엽 회오리: 길가에서 단풍잎이 소용돌이치며 솟는다 ──
+      const LX = 46, LZ = 80, lgY = MH.g(w, LX, LZ);
+      acts.push({
+        name: '낙엽 회오리', hint: '가을바람이 길가 낙엽을 휘감아 회오리로 올려요', hit: [LX - 3, lgY, LZ - 3, LX + 3, lgY + 4, LZ + 3],
+        run: async a => {
+          a.wind(5, 4);
+          for (let k = 0; k < 24; k++) {
+            const ang = k * 0.75, r = 1 + k * 0.18;
+            a.burst([LX + 0.5 + Math.cos(ang) * r, lgY + 1 + k * 0.6, LZ + 0.5 + Math.sin(ang) * r], { n: 9, colors: ['#e07a2a', '#c84a2a', '#f0b83a', '#e8b83a'], speed: 2.5, up: 1.5, life: 1.8, gravity: -0.3, spread: 0.6, flat: true });
+            await a.wait(0.14);
+          }
+        },
+      });
       const smoke = chim.map(c => ({ n: 26, colors: ['#e8dcd0', '#c8bcb0'], mode: 'rise', speed: 0.6, area: [c[0], c[2], 0.6], y0: c[1], y1: c[1] + 18, glow: false }));
       return { lights, landmarks, acts, particles: smoke };
     },

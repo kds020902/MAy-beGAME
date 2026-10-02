@@ -123,11 +123,20 @@
       w.box(LX, cap, LZ, LX, cap + 3, LZ, B.iron);
       const beam = w.prop({ name: 'beam', pivot: [LX + 0.5, lg + 34.5, LZ + 0.5], axis: 'y', speed: 0.9 });
       for (let s = 4; s <= 13; s++) { beam.box(LX + s, lg + 34, LZ, LX + s, lg + 35, LZ, B.beam); beam.box(LX - s, lg + 34, LZ, LX - s, lg + 35, LZ, B.beam); if (s > 7) { beam.set(LX + s, lg + 34, LZ + 1, B.beam); beam.set(LX - s, lg + 34, LZ - 1, B.beam); } }
-      lights.push({ name: 'light', p: [LX + 0.5, lg + 35, LZ + 0.5], c: '#fff0b0', i: 1.8, d: 36, flicker: 0.05, night: true });
+      // 낮에도 약하게(0.3배) 켜져 있어 점등 연출이 낮에도 보인다
+      lights.push({ name: 'light', p: [LX + 0.5, lg + 35, LZ + 0.5], c: '#fff0b0', i: 1.8, d: 36, flicker: 0.05 });
       const keeper = MH.house(w, { x: LX - 10, z: LZ - 14, sx: 8, sz: 7, fh: 5, face: 's', m: { found: B.found, wall: B.wallW, win: B.win, shutter: B.shutter, door: B.door, roof: B.roofR, eave: B.roofDk, chimney: B.found, lamp: B.lamp } });
       acts.push({
         name: '등대', hint: '불빛이 밝아지며 빠르게 돌아요(밤에 더 잘 보여요)', hit: [LX - 5, lg + 28, LZ - 5, LX + 5, lg + 40, LZ + 5],
-        run: async a => { a.flash('light', 3, 4.5); a.glow(1.6, 4.5); await a.spin('beam', 5, 4.5); },
+        run: async a => {
+          a.flash('light', 3, 4.5); a.glow(1.6, 4.5); a.spin('beam', 5, 4.5);
+          // 등롱 둘레로 빛살이 번지고, 돔 위로 불티가 솟는다(낮에도 보이도록 육지 쪽 둘레를 따라)
+          for (let k = 0; k < 15; k++) {
+            for (const j of [0, 1]) { const t = Math.PI * (0.5 + (k * 2 + j) / 30); a.burst([LX + 0.5 + Math.cos(t) * 6.5, lg + 34 + (k % 3), LZ + 0.5 - Math.sin(t) * 6.5], { n: 8, colors: ['#fff6c8', '#ffe890', '#ffffff'], speed: 2, up: 0.5, life: 0.9, gravity: 0, spread: 0.5, flat: true }); }
+            if (k % 3 === 0) a.burst([LX + 0.5, cap + 4, LZ + 0.5], { n: 14, colors: ['#ffe890', '#fff6c8'], speed: 1.5, up: 3, life: 1.2, gravity: -0.5, spread: 1 });
+            await a.wait(0.3);
+          }
+        },
       });
       landmarks.push({ name: '곶의 등대', note: '돌아가는 불빛이 배를 부른다', p: [LX + 0.5, cap + 7, LZ + 0.5], tag: 'LIGHT' });
 
@@ -147,13 +156,14 @@
       const lanes = [[[30, 6], [34, 36], [44, 56], [50, 72]], [[86, 8], [78, 34], [70, 56], [72, 72]]];
       for (const l of lanes) MH.path(w, l, 1.6, B.cobble);
       let k = 0;
-      const chim = [];
+      const chim = [], chimAll = [];
       for (let z = 10; z <= 60; z += 13) for (let x = 8; x <= 98; x += 14) {
         const hx = x + w.ri(-2, 2), hz = z + w.ri(-1, 1);
         if (coastZ(hx + 5) - (hz + 9) < 6 || head(hx, hz) < 12 || lanes.some(l => MH.polyDist(hx + 5, hz + 4, l) < 8) || (hx > 36 && hx < 60 && hz > 52)) continue;
         const h = MH.houseX(w, { x: hx, z: hz, sx: w.ri(9, 11), sz: w.ri(7, 9), floors: 1 + (k % 3 === 0 ? 1 : 0), fh: 5, face: 's', pitch: 1, dormers: k % 4 === 1 ? 1 : 0,
           m: { found: B.found, wall: walls[k % 4], quoin: B.found, win: B.win, shutter: B.shutter, sill: B.found, flower: B.flower, door: B.door, roof: k % 3 === 1 ? B.roofR : B.roofB, eave: B.roofDk, ridge: B.stripeW, chimney: k % 2 ? B.found : null, lamp: B.lamp } });
         if (h.chimney && chim.length < 3) chim.push(h.chimney);
+        if (h.chimney) chimAll.push(h.chimney);
         if (k % 3 === 0) lights.push({ p: [h.door[0] + 0.5, h.door[1] + 3, h.door[2] + 1.5], c: '#ffd890', i: 0.8, d: 10, flicker: 0.1, night: true });
         k++;
       }
@@ -171,6 +181,76 @@
         MH.tree(w, x, g + 1, z, { kind: 'oak', h: w.ri(6, 9), bark: B.bark, leaves: [B.leaf2, B.leaf, B.leafDk], r: 3.2 });
       }
       for (const [lx, lz] of [[50, 76], [74, 76], [96, 76]]) lights.push({ p: MH.lamp(w, lx, lz, { m: { post: B.post, glow: B.lamp, found: B.found }, h: 6 }), c: '#ffe0a0', i: 1, d: 12, flicker: 0.1, night: true });
+      // ── 큰 파도: 정박한 배들이 크게 출렁이고 안벽에 물보라가 친다 ──
+      acts.push({
+        name: '큰 파도', hint: '큰 너울이 밀려와 배들이 크게 출렁이고 안벽에 물보라가 튀어요', hit: [62, sea - 1, 84, 75, sea + 12, 99],
+        run: async a => {
+          a.spin('b1', 6, 4); a.spin('b2', 6, 4); a.spin('fisher', 5, 4); a.wind(2.5, 4);
+          for (let k = 0; k < 8; k++) {
+            for (let x = QX0 + 4 + (k % 2) * 6; x <= QX1 - 4; x += 12) if (x < 55 || (x > 59 && x < 79) || x > 83) a.burst([x + 0.5, sea + 1, QZ1 + 1.5], { n: 12, colors: ['#ffffff', '#eaf8ff', '#a8d8f0'], speed: 2.5, up: 6, life: 1, gravity: 12, spread: 1.5 });
+            await a.wait(0.5);
+          }
+        },
+      });
+      // ── 종 부표: 항구 어귀에서 흔들리며 종을 울린다 ──
+      const BX = 70, BZB = 105;
+      const buoy = w.prop({ name: 'buoy', pivot: [BX + 0.5, sea, BZB + 0.5], axis: 'x', rock: 0.08, rockSpeed: 1.3, bob: 0.25, bobSpeed: 1.5, phase: 0.7 });
+      buoy.cyl(BX, BZB, sea, sea, 2, B.stripeR); buoy.cyl(BX, BZB, sea + 1, sea + 1, 2, B.stripeW); buoy.cyl(BX, BZB, sea + 2, sea + 2, 1.5, B.stripeR);
+      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) buoy.box(BX + dx, sea + 3, BZB + dz, BX + dx, sea + 6, BZB + dz, B.iron);
+      buoy.box(BX - 1, sea + 7, BZB - 1, BX + 1, sea + 7, BZB + 1, B.stripeR); buoy.set(BX, sea + 8, BZB, B.lamp);
+      buoy.box(BX, sea + 4, BZB, BX, sea + 6, BZB, B.bell);
+      acts.push({
+        name: '종 부표', hint: '항구 어귀의 부표가 흔들리며 땡그랑 종을 울려요', hit: [BX - 2, sea, BZB - 2, BX + 2, sea + 8, BZB + 2],
+        run: async a => {
+          for (let k = 0; k < 6; k++) { a.turn('buoy', [k % 2 ? -0.32 : 0.32, 0, k % 3 ? 0.12 : -0.12], 0.6); a.burst([BX + 0.5, sea + 6, BZB + 0.5], { n: 22, colors: ['#ffe08a', '#fff6c8', '#c8a050'], speed: 5, up: 0.5, life: 0.8, gravity: 0, spread: 0.6, flat: true }); a.burst([BX + 0.5, sea + 1, BZB + 0.5], { n: 10, colors: ['#ffffff', '#d8f0ff'], speed: 2, up: 3, life: 0.7, gravity: 9, spread: 2 }); await a.wait(0.65); }
+          await a.turn('buoy', [0, 0, 0], 0.8);
+        },
+      });
+      // ── 그물 기둥: 안벽 끝에서 물속 그물을 끌어올리면 물고기가 펄떡인다 ──
+      const NX = 52, NZ = 81, ny = sea + 3, NA = ny + 10;
+      w.box(NX - 1, ny, NZ - 5, NX + 1, ny, NZ - 3, B.found); w.box(NX, ny + 1, NZ - 4, NX, NA, NZ - 4, B.post);
+      w.box(NX, NA, NZ - 4, NX, NA, NZ, B.post); w.line(NX, NA - 4, NZ - 4, NX, NA - 1, NZ - 1, B.post); w.set(NX, NA + 1, NZ, B.iron);
+      w.box(NX - 1, ny, NZ - 6, NX - 1, ny + 1, NZ - 6, B.barrel); w.set(NX + 1, ny, NZ - 6, B.crate);
+      const nTop = sea, nLen = NA - 1 - nTop;
+      MH.rope(w, 'nrope', NX, NA - 1, NZ, nLen, B.rope);
+      const net = w.prop({ name: 'net', pivot: [NX + 0.5, nTop, NZ + 0.5] });
+      net.box(NX - 1, sea - 2, NZ - 1, NX + 1, sea - 2, NZ + 1, B.net); net.walls(NX - 1, sea - 1, NZ - 1, NX + 1, sea, NZ + 1, B.net);
+      net.set(NX, sea - 1, NZ, B.fish); net.set(NX, sea, NZ, B.fish); net.set(NX - 1, sea + 1, NZ, B.rope); net.set(NX + 1, sea + 1, NZ, B.rope); net.set(NX, sea + 1, NZ, B.iron);
+      const nUp = 7;
+      acts.push({
+        name: '그물 올리기', hint: '안벽 기둥이 물속 그물을 끌어올리자 물고기가 펄떡여요', hit: [NX - 1, ny, NZ - 6, NX + 1, NA + 1, NZ + 1],
+        run: async a => {
+          a.burst([NX + 0.5, sea + 1, NZ + 0.5], { n: 20, colors: ['#ffffff', '#d8f0ff'], speed: 2, up: 3, life: 0.8, gravity: 9, spread: 1.5 });
+          await Promise.all([a.move('net', [0, nUp, 0], 2.4, t => t), a.rope('nrope', nLen, nLen - nUp, 2.4, t => t)]);
+          for (let k = 0; k < 6; k++) {
+            a.burst([NX + 0.5, sea + nUp + 1, NZ + 0.5], { n: 4, colors: ['#b8c8d0', '#e8f0f8', '#8aa0b0'], speed: 2.5, up: 5, life: 0.9, gravity: 14, spread: 0.8 });
+            a.burst([NX + 0.5, sea + nUp - 2, NZ + 0.5], { n: 14, colors: ['#ffffff', '#d8f0ff', '#8ac8f0'], speed: 1.5, up: 0.5, life: 0.8, gravity: 10, spread: 1.2 });
+            await a.wait(0.4);
+          }
+          await Promise.all([a.move('net', [0, 0, 0], 2.2, t => t), a.rope('nrope', nLen, nLen, 2.2, t => t)]);
+          a.burst([NX + 0.5, sea + 1, NZ + 0.5], { n: 24, colors: ['#ffffff', '#d8f0ff'], speed: 2.5, up: 3, life: 0.8, gravity: 9, spread: 1.5 });
+        },
+      });
+      // ── 갈매기 떼: 선착장 끝과 시장 지붕에서 한꺼번에 날아오른다 ──
+      const gulls = [[57.5, sea + 4, 101], [81.5, sea + 4, 101], [MX + 7.5, mg + 15, MZ + 3.5], [69.5, sea + 4, 79.5]];
+      acts.push({
+        name: '갈매기 떼', hint: '갈매기들이 끼룩끼룩 울며 한꺼번에 날아올라요', hit: [56, sea + 2, 96, 82, sea + 6, 102],
+        run: async a => {
+          for (let k = 0; k < 6; k++) {
+            for (const p of gulls) a.burst([p[0] + (k % 3 - 1) * 2, p[1], p[2]], { n: 8, colors: ['#ffffff', '#f4f4f0', '#8a8a92'], speed: 5, up: 4, life: 3, gravity: -0.6, spread: 1.5, flat: true });
+            await a.wait(0.4);
+          }
+        },
+      });
+      // ── 훈제 청어: 굴뚝마다 짙은 연기가 뭉게뭉게 오른다 ──
+      // 안개에 덜 묻히도록 바다 쪽(남쪽) 굴뚝 셋
+      const smk = chimAll.slice().sort((p, q) => q[2] - p[2]).slice(0, 3);
+      acts.push({
+        name: '훈제 굴뚝', hint: '청어를 훈제하느라 굴뚝마다 짙은 연기가 뭉게뭉게 올라요', hit: [Math.floor(smk[0][0]) - 1, Math.floor(smk[0][1]) - 4, Math.floor(smk[0][2]) - 1, Math.floor(smk[0][0]) + 2, Math.floor(smk[0][1]), Math.floor(smk[0][2]) + 2],
+        run: async a => {
+          for (let k = 0; k < 9; k++) { for (const c of smk) a.burst([c[0], c[1], c[2]], { n: 14, colors: ['#d8d4cc', '#b8b4ac', '#9a968e', '#ffd8a0'], speed: 1.2, up: 4, life: 3, gravity: -0.4, spread: 0.8 }); await a.wait(0.4); }
+        },
+      });
       const smoke = chim.map(c => ({ n: 26, colors: ['#e8e8e8', '#c8c8c8'], mode: 'rise', speed: 0.6, area: [c[0], c[2], 0.6], y0: c[1], y1: c[1] + 18, glow: false }));
       return { lights, landmarks, acts, particles: smoke };
     },

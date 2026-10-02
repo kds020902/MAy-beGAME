@@ -82,7 +82,7 @@
           for (let k = 0; k < 4; k++) {
             const aa = a + 1.2 + k * 1.4, lx = Math.round(tx + Math.cos(aa) * (pr - 0.5)), lz = Math.round(tz + Math.sin(aa) * (pr - 0.5));
             w.set(lx, py - 1, lz, B.rope); w.set(lx, py - 2, lz, li ? B.lamp2 : B.lamp);
-            if (k === 0) lights.push({ name: 'lamp', p: [lx + 0.5, py - 2, lz + 0.5], c: li ? '#ffd880' : '#8affd0', i: 1, d: 15, flicker: 0.1, night: true });
+            if (k === 0) lights.push({ name: 'lamp', p: [lx + 0.5, py - 2, lz + 0.5], c: li ? '#ffd880' : '#8affd0', i: 1, d: 15, flicker: 0.1 }); // 낮엔 0.3배로 은은하게
           }
           plats.push({ tx, tz, py, pr, g, r });
         });
@@ -138,6 +138,7 @@
       });
       // ── 달맞이 돌 제단(연못 남서쪽) ──
       const MXX = 46, MZZ = 98, mg = MH.g(w, MXX, MZZ);
+      const fieldL = [[74, 90], [72, 108], [78, 110], [84, 104], [80, 94], [86, 110]];
       MH.flatten(w, MXX - 8, MZZ - 8, MXX + 8, MZZ + 8, mg, B.moss2, B.dirt);
       for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, x = Math.round(MXX + Math.cos(a) * 7), z = Math.round(MZZ + Math.sin(a) * 7); w.box(x, mg + 1, z, x, mg + 4 + (k % 2) * 3, z, B.stoneW); if (k % 2) w.set(x, mg + 8, z, B.lamp); }
       MH.circle(w, MXX, MZZ, 4, B.stoneW);
@@ -149,6 +150,8 @@
           a.flash('lamp', 3, 4.4); a.glow(1.7, 4.4);
           for (let k = 0; k < 6; k++) a.burst([MXX + 0.5 + Math.cos(k * 1.05) * 5, mg + 2, MZZ + 0.5 + Math.sin(k * 1.05) * 5], { n: 12, colors: ['#c8ff9a', '#8affe0', '#ffe08a'], speed: 1.4, up: 2.4, life: 3.2, gravity: -0.35, spread: 1.5 });
           // 반딧불은 줄기 속이 아니라 발판 바깥 둘레에서 솟는다
+          for (const [x, z] of fieldL) for (let k = 0; k < 6; k++) a.burst([x + 1.5 + (k % 2) * 1.5, MH.g(w, x, z) + 3 + k * 1.2, z + 0.5 - (k % 2)], { n: 12, colors: ['#ffe08a', '#c8ff9a', '#8affe0'], speed: 1.4, up: 2, life: 3, gravity: -0.35, spread: 1.4 });
+          for (let k = 0; k < 10; k++) { const t = k / 10 * Math.PI * 2; a.burst([MXX + 0.5 + Math.cos(t) * 7, mg + 9, MZZ + 0.5 + Math.sin(t) * 7], { n: 8, colors: ['#9affd8', '#e0f8ff'], speed: 1, up: 1.5, life: 2.4, gravity: -0.3, spread: 0.6 }); }
           for (const p of plats) { for (let k = 0; k < 3; k++) { const ang = k * 2.1 + p.py * 0.3; a.burst([p.tx + 0.5 + Math.cos(ang) * (p.pr + 0.8), p.py + 1, p.tz + 0.5 + Math.sin(ang) * (p.pr + 0.8)], { n: 10, colors: ['#c8ff9a', '#8affe0', '#ffe08a'], speed: 1.6, up: 2, life: 3, gravity: -0.3, spread: 1.6 }); } await a.wait(0.25); }
         },
       });
@@ -159,6 +162,24 @@
         w.box(tx, g + 1, tz, tx, g + 4, tz, B.barkDk);
         for (let dy = -3; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dy, dz); if (d <= 3.2) w.set(tx, g + 8 + dy, tz + dz, d < 1 ? B.targetR : d < 2.2 ? B.target : B.targetR); }
       }
+      // 연습용 과녁(부품): 활터 앞쪽 풀밭, 화살을 맞으면 빙글 돈다
+      const tgt = { x: 108, z: 68 }; tgt.y = MH.g(w, tgt.x, tgt.z) + 8;
+      w.box(tgt.x, tgt.y - 7, tgt.z, tgt.x, tgt.y - 4, tgt.z, B.barkDk);
+      const tp = w.prop({ name: 'target', pivot: [tgt.x + 0.5, tgt.y + 0.5, tgt.z + 0.5], axis: 'y' });
+      for (let dy = -3; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dy, dz); if (d <= 3.2) tp.set(tgt.x, tgt.y + dy, tgt.z + dz, d < 1 ? B.targetR : d < 2.2 ? B.target : B.targetR); }
+      acts.push({
+        name: '과녁 맞히기', hint: '은잎 화살이 과녁 한가운데 꽂히자 과녁이 빙글 돌아요', hit: [tgt.x - 1, tgt.y - 3, tgt.z - 3, tgt.x + 1, tgt.y + 3, tgt.z + 3],
+        run: async a => {
+          for (let k = 0; k < 3; k++) {
+            a.burst([tgt.x - 8, tgt.y + 1, tgt.z + 0.5], { n: 6, colors: ['#e0f8ff', '#c8e8d8'], speed: 9, up: 0.2, life: 0.5, gravity: 0, spread: 0.2, flat: true });
+            await a.wait(0.35);
+            a.burst([tgt.x + 1.2, tgt.y + 0.5, tgt.z + 0.5], { n: 22, colors: ['#ffffff', '#ffe08a', '#c04a3a'], speed: 4, up: 2, life: 0.7, gravity: 6, spread: 0.5 });
+            await a.wait(0.3);
+          }
+          await a.turn('target', [0, Math.PI * 4, 0], 2.2);
+          a.unwind('target');
+        },
+      });
       landmarks.push({ name: '활터', note: '은잎 활 시험장', p: [117.5, UP + 4, 62.5] });
       // ── 바위, 작은 나무, 고사리, 꽃 ──
       const clearOf = (x, z) => trees.every(([tx, tz, h, r]) => MH.dist(x, z, tx, tz) > r + 9) && MH.dist(x, z, MXX, MZZ) > 10 && MH.dist(x, z, bx, bzz) > 4;
@@ -171,6 +192,75 @@
       const cTop = MH.g(w, 44, 56), cBot = MH.g(w, 44, 73);
       MH.flight(w, { name: '절벽 돌계단', axis: 'z', c: 44, half: 2, a: 57, b: 72, ha: cTop, hb: cBot, step: B.stoneW, edge: B.rockDk, fill: B.rock, rail: B.plank, post: B.barkDk, postGap: 5,
         onPost: (x, y, z, k) => { w.set(x, y, z, B.lamp); if (k === 5 && x > 44) lights.push({ p: [x + 0.5, y + 0.5, z + 0.5], c: '#8affd0', i: 0.8, d: 12, flicker: 0.1, night: true }); } });
+      // ── 동쪽 풀밭 등롱(등불 점등 때 함께 밝아진다): 거목 그늘 밖이라 잘 보인다 ──
+      for (const [x, z] of fieldL) { const g = MH.g(w, x, z); w.box(x, g + 1, z, x, g + 4, z, B.barkDk); w.set(x + 1, g + 4, z, B.barkDk); w.set(x + 1, g + 3, z, B.lamp2); w.set(x, g + 5, z, B.leafW); }
+      // ── 폭포 물보라와 무지개 ──
+      const FX = Math.round(sX(60)), FZ = 64;
+      acts.push({
+        name: '폭포 무지개', hint: '폭포 물보라가 피어오르며 연못 위에 무지개가 걸려요', hit: [FX - 4, base, FZ - 6, FX + 4, UP + 2, FZ + 2],
+        run: async a => {
+          for (let k = 0; k < 4; k++) { a.burst([FX + 0.5, base + 2, FZ + 1], { n: 40, colors: ['#ffffff', '#e0f8ff', '#b8e8f0'], speed: 4, up: 5, life: 1.6, gravity: 3, spread: 3 }); a.burst([FX + 0.5, UP + 1, FZ - 5], { n: 14, colors: ['#ffffff', '#d8f0ff'], speed: 1.5, up: 1, life: 1.2, gravity: 8, spread: 1.5 }); await a.wait(0.35); }
+          const bow = ['#ff6a6a', '#ffb05a', '#ffe86a', '#8aff8a', '#6ac8ff', '#a88aff'];
+          for (let i = 0; i <= 16; i++) {
+            const t = i / 16, x = FX - 9 + t * 18, y = base + 3 + Math.sin(t * Math.PI) * 13;
+            bow.forEach((c, j) => a.burst([x, y - j * 0.7, FZ + 4], { n: 3, colors: [c], speed: 0.1, up: 0.05, life: 2.6, gravity: 0, spread: 0.2 }));
+            await a.wait(0.06);
+          }
+          await a.wait(1.5);
+        },
+      });
+      // ── 연못 잎배: 등불을 단 잎사귀 배가 달돌 둘레를 한 바퀴 돈다 ──
+      // 북서쪽은 거목 그늘에 가려지니 남쪽 물가를 따라 오간다
+      const lr = [[59, 84], [67, 85], [72, 81], [73, 78]];
+      MH.routeOK(w, lr, 2, '잎배 경로');
+      const LBX = lr[0][0], LBZ = lr[0][1], LY = base + 1;
+      const lb = w.prop({ name: 'leafboat', pivot: [LBX + 0.5, LY, LBZ + 0.5], axis: 'x', bob: 0.12, bobSpeed: 1.6, rock: 0.04, rockSpeed: 1.2 });
+      lb.box(LBX - 2, LY, LBZ - 1, LBX + 2, LY, LBZ + 1, B.leafT); lb.set(LBX + 3, LY, LBZ, B.leafT); lb.set(LBX - 3, LY, LBZ, B.leafT);
+      lb.walls(LBX - 2, LY + 1, LBZ - 1, LBX + 2, LY + 1, LBZ + 1, B.leafS); lb.set(LBX + 3, LY + 1, LBZ, B.leafW); lb.set(LBX + 4, LY + 2, LBZ, B.leafW);
+      lb.box(LBX - 1, LY + 2, LBZ, LBX - 1, LY + 5, LBZ, B.barkDk); lb.set(LBX, LY + 5, LBZ, B.barkDk); lb.set(LBX, LY + 4, LBZ, B.lamp2); lb.set(LBX + 1, LY + 2, LBZ, B.flower);
+      const lOut = MH.relPath(lr, 0), lBack = MH.relPath(lr.slice().reverse(), lOut[lOut.length - 1][3] + Math.PI);
+      acts.push({
+        name: '연못 잎배', hint: '등불을 단 잎사귀 배가 달돌 둘레를 한 바퀴 돌아요', hit: [LBX - 3, LY, LBZ - 1, LBX + 4, LY + 3, LBZ + 1],
+        run: async a => {
+          await a.path('leafboat', lOut, 6);
+          a.burst([LBX + 14.5, LY + 3, LBZ - 5.5], { n: 16, colors: ['#ffe08a', '#c8ff9a', '#8affe0'], speed: 1, up: 1.5, life: 2, gravity: -0.3, spread: 1 });
+          await a.wait(0.8);
+          const end = lr[lr.length - 1];
+          await a.path('leafboat', lBack.map(p => [p[0] + end[0] - LBX, 0, p[2] + end[1] - LBZ, p[3]]), 6);
+          a.unwind('leafboat'); await a.turn('leafboat', [0, 0, 0], 1);
+          a.burst([LBX + 0.5, LY + 3, LBZ + 0.5], { n: 16, colors: ['#ffe08a', '#c8ff9a'], speed: 1, up: 1.5, life: 2, gravity: -0.3, spread: 1 });
+        },
+      });
+      // ── 은방울 풍경: 제단 곁 나무틀에 매단 풍경이 바람에 흔들린다 ──
+      const CX = 54, CZ = 102, cg = MH.g(w, CX, CZ);
+      for (const z of [CZ - 2, CZ + 2]) w.box(CX, cg + 1, z, CX, cg + 9, z, B.barkDk);
+      w.box(CX, cg + 10, CZ - 3, CX, cg + 10, CZ + 3, B.bark); w.set(CX, cg + 11, CZ, B.leafW);
+      const ch = w.prop({ name: 'chimes', pivot: [CX + 0.5, cg + 10, CZ + 0.5], axis: 'z' });
+      for (let dz = -1; dz <= 1; dz++) { ch.box(CX, cg + 6 - Math.abs(dz), CZ + dz, CX, cg + 9, CZ + dz, dz ? B.stoneW : B.rope); ch.set(CX, cg + 5 - Math.abs(dz), CZ + dz, B.moon); }
+      acts.push({
+        name: '은방울 풍경', hint: '바람이 불면 제단 곁 풍경이 흔들리며 맑은 소리와 빛을 뿌려요', hit: [CX - 1, cg + 1, CZ - 3, CX + 1, cg + 11, CZ + 3],
+        run: async a => {
+          a.wind(3, 4);
+          for (let k = 0; k < 6; k++) {
+            await a.turn('chimes', [0, 0, k % 2 ? -0.6 : 0.6], 0.5);
+            a.burst([CX + 0.5, cg + 4, CZ + 0.5], { n: 14, colors: ['#e0f8ff', '#b8f8ff', '#ffffff'], speed: 2.5, up: 1.5, life: 1.4, gravity: -0.4, spread: 0.6 });
+          }
+          await a.turn('chimes', [0, 0, 0], 0.7);
+        },
+      });
+      // ── 은어 뛰기: 아랫개울에서 은빛 물고기들이 차례로 튀어 오른다 ──
+      const fish = [[66, 100], [67.5, 108], [69.5, 114], [64.5, 94]];
+      acts.push({
+        name: '은어 뛰기', hint: '아랫개울에서 은빛 물고기들이 물을 차고 튀어 올라요', hit: [62, base, 92, 72, base + 4, 116],
+        run: async a => {
+          for (let k = 0; k < 8; k++) {
+            const [x, z] = fish[k % 4];
+            a.burst([x, base + 1.5, z], { n: 4, colors: ['#e8f0f8', '#c8d8e8', '#a8c0d0'], speed: 2, up: 7, life: 1.1, gravity: 13, spread: 0.3 });
+            a.burst([x, base + 1.2, z], { n: 14, colors: ['#ffffff', '#d8f0ff'], speed: 2.5, up: 2.5, life: 0.7, gravity: 9, spread: 0.8 });
+            await a.wait(0.45);
+          }
+        },
+      });
       return { lights, landmarks, acts };
     },
   });

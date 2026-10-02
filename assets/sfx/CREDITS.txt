@@ -1,0 +1,14 @@
+오푸스덜스 전투 효과음 출처 — 모두 CC0 (Creative Commons Zero, 퍼블릭 도메인)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+swing1-4   Swishes Sound Pack — https://opengameart.org/content/swishes-sound-pack
+slash1-3   20 Sword Sound Effects (Attacks and Clashes), StarNinjas — https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes
+ching1-4   20 Sword Sound Effects (Attacks and Clashes), StarNinjas — 같은 곳의 sword_clash
+clash1-3   Medieval sound effects - Weapon impacts (Sabre / Norse Sword blade on blade 일부를 잘라냄) — https://opengameart.org/content/medieval-sound-effects-weapon-impacts
+pierce1-3  Medieval sound effects - Weapon impacts (Dagger / Spear blade on haft 일부)
+blunt1-3   Medieval sound effects - Weapon impacts (Mace / Spear haft, Mace / Seax blade 일부)
+sand1-3    Scrapes — https://opengameart.org/content/scrapes
+           + Fantozzi's Footsteps (Grass/Sand & Stone) — https://opengameart.org/content/fantozzis-footsteps-grasssand-stone
+           (긁힘과 모래 발소리를 섞고 늘여 만듦)
+
+모든 파일은 모노 MP3로 변환하고 앞뒤 무음을 잘라 음량을 맞췄습니다.

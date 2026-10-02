@@ -343,8 +343,8 @@
       const push = Math.min(190, 26 + Math.abs(ev.pv - ev.ev) * 17);
       setPose(lose, 'hit', true);
       flashHurt(lose);
-      if (winDie.t === 'E') { hop(win); evadeVfx(win); sfx('evade'); }
-      else if (winDie.t === 'G') { guardVfx(win); sfx('guard'); }
+      if (winDie.t === 'E') { hop(win); evadeVfx(win); sfx('swing', 0.9); }
+      else if (winDie.t === 'G') { guardVfx(win); }
       else { hitVfx(winDie.t, lose); sfx(hitSound(winDie.t)); }
       // 밀려나는 거리만큼 바닥을 긁는 소리
       sfx('slide', Math.min(1.2, 0.3 + push / 150));
@@ -370,7 +370,7 @@
   async function hitMotion(tgt, dmg, die) {
     if (die) hitVfx(die, tgt);
     sfx(hitSound(die), Math.min(1.2, 0.7 + dmg / 30));
-    if (dmg >= 15) { sfx('heavy'); screenFlash(); }
+    if (dmg >= 15) screenFlash();
     setPose(tgt, 'hit', true);
     flashHurt(tgt);
     const push = Math.min(90, 10 + dmg * 3);
@@ -834,7 +834,6 @@
             log('big', `🫀 ${nm(ev.side)}의 출혈이 과다출혈 ${ev.amount}로 바뀌었습니다!`);
             floatText(ev.side, '과다출혈!', 'proc');
             particles(ev.side, 'bleed', 14);
-            sfx('heavy');
             await sleep(350);
           } else {
             log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}에게 ${info.name} ${ev.amount}${ev.next ? ' (다음 턴)' : ''}`);
@@ -847,7 +846,6 @@
           floatText(ev.side, `${el.icon} ${el.name} ×${ev.n}`, 'elem');
           particles(ev.side, 'el-' + ev.type, 10 + ev.n * 2);
           log('big', `${el.icon} ${el.name} ${ev.n}단계 발동 — ${el.desc.replace('n', String(ev.n))}`);
-          sfx(ev.type === 'lightning' ? 'clash' : 'heal');
           await sleep(260);
           break;
         }
@@ -908,7 +906,6 @@
           break;
         }
         case 'heal':
-          sfx('heal');
           floatText(ev.side, '+' + ev.amount, 'heal');
           particles(ev.side, 'heal', 7);
           setHp(ev.hp);
@@ -974,7 +971,6 @@
       S.rewards = G.rollRewards(S.run, b.kind, rng);
       S.rewardKind = 'battle';
       S.rewardPicks = G.hasAscReward(S.run, 'plenty') ? 2 : 1;
-      sfx('win');
       go('reward');
     } else if (b.outcome === 'lose') {
       await banner('YOU DIED', 'lose');
@@ -987,7 +983,6 @@
       G.startTurn(b, rng);
       S.animateDraw = true;
       render();
-      sfx('draw');
       turnBanner();
       if (S.autoBattle) autoStep();
     }
@@ -1093,7 +1088,6 @@
   // 지도에서 칸을 고르면 그 칸의 내용으로 넘어간다
   function goNode(col, idx) {
     const node = G.enterNode(S.run, col, idx);
-    sfx('click');
     if (node.kind === 'battle' || node.kind === 'midboss' || node.kind === 'boss') startBattle();
     else if (node.kind === 'rest') go('rest');
     else if (node.kind === 'treasure') { S.rewardKind = 'treasure'; S.rewards = G.rollTreasure(S.run, rng); S.rewardPicks = 1; S.pendingBoss = false; go('reward'); }
@@ -1107,7 +1101,6 @@
     if (boss && S.justWon) {
       S.justWon = false;
       clearSave();
-      sfx('win');
       go('victory');
       return;
     }
@@ -1180,7 +1173,6 @@
   function chooseEvent(i) {
     const res = G.applyEventChoice(S.run, S.event, i, rng);
     if (!res.ok) { toast(res.msg); return; }
-    sfx(res.lines.some(l => /획득|회복|\+/.test(l)) ? 'coin' : 'click');
     S.eventResult = res;
     render();
     if (res.newCard) {
@@ -1231,7 +1223,6 @@
     const opt = S.rewards[i];
     const done = () => {
       toast(`${opt.item.name} 획득`);
-      sfx(opt.item.type === 'potion' ? 'potion' : 'coin');
       S.rewardPicks = (S.rewardPicks || 1) - 1;
       S.rewards = S.rewards.filter(o => o !== opt);
       if (S.rewardPicks > 0 && S.rewards.length) render();
@@ -1264,7 +1255,6 @@
     go('battle');
     const begin = () => { turnBanner(); if (S.autoBattle) autoStep(); };
     if (S.battle.kind !== 'normal') {
-      sfx('boss');
       banner(e.name, 'boss', 1400, S.battle.kind === 'boss' ? `${D.REGION_MAP[S.run.regionId].name}의 주인` : '중간 보스').then(begin);
     } else {
       begin();
@@ -1305,7 +1295,7 @@
     const done = uid => {
       const res = G.buy(S.run, entry, uid);
       closeModal();
-      if (res.ok) sfx('coin');
+      
       toast(res.ok ? `${entry.item.name} 구매` : res.msg);
       render();
     };
@@ -1545,14 +1535,12 @@
       case 'begin':
         S.run = G.createRun(S.classId, S.light, { asc: S.asc, unlocked: unlocked(), ascReached: G.ascensionOf(S.meta, S.classId) });
         G.startRegion(S.run, rng);
-        sfx('click');
         if (G.hasAscReward(S.run, 'legacy')) { S.rewards = G.startRelicChoices(S.run, rng); go('startRelic'); }
         else go('map');
         break;
       case 'startRelicPick': {
         const opt = S.rewards[Number(el.dataset.i)];
         G.applyReward(S.run, opt);
-        sfx('coin');
         toast(`${opt.item.name} 획득`);
         go('map');
         break;
@@ -1561,7 +1549,6 @@
         openDeckPicker({ item: { icon: '🔥', name: '완전한 휴식', type: 'upgrade', desc: `카드 1장의 모든 주사위 +${D.MAP.restUpgrade.ub}` } }, uid => {
           const r = G.rest(S.run, 'full', uid);
           if (!r.ok) { toast(r.msg); return; }
-          sfx('heal');
           toast(`체력 ${r.amount} 회복 · 카드 단련 · 다음 전투 힘 2, 보호 2`);
           leaveNode();
         });
@@ -1570,7 +1557,6 @@
         if (S.busy) return;
         const res = G.assignCard(S.battle, Number(el.dataset.uid), S.targetRow);
         if (!res.ok) { toast(res.msg); return; }
-        sfx('card');
         S.targetRow = null;
         S.confirmEmpty = false;
         render();
@@ -1616,15 +1602,13 @@
         G.chooseRegion(S.run, el.dataset.id);
         S.pendingBoss = false;
         G.startRegion(S.run, rng);
-        sfx('click');
         go('map');
         break;
       case 'node': goNode(Number(el.dataset.col), Number(el.dataset.idx)); break;
-      case 'restHeal': { const r = G.rest(S.run, 'heal'); sfx('heal'); toast(`체력 ${r.amount} 회복`); leaveNode(); break; }
+      case 'restHeal': { const r = G.rest(S.run, 'heal'); toast(`체력 ${r.amount} 회복`); leaveNode(); break; }
       case 'restUpgrade':
         openDeckPicker({ item: { icon: '⚒️', name: '단련', type: 'upgrade', desc: `카드 1장의 모든 주사위 +${D.MAP.restUpgrade.ub}` } }, uid => {
           G.rest(S.run, 'upgrade', uid);
-          sfx('coin');
           toast('카드를 단련했습니다.');
           leaveNode();
         });
@@ -1637,7 +1621,6 @@
         if (inBattle && S.busy) return;
         const r = G.usePotion(S.run, i, inBattle ? S.battle : null);
         if (!r.ok) { toast(r.msg); return; }
-        sfx('potion');
         toast(`${r.item.name} 사용`);
         if (inBattle) { if (r.item.potion.heal) log('good', `${r.item.name}: 체력 회복`); else log('good', `${r.item.name}: 이번 턴 효과 적용`); }
         render();
@@ -1658,7 +1641,6 @@
         S.run = run;
         S.pendingBoss = false;
         S.unlockedBefore = unlocked();
-        sfx('click');
         if (saved.screen === 'shop') { S.shop = G.rollShop(S.run, rng); go('shop'); }
         else if (saved.screen === 'region') { S.regions = G.regionChoices(S.run, rng); go('region'); }
         else go('map');
@@ -1788,7 +1770,7 @@
     const ok = !S.busy && dropCard(dragTarget(ev));
     cleanupDrag();
     drag.suppressClick = true;
-    if (ok) { sfx('card'); S.targetRow = null; S.confirmEmpty = false; render(); }
+    if (ok) { S.targetRow = null; S.confirmEmpty = false; render(); }
   });
   document.addEventListener('pointercancel', ev => { if (drag.active && ev.pointerId === drag.pid) cleanupDrag(); });
 

@@ -17,6 +17,9 @@
  *   burn n      공격 주사위가 적중할 때마다 화상 n
  *   weak n      첫 적중 시 대상에게 다음 턴 허약 n
  *   fragile n   첫 적중 시 대상에게 다음 턴 취약 n
+ *   smash n     (중기병) 적중 시 주사위 값의 1/n 만큼 내성·보호 무시 고정 피해 추가
+ *   rupture n   (중기병) 적중 시 대상에게 파열 n — 피격마다 수치만큼 피해, 1/3 감소
+ *   element e   (전령) 속성 fire/ice/lightning/holy — 같은 속성이 걸린 적을 적중하면 효과 발동
  *   lifesteal r 가한 피해의 r 비율만큼 회복
  *   selfDmg n   사용 시 체력 n 소모
  *   start { heal, might, endure, protect }
@@ -53,23 +56,23 @@
   // ───────── 직업 ─────────
   const CLASSES = [
     {
-      id: 'swordsman', name: '방랑검사', icon: '🗡️', hp: 110, energy: 13, slots: 3,
+      id: 'swordsman', name: '방랑검사', icon: '🗡️', hp: 110, energy: 13,
       role: '딜러', weapon: '검',
-      desc: '검 한 자루로 떠도는 검객. 참격과 회피로 싸우며, 출혈과 취약으로 적을 무너뜨린다.',
-      trait: { name: '검의 길', desc: '턴당 스킬 3개 · 코스트가 많은 대신 체력이 낮다', mods: {} },
+      desc: '검 한 자루로 떠도는 검객. 참격과 회피로 싸우며, 출혈을 쌓아 과다출혈로 적을 무너뜨린다.',
+      trait: { name: '검의 길', desc: '코스트가 많은 대신 체력이 낮다. 자신이 건 출혈이 6 이상 쌓이면 과다출혈이 된다', mods: {}, hemorrhage: true },
       starter: ['s_quick', 's_slash', 's_parry', 's_cross', 's_draw', 's_bloody', 's_flurry', 's_moon', 's_final'],
     },
     {
-      id: 'herald', name: '전령', icon: '🕊️', hp: 130, energy: 9, slots: 2,
-      role: '회복 · 지원', weapon: '창과 성령',
-      desc: '성령의 말씀을 전하는 순례 전령. 창으로 꿰뚫고, 기도로 상처를 치유한다.',
-      trait: { name: '성령의 숨결', desc: '매 턴 종료 시 체력 2 회복', mods: { regen: 2 } },
+      id: 'herald', name: '전령', icon: '🕊️', hp: 105, energy: 8,
+      role: '속성 · 지원', weapon: '창과 성령',
+      desc: '성령의 말씀을 전하는 순례 전령. 창에 화염·빙결·번개·신성의 속성을 실어 꿰뚫는다.',
+      trait: { name: '성령의 숨결', desc: '매 턴 종료 시 체력 1 회복. 같은 속성으로 거듭 적중하면 속성 효과가 터진다', mods: { regen: 1 } },
       starter: ['h_jab', 'h_thrust', 'h_pray', 'h_lunge', 'h_blessing', 'h_sweep', 'h_hymn', 'h_holyspear', 'h_judgment'],
     },
     {
-      id: 'cavalry', name: '중기병', icon: '🛡️', hp: 220, energy: 8, slots: 2,
-      role: '탱커', weapon: '메이스와 갑옷',
-      desc: '말을 잃고도 갑옷을 벗지 않은 기사. 메이스로 짓이기고 방패로 버틴다.',
+      id: 'cavalry', name: '중기병', icon: '🛡️', hp: 200, energy: 7,
+      role: '탱커 · 강타', weapon: '메이스와 갑옷',
+      desc: '말을 잃고도 갑옷을 벗지 않은 기사. 강타로 갑옷을 꿰뚫고 파열로 상처를 벌린다.',
       trait: { name: '튼튼한 갑옷', desc: '받는 피해 -2 (적중마다)', mods: { dmgReduce: 2 } },
       starter: ['c_bash', 'c_shieldup', 'c_strike', 'c_brace', 'c_smash', 'c_charge', 'c_counter', 'c_quake', 'c_crush'],
     },
@@ -101,50 +104,50 @@
 
   // 전령 — 창과 성령 (회복, 기도)
   defCards([
-    ['h_jab', '창 찌르기', 0, [['P', 2, 5]]],
-    ['h_thrust', '꿰뚫기', 1, [['P', 3, 6], ['P', 2, 5]]],
-    ['h_pray', '짧은 기도', 1, [['G', 3, 6]], { start: { heal: 6 } }],
-    ['h_lunge', '돌진 찌르기', 2, [['P', 4, 8], ['P', 3, 6]]],
-    ['h_blessing', '축복', 2, [['G', 4, 7], ['P', 3, 6]], { start: { might: 1 } }],
-    ['h_sweep', '창대 휘두르기', 3, [['B', 4, 7], ['P', 4, 8], ['P', 3, 6]]],
-    ['h_hymn', '성가', 3, [['G', 4, 8], ['P', 4, 7]], { start: { heal: 10 } }],
-    ['h_holyspear', '성창', 4, [['P', 5, 9], ['P', 5, 9], ['P', 4, 8]], { burn: 1 }],
-    ['h_judgment', '성령의 심판', 5, [['P', 6, 11], ['P', 6, 10], ['P', 5, 9]], { start: { heal: 8 } }],
+    ['h_jab', '창 찌르기', 0, [['P', 2, 5]], { element: 'holy' }],
+    ['h_thrust', '꿰뚫기', 1, [['P', 3, 6], ['P', 2, 5]], { element: 'fire' }],
+    ['h_pray', '짧은 기도', 1, [['G', 3, 6]], { start: { heal: 4 } }],
+    ['h_lunge', '돌진 찌르기', 2, [['P', 4, 8], ['P', 3, 6]], { element: 'ice' }],
+    ['h_blessing', '축복', 2, [['G', 4, 7], ['P', 3, 6]], { start: { might: 1 }, element: 'holy' }],
+    ['h_sweep', '창대 휘두르기', 3, [['B', 4, 7], ['P', 4, 8], ['P', 3, 6]], { element: 'lightning' }],
+    ['h_hymn', '성가', 3, [['G', 4, 8], ['P', 4, 7]], { start: { heal: 7 }, element: 'holy' }],
+    ['h_holyspear', '성창', 4, [['P', 5, 9], ['P', 5, 9], ['P', 4, 8]], { element: 'fire' }],
+    ['h_judgment', '성령의 심판', 5, [['P', 6, 11], ['P', 6, 10], ['P', 5, 9]], { start: { heal: 5 }, element: 'holy' }],
     ['h_ward', '가호', 1, [['G', 4, 7]], { start: { protect: 2 } }, 'common'],
-    ['h_sting', '연속 찌르기', 2, [['P', 3, 6], ['P', 3, 6], ['P', 3, 6]], null, 'common'],
-    ['h_litany', '연도', 2, [['G', 3, 6], ['G', 3, 6]], { start: { heal: 8 } }, 'common'],
-    ['h_pierce', '약점 꿰뚫기', 2, [['P', 5, 9]], { fragile: 2 }, 'common'],
-    ['h_martyr', '순교자의 창', 0, [['P', 6, 10]], { selfDmg: 6 }, 'rare'],
-    ['h_sanctuary', '성역', 3, [['G', 5, 9], ['G', 5, 9]], { start: { protect: 3, heal: 6 } }, 'rare'],
-    ['h_lance', '기사창', 3, [['P', 5, 10], ['P', 4, 8]], null, 'rare'],
-    ['h_flame', '성화', 3, [['P', 4, 8], ['P', 4, 8]], { burn: 2 }, 'rare'],
-    ['h_choir', '천사의 합창', 4, [['G', 4, 8], ['P', 4, 8], ['P', 4, 8]], { start: { might: 2 } }, 'rare'],
-    ['h_revive', '부활의 기도', 4, [['G', 6, 10]], { start: { heal: 25 } }, 'legendary'],
-    ['h_heaven', '천상의 창', 5, [['P', 7, 12], ['P', 6, 11], ['P', 6, 11]], { burn: 2 }, 'legendary'],
+    ['h_sting', '연속 찌르기', 2, [['P', 3, 6], ['P', 3, 6], ['P', 3, 6]], { element: 'lightning' }, 'common'],
+    ['h_litany', '연도', 2, [['G', 3, 6], ['G', 3, 6]], { start: { heal: 6 } }, 'common'],
+    ['h_pierce', '약점 꿰뚫기', 2, [['P', 5, 9]], { fragile: 2, element: 'ice' }, 'common'],
+    ['h_martyr', '순교자의 창', 0, [['P', 6, 10]], { selfDmg: 6, element: 'fire' }, 'rare'],
+    ['h_sanctuary', '성역', 3, [['G', 5, 9], ['G', 5, 9]], { start: { protect: 3, heal: 4 } }, 'rare'],
+    ['h_lance', '기사창', 3, [['P', 5, 10], ['P', 4, 8]], { element: 'ice' }, 'rare'],
+    ['h_flame', '성화', 3, [['P', 4, 8], ['P', 4, 8]], { element: 'fire', burn: 1 }, 'rare'],
+    ['h_choir', '천사의 합창', 4, [['G', 4, 8], ['P', 4, 8], ['P', 4, 8]], { start: { might: 2 }, element: 'lightning' }, 'rare'],
+    ['h_revive', '부활의 기도', 4, [['G', 6, 10]], { start: { heal: 18 } }, 'legendary'],
+    ['h_heaven', '천상의 창', 5, [['P', 7, 12], ['P', 6, 11], ['P', 6, 11]], { element: 'holy' }, 'legendary'],
   ], { owner: 'herald' });
 
   // 중기병 — 메이스와 튼튼한 갑옷
   defCards([
     ['c_bash', '메이스 휘두르기', 0, [['B', 2, 5]]],
     ['c_shieldup', '방패 들기', 1, [['G', 4, 7], ['B', 2, 4]]],
-    ['c_strike', '내려치기', 1, [['B', 3, 7]]],
+    ['c_strike', '내려치기', 1, [['B', 3, 7]], { smash: 3 }],
     ['c_brace', '버티기', 2, [['G', 4, 8], ['G', 3, 6]], { start: { protect: 1 } }],
-    ['c_smash', '분쇄', 2, [['B', 4, 8], ['B', 3, 6]]],
-    ['c_charge', '기마 돌격', 3, [['B', 5, 9], ['B', 4, 8]]],
-    ['c_counter', '방패 반격', 3, [['G', 5, 8], ['B', 4, 8], ['B', 3, 6]]],
-    ['c_quake', '대지 강타', 4, [['B', 6, 10], ['B', 5, 9]], { weak: 1 }],
-    ['c_crush', '철퇴 난타', 5, [['B', 6, 11], ['B', 6, 10], ['B', 5, 9]]],
+    ['c_smash', '분쇄', 2, [['B', 4, 8], ['B', 3, 6]], { smash: 2 }],
+    ['c_charge', '기마 돌격', 3, [['B', 5, 9], ['B', 4, 8]], { rupture: 2 }],
+    ['c_counter', '방패 반격', 3, [['G', 5, 8], ['B', 4, 8], ['B', 3, 6]], { smash: 3 }],
+    ['c_quake', '대지 강타', 4, [['B', 6, 10], ['B', 5, 9]], { weak: 1, smash: 2 }],
+    ['c_crush', '철퇴 난타', 5, [['B', 6, 11], ['B', 6, 10], ['B', 5, 9]], { rupture: 3 }],
     ['c_plate', '판금 정비', 1, [['G', 5, 8]], { start: { protect: 2 } }, 'common'],
-    ['c_rattle', '두들기기', 2, [['B', 3, 6], ['B', 3, 6], ['B', 3, 6]], null, 'common'],
-    ['c_stun', '머리 가격', 2, [['B', 4, 8]], { weak: 2 }, 'common'],
+    ['c_rattle', '두들기기', 2, [['B', 3, 6], ['B', 3, 6], ['B', 3, 6]], { rupture: 1 }, 'common'],
+    ['c_stun', '머리 가격', 2, [['B', 4, 8]], { weak: 2, smash: 2 }, 'common'],
     ['c_wall', '철벽', 2, [['G', 5, 9], ['G', 5, 9]], null, 'common'],
-    ['c_warcry', '함성', 1, [['B', 3, 6]], { start: { might: 2 } }, 'rare'],
-    ['c_trample', '짓밟기', 3, [['B', 5, 9], ['B', 5, 9]], { fragile: 1 }, 'rare'],
+    ['c_warcry', '함성', 1, [['B', 3, 6]], { start: { might: 2 }, rupture: 1 }, 'rare'],
+    ['c_trample', '짓밟기', 3, [['B', 5, 9], ['B', 5, 9]], { fragile: 1, rupture: 2 }, 'rare'],
     ['c_fortress', '요새', 3, [['G', 6, 10], ['G', 5, 9]], { start: { endure: 2, protect: 2 } }, 'rare'],
-    ['c_breaker', '갑옷 부수기', 4, [['B', 7, 12], ['B', 5, 9]], { fragile: 2 }, 'rare'],
-    ['c_juggernaut', '저거너트', 5, [['B', 8, 13], ['B', 7, 12], ['G', 6, 10]], null, 'legendary'],
+    ['c_breaker', '갑옷 부수기', 4, [['B', 7, 12], ['B', 5, 9]], { fragile: 2, smash: 2 }, 'rare'],
+    ['c_juggernaut', '저거너트', 5, [['B', 8, 13], ['B', 7, 12], ['G', 6, 10]], { smash: 2, rupture: 2 }, 'legendary'],
     ['c_bastion', '불굴의 성채', 4, [['G', 7, 11], ['G', 7, 11], ['B', 6, 10]], { start: { protect: 3 } }, 'legendary'],
-    ['c_earthfall', '지축 붕괴', 5, [['B', 5, 9], ['B', 5, 9], ['B', 5, 9], ['B', 5, 9]], { weak: 2 }, 'legendary'],
+    ['c_earthfall', '지축 붕괴', 5, [['B', 5, 9], ['B', 5, 9], ['B', 5, 9], ['B', 5, 9]], { weak: 2, rupture: 1 }, 'legendary'],
   ], { owner: 'cavalry' });
 
   CLASSES.forEach(c => {
@@ -169,7 +172,7 @@
     { id: 'l_faith', name: '신념', cost: 3, desc: '모든 주사위 위력 +1', mods: { basePower: 1 } },
     { id: 'l_edge', name: '예리함', cost: 3, desc: '모든 주사위 최대값 +2', mods: { diceMax: 2 } },
     { id: 'l_undying', name: '불굴', cost: 3, desc: '전투마다 1회, 쓰러질 피해를 받으면 체력 1로 버팀', mods: { undying: 1 } },
-    { id: 'l_third', name: '세 번째 손', cost: 4, desc: '스킬 슬롯 +1', mods: { slots: 1 } },
+    { id: 'l_third', name: '세 번째 손', cost: 4, desc: '턴당 코스트 +2', mods: { energy: 2 } },
     { id: 'l_radiance', name: '광휘의 가호', cost: 4, desc: '매 턴 첫 번째로 쓰는 카드의 주사위 위력 +2', mods: { firstSkillBonus: 2 } },
     { id: 'l_saint', name: '성인의 생명력', cost: 4, desc: '최대 체력 +40, 매 턴 종료 시 체력 2 회복', mods: { maxHp: 40, regen: 2 } },
   ];
@@ -205,7 +208,7 @@
     { id: 'it_newcard_r', icon: '📕', name: '금지된 마도서', rarity: 'rare', type: 'card', desc: '희귀 직업 스킬 카드를 얻고 덱의 카드 1장과 교체' },
 
     { id: 'it_grail', icon: '🏆', name: '성배', rarity: 'legendary', type: 'relic', desc: '최대 체력 +30, 전투 승리 시 체력 12 회복', mods: { maxHp: 30, heal: 30, winHeal: 12 } },
-    { id: 'it_arm', icon: '🦾', name: '망자의 세 번째 팔', rarity: 'legendary', type: 'relic', desc: '스킬 슬롯 +1', mods: { slots: 1 }, cond: p => p.slots < 4 },
+    { id: 'it_arm', icon: '🦾', name: '망자의 세 번째 팔', rarity: 'legendary', type: 'relic', desc: '턴당 코스트 +2', mods: { energy: 2 } },
     { id: 'it_fatedie', icon: '🌕', name: '운명의 주사위', rarity: 'legendary', type: 'relic', desc: '모든 주사위 최소값 +2', mods: { diceMin: 2 } },
     { id: 'it_crown', icon: '👑', name: '가시 왕관', rarity: 'legendary', type: 'relic', desc: '모든 주사위 위력 +2, 최대 체력 -15', mods: { basePower: 2, maxHp: -15 } },
     { id: 'it_forge', icon: '⚱️', name: '주사위 주조틀', rarity: 'legendary', type: 'upgrade', desc: '카드 1장의 첫 주사위를 하나 더 추가', upg: { extraDie: 1 } },
@@ -502,7 +505,10 @@
   REGIONS.forEach(r => { REGION_MAP[r.id] = r; });
 
   const STATUS_INFO = {
-    bleed: { name: '출혈', icon: '🩸', desc: '공격 주사위로 공격할 때마다 수치만큼 피해를 받고, 수치가 1/3 줄어든다.' },
+    bleed: { name: '출혈', icon: '🩸', desc: '합이나 공격에서 공격 주사위를 굴릴 때마다 수치만큼 피해를 받고, 수치가 1/3 줄어든다.' },
+    hemo: { name: '과다출혈', icon: '🫀', desc: '방랑검사 전용. 어떤 주사위든 굴릴 때마다 수치만큼 피해를 받는다(보호·피해 감소 무시). 수치가 1/4 줄어든다.' },
+    rupture: { name: '파열', icon: '💥', desc: '피격할 때마다 수치만큼 추가 피해를 받고, 수치가 1/3 줄어든다.' },
+    element: { name: '속성', icon: '✴', desc: '전령의 속성이 걸린 상태. 같은 속성으로 다시 적중하면 속성 효과가 터지고 단계가 오른다. 다른 속성에 맞으면 그 속성으로 바뀐다.' },
     burn: { name: '화상', icon: '🔥', desc: '턴 종료 시 수치만큼 피해를 받고, 수치가 절반이 된다.' },
     might: { name: '힘', icon: '🔺', desc: '이번 턴 공격 주사위 위력 +수치.' },
     weak: { name: '허약', icon: '🔻', desc: '이번 턴 공격 주사위 위력 -수치.' },
@@ -521,11 +527,51 @@
     bossHealPct: 0.3,       // 보스 처치 후 최대 체력 대비 회복량
   };
 
+  // 전령의 속성: 같은 속성이 이미 걸린 적을 다시 적중하면 효과가 터진다 (단계 n = 겹친 횟수)
+  // per: 단계(n)당 효과량
+  const ELEMENTS = {
+    fire: { name: '화염', icon: '🔥', color: '#ff8a3c', per: 1, desc: '화상 +n' },
+    ice: { name: '빙결', icon: '❄', color: '#8fd3ff', per: 1, desc: '다음 턴 허약 +n' },
+    lightning: { name: '번개', icon: '⚡', color: '#ffe066', per: 2, desc: '추가 피해 2×n (고정)' },
+    holy: { name: '신성', icon: '✨', color: '#fff2b8', per: 1, desc: '체력 n 회복' },
+  };
+
+  // 15층(세 번째 지역)의 보스를 쓰러뜨리면 순례 완수
+  const WIN_FLOOR = 15;
+
+  // 승천: 승리할 때마다 그 직업의 다음 단계가 열린다. 단계는 누적된다.
+  const ASCENSION = [
+    { level: 1, desc: '적 체력 +10%', mods: { enemyHp: 0.1 } },
+    { level: 2, desc: '모닥불 회복량 30% → 20%', mods: { restHeal: -0.1 } },
+    { level: 3, desc: '전리품 전설 확률 절반', mods: { legendaryHalf: true } },
+    { level: 4, desc: '시작 체력 -10%', mods: { startHp: -0.1 } },
+    { level: 5, desc: '상점 가격 +25%', mods: { shopPrice: 0.25 } },
+    { level: 6, desc: '중간 보스·보스 체력 +10%', mods: { bossHp: 0.1 } },
+    { level: 7, desc: '시작 빛 -1', mods: { light: -1 } },
+    { level: 8, desc: '적 체력 +10% (누적 +20%)', mods: { enemyHp: 0.1 } },
+    { level: 9, desc: '적 주사위 최대값 +1', mods: { enemyDiceMax: 1 } },
+    { level: 10, desc: '적 코스트 +1', mods: { enemyEnergy: 1 } },
+  ];
+  const MAX_ASCENSION = ASCENSION.length;
+
+  // 해금: 조건을 채우면 열린다. meta = { bossKills, wins, maxFloor, runs }
+  const UNLOCKS = [
+    { id: 'u_herald', kind: 'class', target: 'herald', name: '전령', need: m => m.bossKills >= 1, desc: '보스 1회 처치' },
+    { id: 'u_cavalry', kind: 'class', target: 'cavalry', name: '중기병', need: m => m.bossKills >= 2, desc: '보스 2회 처치' },
+    { id: 'u_light4', kind: 'passive', target: 4, name: '빛 4 가호', need: m => m.bossKills >= 1, desc: '보스 1회 처치' },
+    { id: 'u_rare', kind: 'cards', target: 'rare', name: '희귀 카드', need: m => m.maxFloor >= 6, desc: '6층 도달' },
+    { id: 'u_legendary', kind: 'cards', target: 'legendary', name: '전설 카드', need: m => m.bossKills >= 2, desc: '보스 2회 처치' },
+    { id: 'u_relicL', kind: 'relics', target: 'legendary', name: '전설 유물', need: m => m.maxFloor >= 10, desc: '10층 도달' },
+    { id: 'u_fury', kind: 'item', target: 'it_fury', name: '광전사의 물약', need: m => m.wins >= 1, desc: '순례 1회 완수' },
+    { id: 'u_fatedie', kind: 'item', target: 'it_fatedie', name: '운명의 주사위', need: m => m.wins >= 1, desc: '순례 1회 완수' },
+    { id: 'u_crown', kind: 'item', target: 'it_crown', name: '가시 왕관', need: m => m.wins >= 2, desc: '순례 2회 완수' },
+  ];
+
   const RARITY_NAME = { basic: '최하급', common: '일반', rare: '희귀', legendary: '전설', exclusive: '전용', signature: '고유' };
 
   const DATA = {
     CARDS, CLASSES, CLASS_MAP, DICE, ATK_TYPES, TYPE_OF, TYPES, RES_NAME, LIGHT_POINTS, PASSIVES, ITEMS,
-    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
+    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, ELEMENTS, WIN_FLOOR, ASCENSION, MAX_ASCENSION, UNLOCKS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = DATA;

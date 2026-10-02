@@ -848,3 +848,40 @@ h2.screen-title {
   .event-card { padding: 16px; }
   .map-legend { gap: 8px; }
 }
+
+/* ───────── 해금 · 승천 · 승리 ───────── */
+.class-card.locked { opacity: .55; cursor: not-allowed; filter: grayscale(.6); }
+.class-card.locked:hover { transform: none; border-color: var(--line); }
+.asc-pick { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 14px auto 0; max-width: 980px; padding: 10px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.asc-pick.muted { color: var(--muted); font-size: 13px; }
+.asc-label { color: var(--gold); font-weight: 800; }
+.asc-level { font: 800 22px var(--font-deco); color: var(--gold-2); min-width: 1.5ch; text-align: center; }
+.asc-desc { font-size: 12.5px; color: var(--muted); flex-basis: 100%; text-align: center; }
+.unlock-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; max-width: 900px; margin: 0 auto; }
+.unlock-grid section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.unlock-grid h4 { margin: 0 0 10px; color: var(--gold); }
+.unlock-row { display: grid; grid-template-columns: 24px 1fr; gap: 2px 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, .05); opacity: .55; }
+.unlock-row.on { opacity: 1; }
+.unlock-row .u-icon { grid-row: span 2; color: var(--muted); }
+.unlock-row.on .u-icon { color: var(--heal); }
+.unlock-row small { color: var(--muted); grid-column: 2; }
+.asc-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, .05); font-size: 14px; }
+.asc-row span { color: var(--muted); }
+.asc-list { padding-left: 18px; font-size: 13px; color: #d4cabd; columns: 2; }
+.asc-list b { color: var(--gold); margin-right: 4px; }
+.muted.small { font-size: 12px; color: var(--muted); }
+.victory-screen { text-align: center; padding-top: 6vh; }
+.screen-title.big { font-size: clamp(36px, 7vw, 60px); }
+.unlock-pop { display: inline-block; margin: 6px auto 16px; padding: 8px 16px; border-radius: 99px; background: rgba(243, 213, 143, .12); border: 1px solid var(--gold); color: var(--gold-2); }
+.btn small { font-size: 11px; opacity: .8; margin-left: 4px; }
+/* 새 상태이상 입자 */
+.st.el-fire { border-color: #ff8a3c; color: #ffb27a; } .st.el-ice { border-color: #8fd3ff; color: #c9ecff; }
+.st.el-lightning { border-color: #ffe066; color: #fff0a8; } .st.el-holy { border-color: #fff2b8; color: #fff8dc; }
+.vfx.pt.hemo { background: radial-gradient(circle at 35% 30%, #ff4d4d, #6d0a12 60%); width: 11px; height: 14px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; animation-name: ptDrip; }
+.vfx.pt.rupture { background: radial-gradient(circle, #fff, #ff5a3a 40%, transparent 75%); width: 14px; height: 14px; }
+.vfx.pt.smash { background: radial-gradient(circle, #fff, #c9b6ff 45%, transparent 75%); width: 10px; height: 10px; }
+.vfx.pt.lightning, .vfx.pt.el-lightning { background: radial-gradient(circle, #fff, #ffe066 45%, transparent 75%); width: 12px; height: 12px; }
+.vfx.pt.el-fire { background: radial-gradient(circle, #fff3b0, #ff8a3c 45%, transparent 75%); width: 13px; height: 13px; }
+.vfx.pt.el-ice { background: radial-gradient(circle, #fff, #8fd3ff 45%, transparent 75%); width: 11px; height: 11px; }
+.vfx.pt.el-holy { background: radial-gradient(circle, #fff, #fff2b8 45%, transparent 75%); width: 13px; height: 13px; }
+.float.elem { color: #fff2b8; font-size: 20px; }

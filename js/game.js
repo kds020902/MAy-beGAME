@@ -60,6 +60,12 @@
   }
   const clearSave = () => store.set('run', null);
   const hasSave = () => !!store.get('run', null);
+  // 해금·승천 기록
+  S.meta = Object.assign(G.freshMeta(), store.get('meta', {}));
+  const saveMeta = () => store.set('meta', S.meta);
+  const unlocked = () => G.unlockedIds(S.meta);
+  const isUnlocked = (kind, target) => G.isUnlocked(unlocked(), kind, target);
+  S.asc = 0;
   const KIND_NAME = { normal: '일반', midboss: '중간 보스', boss: '보스' };
   const KIND_ICON = { normal: '⚔', midboss: '☠', boss: '♛' };
 
@@ -138,7 +144,13 @@
       return `<span class="st${next ? ' next' : ''}" title="${info.name}: ${info.desc}">${info.icon} ${info.name} ${val}${next ? ' (다음 턴)' : ''}</span>`;
     };
     if (c.status.bleed) out.push(tag('bleed', c.status.bleed));
+    if (c.status.hemo) out.push(tag('hemo', c.status.hemo));
     if (c.status.burn) out.push(tag('burn', c.status.burn));
+    if (c.status.rupture) out.push(tag('rupture', c.status.rupture));
+    if (c.status.element) {
+      const el = D.ELEMENTS[c.status.element.type];
+      out.push(`<span class="st el-${c.status.element.type}" title="${el.name} 속성 ${c.status.element.n}단계: 같은 속성으로 적중하면 ${el.desc}">${el.icon} ${el.name} ${c.status.element.n}</span>`);
+    }
     ['might', 'weak', 'endure', 'protect', 'fragile'].forEach(k => {
       if (c.status[k]) out.push(tag(k, c.status[k]));
       if (c.status[k + 'Next']) out.push(tag(k, c.status[k + 'Next'], true));
@@ -380,7 +392,7 @@
     const fn = {
       title: renderTitle, cls: renderClass, light: renderLight, battle: renderBattle,
       reward: renderReward, shop: renderShop, region: renderRegion, over: renderOver,
-      map: renderMap, rest: renderRest, event: renderEvent,
+      map: renderMap, rest: renderRest, event: renderEvent, unlocks: renderUnlocks, victory: renderVictory,
     }[S.screen];
     $app.innerHTML = fn();
     if (S.screen === 'battle') afterBattleRender();
@@ -398,6 +410,7 @@
         ${hasSave() ? '<button class="btn primary big" data-act="continue">이어하기</button>' : ''}
         <button class="btn ${hasSave() ? '' : 'primary '}big" data-act="new">새로운 순례</button>
         <button class="btn" data-act="howto">게임 방법</button>
+        <button class="btn" data-act="unlocks">해금 · 승천 <small>${unlocked().length}/${D.UNLOCKS.length}</small></button>
         <button class="btn small" data-act="mute">${SFX.muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐'}</button>
       </div>
       <div class="record">${best ? `최고 기록: <b>${best.floor}층</b> (${best.cls ? best.cls + ' · ' : ''}${best.region})` : '아직 기록이 없습니다'}</div>
@@ -408,21 +421,34 @@
   function renderClass() {
     const cards = D.CLASSES.map(c => {
       const starter = c.starter.map(id => D.CARDS[id].name);
-      return `<div class="class-card${S.classId === c.id ? ' sel' : ''}" data-act="pickClass" data-id="${c.id}">
+      const open = isUnlocked('class', c.id);
+      const u = D.UNLOCKS.find(x => x.kind === 'class' && x.target === c.id);
+      const maxAsc = G.ascensionOf(S.meta, c.id);
+      return `<div class="class-card${S.classId === c.id ? ' sel' : ''}${open ? '' : ' locked'}" ${open ? `data-act="pickClass" data-id="${c.id}"` : ''}>
         ${art('classes', c.id, c.icon, 'class-art')}
-        <div class="class-name">${c.name}</div>
+        <div class="class-name">${open ? c.name : '🔒 ' + c.name}</div>
         <div class="class-role">${c.role} · ${c.weapon}</div>
         <p class="class-desc">${c.desc}</p>
-        <div class="class-stats"><span>체력 <b>${c.hp}</b></span><span>코스트 <b>${c.energy}</b></span><span>턴당 스킬 <b>${c.slots}</b></span></div>
+        <div class="class-stats"><span>체력 <b>${c.hp}</b></span><span>코스트 <b>${c.energy}</b></span>${maxAsc ? `<span>승천 <b>${maxAsc}</b></span>` : ''}</div>
         <div class="class-trait-name">특성 「${c.trait.name}」</div>
         <div class="class-trait">${c.trait.desc}</div>
-        <div class="class-deck">시작 덱: ${starter.join(', ')}</div>
+        <div class="class-deck">${open ? `시작 덱: ${starter.join(', ')}` : `해금 조건: ${u.desc}`}</div>
       </div>`;
     }).join('');
+    const maxAsc = S.classId ? G.ascensionOf(S.meta, S.classId) : 0;
+    if (S.asc > maxAsc) S.asc = maxAsc;
+    const ascRow = S.classId && maxAsc > 0 ? `<div class="asc-pick">
+        <span class="asc-label">승천</span>
+        <button class="btn small" data-act="ascDown" ${S.asc <= 0 ? 'disabled' : ''}>−</button>
+        <b class="asc-level">${S.asc}</b>
+        <button class="btn small" data-act="ascUp" ${S.asc >= maxAsc ? 'disabled' : ''}>+</button>
+        <span class="asc-desc">${S.asc ? D.ASCENSION.filter(a => a.level <= S.asc).map(a => a.desc).join(' · ') : '보정 없음 (기본 난이도)'}</span>
+      </div>` : (S.classId ? '<div class="asc-pick muted">순례를 완수하면 이 직업의 승천이 열립니다.</div>' : '');
     return `<div class="screen class-screen">
       <h2 class="screen-title">직업 선택</h2>
-      <p class="screen-sub">순례를 떠날 자를 고르세요. 직업마다 쓰는 무기와 얻는 카드가 다릅니다.</p>
+      <p class="screen-sub">순례를 떠날 자를 고르세요. 직업마다 쓰는 무기와 얻는 카드가 다릅니다. 턴당 카드 수는 코스트가 허락하는 만큼입니다.</p>
       <div class="class-grid">${cards}</div>
+      ${ascRow}
       <div class="bottom-actions">
         <button class="btn" data-act="title">뒤로</button>
         <button class="btn primary big" data-act="toLight" ${S.classId ? '' : 'disabled'}>다음 — 빛의 선택</button>
@@ -432,24 +458,27 @@
 
   // ───────── 빛(패시브) 선택 ─────────
   function renderLight() {
+    const total = G.lightPoints(S.asc);
     const used = G.passiveCost(S.light);
-    const left = D.LIGHT_POINTS - used;
-    const pips = Array.from({ length: D.LIGHT_POINTS }, (_, i) => `<i class="light-pip${i < left ? ' on' : ''}"></i>`).join('');
+    const left = total - used;
+    const pips = Array.from({ length: total }, (_, i) => `<i class="light-pip${i < left ? ' on' : ''}"></i>`).join('');
+    const light4 = isUnlocked('passive', 4);
     const cards = D.PASSIVES.map(p => {
       const sel = S.light.includes(p.id);
-      const locked = !sel && p.cost > left;
-      return `<button class="passive${sel ? ' sel' : ''}${locked ? ' locked' : ''}" data-act="light" data-id="${p.id}">
+      const sealed = p.cost >= 4 && !light4;
+      const locked = sealed || (!sel && p.cost > left);
+      return `<button class="passive${sel ? ' sel' : ''}${locked ? ' locked' : ''}" data-act="light" data-id="${p.id}" title="${sealed ? '해금 조건: 보스 1회 처치' : ''}">
         <div class="p-cost">${'◆'.repeat(p.cost)}<span>${'◇'.repeat(4 - p.cost)}</span></div>
-        <div class="p-name">${p.name}</div>
+        <div class="p-name">${sealed ? '🔒 ' : ''}${p.name}</div>
         <div class="p-desc">${p.desc}</div>
       </button>`;
     }).join('');
     const cls = D.CLASS_MAP[S.classId];
     return `<div class="screen light-screen">
       <h2 class="screen-title">빛의 선택</h2>
-      <p class="screen-sub">${cls.icon} ${cls.name} — 빛 ${D.LIGHT_POINTS}을 나누어 가호를 고르세요. 강한 가호일수록 많은 빛이 듭니다.</p>
+      <p class="screen-sub">${cls.icon} ${cls.name}${S.asc ? ` · 승천 ${S.asc}` : ''} — 빛 ${total}을 나누어 가호를 고르세요. 강한 가호일수록 많은 빛이 듭니다.</p>
       <div class="light-meter">${pips}</div>
-      <div class="light-left">남은 빛 ${left} / ${D.LIGHT_POINTS}</div>
+      <div class="light-left">남은 빛 ${left} / ${total}</div>
       <div class="passive-grid">${cards}</div>
       <div class="bottom-actions">
         <button class="btn" data-act="new">뒤로</button>
@@ -547,12 +576,17 @@
     stagePos.e = 0;
     engaged = false;
 
-    const lanes = Array.from({ length: b.rows }, (_, i) => {
+    // 보이는 줄: 적 카드 줄 + 내가 낸 카드 줄 + 빈 줄 하나 (코스트가 남아 있을 때)
+    const inHandCount = p.hand.filter(c => b.plan.indexOf(c.uid) < 0).length;
+    const canMore = inHandCount > 0 && p.hand.some(c => b.plan.indexOf(c.uid) < 0 && spent + G.cardDef(c).cost <= p.energy);
+    const lastPlanned = b.plan.reduce((m, u, i) => (u != null ? i : m), -1);
+    const visibleRows = Math.min(b.rows, Math.max(b.enemyPlan.length, lastPlanned + 1 + (canMore ? 1 : 0), 1));
+    const lanes = Array.from({ length: visibleRows }, (_, i) => {
       const uid = b.plan[i];
       const pc = uid != null ? p.hand.find(h => h.uid === uid) : null;
       const ec = b.enemyPlan[i] || null;
       const target = S.targetRow === i;
-      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${planned >= p.slots ? '—' : target ? '낼 카드를 고르세요' : '카드를 내세요'}</div>`;
+      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${!canMore ? '—' : target ? '낼 카드를 고르세요' : '카드를 내세요'}</div>`;
       const eSlot = ec ? chipHtml(ec, e, p) : '<div class="empty">—</div>';
       return `<div class="row${target ? ' target' : ''}" data-row="${i}">
         <div class="slot p" data-act="slot" data-row="${i}" title="${pc ? '눌러서 손패로 되돌리기' : '눌러서 이 줄에 낼 카드 지정'}">${pSlot}</div>
@@ -566,7 +600,7 @@
     const n = inHand.length;
     const hand = inHand.map((c, i) => {
       const off = i - (n - 1) / 2;
-      const cant = planned >= p.slots || spent + G.cardDef(c).cost > p.energy;
+      const cant = spent + G.cardDef(c).cost > p.energy;
       const style = `--off:${off};--i:${i}`;
       return cardHtml(c, p, { act: 'card', vs: e, cls: `${cant ? 'cant' : 'playable'}${S.animateDraw ? ' drawn' : ''}`, style });
     }).join('');
@@ -671,6 +705,11 @@
     if (tk) { tk.className = 'ticker l-' + c; tk.innerHTML = t; }
   }
 
+  const PROC_INFO = {
+    smash: { icon: '🔨', name: '강타' },
+    lightning: { icon: '⚡', name: '번개' },
+  };
+
   // ───────── 전투 연출 ─────────
   const nm = side => (side === 'p' ? S.battle.player.name : S.battle.enemy.name);
   const other = side => (side === 'p' ? 'e' : 'p');
@@ -746,8 +785,29 @@
           break;
         case 'status': {
           const info = D.STATUS_INFO[ev.key];
-          log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}에게 ${info.name} ${ev.amount}${ev.next ? ' (다음 턴)' : ''}`);
+          if (ev.key === 'element') {
+            const el = D.ELEMENTS[ev.element];
+            log(ev.side === 'p' ? 'e' : 'p', `${el.icon} ${nm(ev.side)}에게 ${el.name} 속성`);
+            particles(ev.side, 'el-' + ev.element, 5);
+          } else if (ev.converted) {
+            log('big', `🫀 ${nm(ev.side)}의 출혈이 과다출혈 ${ev.amount}로 바뀌었습니다!`);
+            floatText(ev.side, '과다출혈!', 'proc');
+            particles(ev.side, 'bleed', 14);
+            sfx('heavy');
+            await sleep(350);
+          } else {
+            log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}에게 ${info.name} ${ev.amount}${ev.next ? ' (다음 턴)' : ''}`);
+          }
           await sleep(60);
+          break;
+        }
+        case 'element': {
+          const el = D.ELEMENTS[ev.type];
+          floatText(ev.side, `${el.icon} ${el.name} ×${ev.n}`, 'elem');
+          particles(ev.side, 'el-' + ev.type, 10 + ev.n * 2);
+          log('big', `${el.icon} ${el.name} ${ev.n}단계 발동 — ${el.desc.replace('n', String(ev.n))}`);
+          sfx(ev.type === 'lightning' ? 'clash' : 'heal');
+          await sleep(260);
           break;
         }
         case 'clash': {
@@ -798,12 +858,12 @@
           break;
         }
         case 'proc': {
-          const info = D.STATUS_INFO[ev.key];
+          const info = D.STATUS_INFO[ev.key] || PROC_INFO[ev.key];
           floatText(ev.side, `${info.icon}-${ev.amount}`, 'proc');
-          particles(ev.side, ev.key, 8);
+          particles(ev.side, ev.key, ev.key === 'hemo' ? 12 : 8);
           setHp(ev.hp);
           log(ev.side === 'p' ? 'e' : 'p', `${info.icon} ${nm(ev.side)}: ${info.name}으로 ${ev.amount} 피해`);
-          await sleep(280);
+          await sleep(ev.key === 'smash' ? 180 : 280);
           break;
         }
         case 'heal':
@@ -861,6 +921,8 @@
       const res = G.finishBattle(S.run, b, rng);
       S.pendingBoss = res.boss;
       S.lastGold = res.gold;
+      if (res.boss) { G.recordBossKill(S.meta); saveMeta(); }
+      if (res.won) { G.recordRun(S.meta, S.run, true); saveMeta(); S.justWon = true; }
       S.rewards = G.rollRewards(S.run, b.kind, rng);
       S.rewardKind = 'battle';
       sfx('win');
@@ -868,6 +930,7 @@
     } else if (b.outcome === 'lose') {
       await banner('YOU DIED', 'lose');
       saveRecord();
+      if (!S.run.won) { G.recordRun(S.meta, S.run, false); saveMeta(); }
       clearSave();
       S.autoBattle = false;
       go('over');
@@ -992,6 +1055,13 @@
   function leaveNode() {
     closeModal();
     const boss = G.finishNode(S.run);
+    if (boss && S.justWon) {
+      S.justWon = false;
+      clearSave();
+      sfx('win');
+      go('victory');
+      return;
+    }
     if (boss) {
       S.shop = G.rollShop(S.run, rng);
       saveRun('shop');
@@ -1212,6 +1282,50 @@
     </div>`;
   }
 
+  // ───────── 순례 완수 ─────────
+  function renderVictory() {
+    const run = S.run;
+    const cls = D.CLASS_MAP[run.classId];
+    const nextAsc = G.ascensionOf(S.meta, run.classId);
+    const newly = D.UNLOCKS.filter(u => u.need(S.meta) && !(S.unlockedBefore || []).includes(u.id));
+    return `<div class="screen victory-screen">
+      <div class="title-emblem">✦</div>
+      <h2 class="screen-title big">순례 완수</h2>
+      <p class="screen-sub">${cls.icon} ${cls.name}이(가) ${D.WIN_FLOOR}층의 주인을 쓰러뜨리고 빛을 되찾았습니다.${run.asc ? ` (승천 ${run.asc})` : ''}</p>
+      <dl class="over-stats">
+        <dt>처치한 적</dt><dd>${run.kills}</dd>
+        <dt>쓰러뜨린 보스</dt><dd>${run.bossKills}</dd>
+        <dt>모은 유물</dt><dd>${run.player.relics.length}개</dd>
+        <dt>${cls.name} 승천</dt><dd>${nextAsc}단계까지 열림</dd>
+      </dl>
+      ${newly.length ? `<div class="unlock-pop">새로 열림: ${newly.map(u => `<b>${u.name}</b>`).join(', ')}</div>` : ''}
+      <div class="title-actions">
+        <button class="btn primary big" data-act="continueRun">계속 오르기 <small>(끝없는 순례)</small></button>
+        <button class="btn" data-act="title">타이틀로</button>
+      </div>
+    </div>`;
+  }
+
+  function renderUnlocks() {
+    const ids = unlocked();
+    const rows = D.UNLOCKS.map(u => {
+      const on = ids.includes(u.id);
+      return `<div class="unlock-row${on ? ' on' : ''}"><span class="u-icon">${on ? '✔' : '🔒'}</span><b>${u.name}</b><small>${u.desc}</small></div>`;
+    }).join('');
+    const asc = D.CLASSES.map(c => `<div class="asc-row"><b>${c.icon} ${c.name}</b><span>${G.ascensionOf(S.meta, c.id) ? `승천 ${G.ascensionOf(S.meta, c.id)}단계까지` : '아직 완수하지 않음'}</span></div>`).join('');
+    const ascList = D.ASCENSION.map(a => `<li><b>${a.level}</b> ${a.desc}</li>`).join('');
+    const m = S.meta;
+    return `<div class="screen unlocks-screen">
+      <h2 class="screen-title">해금 · 승천</h2>
+      <p class="screen-sub">순례 ${m.runs}회 · 보스 처치 ${m.bossKills}회 · 완수 ${m.wins}회 · 최고 ${m.maxFloor}층</p>
+      <div class="unlock-grid">
+        <section><h4>해금</h4>${rows}</section>
+        <section><h4>승천</h4>${asc}<p class="muted small">${D.WIN_FLOOR}층 보스를 쓰러뜨리면 그 직업의 다음 승천 단계가 열립니다. 단계는 누적됩니다.</p><ol class="asc-list">${ascList}</ol></section>
+      </div>
+      <div class="bottom-actions"><button class="btn" data-act="title">뒤로</button></div>
+    </div>`;
+  }
+
   // ───────── 모달 ─────────
   function openModal(html) {
     $modal.innerHTML = `<div class="modal-back" data-act="closeModal"><div class="modal" data-stop>${html}</div></div>`;
@@ -1241,7 +1355,7 @@
       <h3>${cls.icon} ${cls.name}</h3>
       <p class="sub">${S.run.floor}층 · ${D.REGION_MAP[S.run.regionId].name} · 특성 「${cls.trait.name}」 ${cls.trait.desc}</p>
       <section><h4>능력치</h4><div class="stat-grid">
-        ${stat('체력', `${p.hp}/${p.maxHp}`)}${stat('은화', S.run.gold)}${stat('턴당 코스트', p.energy)}${stat('카드 슬롯', p.slots)}${stat('손패', p.handSize)}
+        ${stat('체력', `${p.hp}/${p.maxHp}`)}${stat('은화', S.run.gold)}${stat('턴당 코스트', p.energy)}${stat('손패', p.handSize)}${S.run.asc ? stat('승천', S.run.asc) : ''}
         ${stat('주사위 위력', '+' + p.basePower)}${stat('최소값', '+' + p.diceMin)}${stat('최대값', '+' + p.diceMax)}
         ${stat('피해 감소', p.dmgReduce)}${stat('흡혈', Math.round(p.lifesteal * 100) + '%')}${stat('승리 회복', p.winHeal)}
       </div></section>
@@ -1278,7 +1392,7 @@
       <h4>전투 순서</h4>
       <ol>
         <li>매 턴 9장짜리 덱에서 5장을 뽑습니다. 적도 자기 덱에서 카드를 뽑고, 머리 위의 <b>의도</b>로 이번 턴에 낼 카드를 보여줍니다.</li>
-        <li>턴당 코스트(직업마다 8~13) 안에서, 직업별 스킬 수(2~3장)만큼 손패의 카드를 냅니다. 낸 카드는 합 대진의 줄로 들어가 같은 줄의 적 카드와 합을 겨룹니다. 대진의 카드를 누르면 손패로 돌아옵니다.</li>
+        <li>턴당 코스트(직업마다 8~13)가 허락하는 만큼 손패의 카드를 냅니다. 낸 카드는 합 대진의 줄로 들어가 같은 줄의 적 카드와 합을 겨룹니다. 대진의 카드를 누르면 손패로 돌아옵니다.</li>
         <li><b>턴 종료</b>를 누르면 전투 시작 효과(회복, 힘, 보호 등)가 먼저 적용되고, 줄마다 합이 진행됩니다.</li>
         <li>턴이 끝나면 남은 손패는 모두 버리고, 다음 턴에 새로 5장을 뽑습니다.</li>
       </ol>
@@ -1295,6 +1409,16 @@
       <p>적마다 참격·관통·타격 내성이 다릅니다: 치명 ×2, 약점 ×1.5, 보통 ×1, 인내 ×0.5. 손패의 주사위 테두리가 초록이면 약점, 빨강이면 인내입니다.</p>
       <h4>직업</h4>
       <ul>${D.CLASSES.map(c => `<li>${c.icon} <b>${c.name}</b> (${c.weapon}) — ${c.trait.name}: ${c.trait.desc}</li>`).join('')}</ul>
+      <ul>
+        <li>🗡️ 방랑검사: 출혈은 합·공격에서 공격 주사위를 굴릴 때마다 터지고 1/3 줄어듭니다. 검사가 건 출혈이 6 이상이면 <b>과다출혈</b>이 되어 어떤 주사위를 굴려도 터지고, 보호와 피해 감소를 무시합니다.</li>
+        <li>🕊️ 전령: 카드마다 속성이 있습니다. 적에게 같은 속성이 걸려 있으면 적중할 때 효과가 터지고 단계가 오릅니다. ${Object.values(D.ELEMENTS).map(e => `${e.icon} ${e.name}: ${e.desc}`).join(' / ')}. 다른 속성에 맞으면 그 속성으로 바뀝니다.</li>
+        <li>🛡️ 중기병: <b>강타</b>는 적중 시 주사위 값의 1/n을 내성·보호 무시 고정 피해로 더 줍니다. <b>파열</b>이 걸린 적은 맞을 때마다 수치만큼 추가 피해를 입고 수치가 1/3 줄어듭니다.</li>
+      </ul>
+      <h4>승천 · 해금</h4>
+      <ul>
+        <li>${D.WIN_FLOOR}층 보스를 쓰러뜨리면 순례 완수입니다. 완수할 때마다 그 직업의 승천 단계가 하나 열리고, 직업 선택에서 단계를 골라 더 어렵게 도전할 수 있습니다.</li>
+        <li>보스 처치·층 도달·완수 횟수에 따라 직업, 카드, 유물, 가호가 열립니다. 타이틀의 해금 · 승천에서 확인하세요.</li>
+      </ul>
       <h4>상태이상</h4>
       <ul>${st}</ul>
       <h4>지도</h4>
@@ -1314,31 +1438,32 @@
         <li>중간 보스와 보스는 전용 카드 3장과, 3턴마다 추가로 쓰는 고유 스킬을 가집니다.</li>
       </ul>
       <h4>빛</h4>
-      <p>순례를 시작할 때 빛 ${D.LIGHT_POINTS}로 가호(패시브)를 고릅니다. 가호의 비용은 1~4입니다.</p>
+      <p>순례를 시작할 때 빛 ${D.LIGHT_POINTS}로 가호(패시브)를 고릅니다. 가호의 비용은 1~4이고, 비용 4 가호는 보스를 처치하면 열립니다.</p>
       </div>`);
   }
 
   // ───────── 입력 ─────────
   function onAction(act, el) {
     switch (act) {
-      case 'new': S.classId = S.classId || null; go('cls'); break;
+      case 'new': S.classId = S.classId && isUnlocked('class', S.classId) ? S.classId : 'swordsman'; S.unlockedBefore = unlocked(); go('cls'); break;
       case 'title': go('title'); break;
       case 'howto': openHowto(); break;
-      case 'pickClass': S.classId = el.dataset.id; render(); break;
+      case 'pickClass': S.classId = el.dataset.id; S.asc = Math.min(S.asc, G.ascensionOf(S.meta, S.classId)); render(); break;
       case 'toLight': if (S.classId) { S.light = []; go('light'); } break;
       case 'light': {
         const id = el.dataset.id;
         if (S.light.includes(id)) S.light = S.light.filter(x => x !== id);
         else {
           const p = D.PASSIVES.find(x => x.id === id);
-          if (G.passiveCost(S.light) + p.cost > D.LIGHT_POINTS) { toast('빛이 부족합니다.'); return; }
+          if (p.cost >= 4 && !isUnlocked('passive', 4)) { toast('보스를 1회 처치하면 열립니다.'); return; }
+          if (G.passiveCost(S.light) + p.cost > G.lightPoints(S.asc)) { toast('빛이 부족합니다.'); return; }
           S.light.push(id);
         }
         render();
         break;
       }
       case 'begin':
-        S.run = G.createRun(S.classId, S.light);
+        S.run = G.createRun(S.classId, S.light, { asc: S.asc, unlocked: unlocked() });
         G.startRegion(S.run, rng);
         sfx('click');
         go('map');
@@ -1420,12 +1545,21 @@
         render();
         break;
       }
+      case 'unlocks': go('unlocks'); break;
+      case 'ascUp': S.asc++; render(); break;
+      case 'ascDown': S.asc--; render(); break;
+      case 'continueRun':
+        S.shop = G.rollShop(S.run, rng);
+        saveRun('shop');
+        go('shop');
+        break;
       case 'continue': {
         const saved = store.get('run', null);
         const run = saved && G.loadRun(saved.json);
         if (!run) { toast('저장된 진행이 없습니다.'); clearSave(); render(); return; }
         S.run = run;
         S.pendingBoss = false;
+        S.unlockedBefore = unlocked();
         sfx('click');
         if (saved.screen === 'shop') { S.shop = G.rollShop(S.run, rng); go('shop'); }
         else if (saved.screen === 'region') { S.regions = G.regionChoices(S.run, rng); go('region'); }

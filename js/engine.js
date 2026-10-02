@@ -68,6 +68,9 @@
     if (fx.burn) t.push(`적중 시 화상 ${fx.burn}`);
     if (fx.weak) t.push(`첫 적중 시 허약 ${fx.weak}`);
     if (fx.fragile) t.push(`첫 적중 시 취약 ${fx.fragile}`);
+    if (fx.smash) t.push(`강타: 주사위 값의 1/${fx.smash} 고정 피해`);
+    if (fx.rupture) t.push(`적중 시 파열 ${fx.rupture}`);
+    if (fx.element) t.push(`${D.ELEMENTS[fx.element].icon} ${D.ELEMENTS[fx.element].name} 속성`);
     if (fx.lifesteal) t.push(`피해의 ${Math.round(fx.lifesteal * 100)}% 흡혈`);
     if (fx.selfDmg) t.push(`사용 시 체력 ${fx.selfDmg} 소모`);
     return t.join(' · ');
@@ -75,7 +78,7 @@
 
   // ───────── 전투 참가자 ─────────
   function freshStatus() {
-    const s = { bleed: 0, burn: 0 };
+    const s = { bleed: 0, burn: 0, hemo: 0, rupture: 0, element: null };
     TURN_KEYS.forEach(k => { s[k] = 0; s[k + 'Next'] = 0; });
     return s;
   }
@@ -105,30 +108,76 @@
     });
   }
 
+  // ───────── 메타: 해금 · 승천 ─────────
+  const freshMeta = () => ({ bossKills: 0, wins: 0, maxFloor: 0, runs: 0, ascension: {} });
+  const unlockedIds = meta => D.UNLOCKS.filter(u => u.need(meta || freshMeta())).map(u => u.id);
+  const unlockFor = (kind, target) => D.UNLOCKS.find(u => u.kind === kind && u.target === target);
+  // 해금되지 않은 것이면 false. 해금 항목이 없는 것은 처음부터 열려 있다.
+  function isUnlocked(unlocked, kind, target) {
+    const u = unlockFor(kind, target);
+    return !u || (unlocked || []).includes(u.id);
+  }
+  const ascensionOf = (meta, classId) => ((meta && meta.ascension) || {})[classId] || 0;
+  // 승천 단계 n 까지 누적된 보정
+  function ascMods(level) {
+    const out = { enemyHp: 0, enemyPower: 0, enemyDiceMax: 0, restHeal: 0, legendaryHalf: false, startHp: 0, shopPrice: 0, bossHp: 0, light: 0, enemyEnergy: 0, sigEvery: 3 };
+    D.ASCENSION.filter(a => a.level <= (level || 0)).forEach(a => {
+      Object.keys(a.mods).forEach(k => {
+        if (typeof a.mods[k] === 'boolean') out[k] = a.mods[k];
+        else if (k === 'sigEvery') out[k] = a.mods[k];
+        else out[k] += a.mods[k];
+      });
+    });
+    return out;
+  }
+  const lightPoints = level => D.LIGHT_POINTS + ascMods(level).light;
+  // 보스 처치·판 종료를 기록해 해금 조건을 갱신한다
+  function recordBossKill(meta) { meta.bossKills++; return meta; }
+  function recordRun(meta, run, won) {
+    meta.runs++;
+    meta.maxFloor = Math.max(meta.maxFloor, run.floor);
+    if (won) {
+      meta.wins++;
+      const cur = ascensionOf(meta, run.classId);
+      if (run.asc >= cur && cur < D.MAX_ASCENSION) meta.ascension[run.classId] = cur + 1;
+    }
+    return meta;
+  }
+
   // ───────── 런(한 판) ─────────
   function passiveCost(ids) {
     return ids.reduce((s, id) => s + D.PASSIVES.find(p => p.id === id).cost, 0);
   }
 
-  function createRun(classId, passiveIds) {
+  // opts: { asc: 승천 단계, unlocked: 해금 id 목록 }
+  function createRun(classId, passiveIds, opts) {
+    opts = opts || {};
     const cls = D.CLASS_MAP[classId];
     if (!cls) throw new Error('알 수 없는 직업입니다');
-    if (passiveCost(passiveIds) > D.LIGHT_POINTS) throw new Error('빛 수치를 초과했습니다');
+    const asc = opts.asc || 0;
+    const A = ascMods(asc);
+    const unlocked = opts.unlocked || unlockedIds(null);
+    if (passiveCost(passiveIds) > lightPoints(asc)) throw new Error('빛 수치를 초과했습니다');
+    passiveIds.forEach(id => {
+      const x = D.PASSIVES.find(y => y.id === id);
+      if (x.cost >= 4 && !isUnlocked(unlocked, 'passive', 4)) throw new Error('아직 열리지 않은 가호입니다');
+    });
     const p = baseCombatant();
     p.isPlayer = true;
     p.classId = cls.id;
     p.name = cls.name;
     p.icon = cls.icon;
-    p.maxHp = p.hp = cls.hp;
+    p.maxHp = p.hp = Math.round(cls.hp * (1 + A.startHp));
     p.energy = cls.energy;
-    p.slots = cls.slots;
+    p.slots = 9; // 턴당 카드 수 제한 없음 (코스트가 허락하는 만큼)
+    p.hemorrhage = !!cls.trait.hemorrhage;
     p.passives = passiveIds.slice();
     p.relics = [];
     p.deck = cls.starter.map(makeCard);
     applyMods(p, cls.trait.mods);
     passiveIds.forEach(id => applyMods(p, D.PASSIVES.find(x => x.id === id).mods));
     const start = D.REGIONS[0].id;
-    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [] };
+    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [], asc, unlocked, won: false };
     return run;
   }
 
@@ -205,7 +254,7 @@
   function rest(run, choice, targetUid) {
     const p = run.player;
     if (choice === 'heal') {
-      const amount = Math.round(p.maxHp * D.MAP.restHeal);
+      const amount = Math.round(p.maxHp * (D.MAP.restHeal + ascMods(run.asc).restHeal));
       applyMods(p, { heal: amount });
       return { ok: true, amount };
     }
@@ -258,10 +307,12 @@
       if (fx.hpPct) { const n = Math.round(p.maxHp * fx.hpPct); applyMods(p, { heal: n }); lines.push(`체력 ${n} 회복`); }
       if (fx.relic) {
         const items = D.ITEMS.filter(it => it.type === 'relic' && it.rarity === fx.relic && itemOk(run, it) && !p.relics.includes(it.id));
+        if (!items.length && fx.relic === 'legendary') items.push(...D.ITEMS.filter(it => it.type === 'relic' && it.rarity === 'rare' && itemOk(run, it) && !p.relics.includes(it.id)));
         if (items.length) { const it = pick(items, rng); applyReward(run, { item: it }); lines.push(`유물 「${it.name}」 획득`); }
       }
       if (fx.card) {
-        const pool = D.CLASS_MAP[run.classId].pool.filter(id => D.CARDS[id].rarity === fx.card);
+        let pool = D.CLASS_MAP[run.classId].pool.filter(id => D.CARDS[id].rarity === fx.card && cardOk(run, id));
+        if (!pool.length) pool = D.CLASS_MAP[run.classId].pool.filter(id => cardOk(run, id));
         if (pool.length) { const id = pick(pool, rng); p.deck.push(makeCard(id)); out.newCard = id; lines.push(`카드 「${D.CARDS[id].name}」 획득 — 덱의 카드 1장과 교체`); }
       }
       if (fx.potion) { const r = addPotion(run, fx.potion); lines.push(r.stored ? `물약 「${D.ITEMS.find(it => it.id === fx.potion).name}」 획득` : '물약 벨트가 가득 차 바로 마셨습니다'); }
@@ -340,6 +391,9 @@
     const p = run.player;
     p.status = freshStatus();
     p.drawPile = []; p.hand = []; p.discard = [];
+    run.unlocked = run.unlocked || unlockedIds(null);
+    run.asc = run.asc || 0;
+    p.hemorrhage = !!D.CLASS_MAP[run.classId].trait.hemorrhage;
     const maxUid = Math.max(0, ...p.deck.map(c => c.uid));
     if (maxUid >= uidSeq) uidSeq = maxUid + 1;
     return run;
@@ -372,9 +426,13 @@
     e.name = def.name;
     e.icon = def.icon;
     e.desc = def.desc;
-    e.maxHp = e.hp = Math.round(def.hp * B.enemyHpMul[kind] * (1 + B.hpPerFloor * (f - 1)));
+    const A = ascMods(run.asc);
+    e.maxHp = e.hp = Math.round(def.hp * B.enemyHpMul[kind] * (1 + B.hpPerFloor * (f - 1)) * (1 + A.enemyHp + (kind !== 'normal' ? A.bossHp : 0)));
     e.slots = Math.min(3, def.slots + (kind === 'normal' && f >= B.extraSlotFloor ? 1 : 0));
-    e.basePower = B.enemyPower[kind] + Math.floor((f - 1) / B.powerEveryFloors);
+    e.basePower = B.enemyPower[kind] + Math.floor((f - 1) / B.powerEveryFloors) + A.enemyPower;
+    e.energy += A.enemyEnergy;
+    e.diceMax += A.enemyDiceMax;
+    e.sigEvery = A.sigEvery;
     if (def.res) e.res = { slash: def.res[0], pierce: def.res[1], blunt: def.res[2] };
     e.deck = def.deck.map(makeCard);
     e.signature = def.signature ? makeSigCard(def.signature) : null;
@@ -411,7 +469,7 @@
     return b;
   }
 
-  function isSigTurn(b, turn) { return !!b.enemy.signature && turn % 3 === 0; }
+  function isSigTurn(b, turn) { return !!b.enemy.signature && turn % (b.enemy.sigEvery || 3) === 0; }
 
   function startTurn(b, rng) {
     b.turn++;
@@ -421,7 +479,7 @@
     });
     b.enemyPlan = enemyChoose(b, rng);
     if (isSigTurn(b, b.turn)) b.enemyPlan.unshift(b.enemy.signature);
-    b.rows = Math.max(b.player.slots, b.enemyPlan.length);
+    b.rows = Math.max(b.player.hand.length, b.enemyPlan.length);
     b.plan = new Array(b.rows).fill(null);
   }
 
@@ -493,7 +551,6 @@
     if (!c) return { ok: false, msg: '손패에 없는 카드입니다.' };
     const existing = b.plan.indexOf(uid);
     if (existing >= 0) { b.plan[existing] = null; return { ok: true, removed: true }; }
-    if (planCount(b) >= p.slots) return { ok: false, msg: `카드는 턴당 최대 ${p.slots}장까지 쓸 수 있습니다.` };
     if (planCost(b) + cardDef(c).cost > p.energy) return { ok: false, msg: '코스트가 부족합니다.' };
     const target = (row != null && b.plan[row] == null) ? row : b.plan.indexOf(null);
     if (target < 0) return { ok: false, msg: '빈 슬롯이 없습니다.' };
@@ -614,6 +671,16 @@
       c.status[key] += n;
       push({ t: 'status', side: sideOf(c), key: key.replace('Next', ''), amount: n, next: key.endsWith('Next') });
     }
+    // 출혈 부여. 방랑검사가 건 출혈이 6 이상 쌓이면 과다출혈로 바뀐다
+    function addBleed(from, c, n) {
+      addStatus(c, 'bleed', n);
+      if (from.hemorrhage && c.status.bleed >= 6) {
+        const moved = c.status.bleed;
+        c.status.bleed = 0;
+        c.status.hemo += moved;
+        push({ t: 'status', side: sideOf(c), key: 'hemo', amount: moved, converted: true });
+      }
+    }
 
     // 전투 시작 효과
     [[p, pCards], [e, b.enemyPlan]].forEach(([c, cards]) => {
@@ -646,12 +713,20 @@
         stop: dead,
         roll: (side, d, phase) => {
           const X = ctxOf(side);
-          // 출혈: 공격 주사위로 공격할 때마다 피해
-          if (phase === 'attack' && X.owner.status.bleed > 0 && X.owner.hp > 0) {
-            const bl = X.owner.status.bleed;
-            damage(X.owner, bl);
-            X.owner.status.bleed = bl - Math.ceil(bl / 3);
-            push({ t: 'proc', side: sideOf(X.owner), key: 'bleed', amount: bl });
+          const o = X.owner;
+          // 출혈: 합이든 공격이든 공격 주사위를 굴릴 때마다 피해, 수치 1/3 감소
+          if (d.atk && o.status.bleed > 0 && o.hp > 0) {
+            const bl = o.status.bleed;
+            damage(o, bl);
+            o.status.bleed = bl - Math.ceil(bl / 3);
+            push({ t: 'proc', side: sideOf(o), key: 'bleed', amount: bl });
+          }
+          // 과다출혈: 어떤 주사위든 굴릴 때마다 피해, 수치 1/4 감소
+          if (o.status.hemo > 0 && o.hp > 0) {
+            const h = o.status.hemo;
+            damage(o, h);
+            o.status.hemo = h - Math.ceil(h / 4);
+            push({ t: 'proc', side: sideOf(o), key: 'hemo', amount: h });
           }
           return randInt(d.min, d.max, rng);
         },
@@ -666,11 +741,42 @@
           damage(tgt, dmg);
           push({ t: 'hit', side: sideOf(X.owner), die: d.t, value, dmg, res: tgt.res[D.TYPE_OF[d.t]] || 1 });
           const fx = X.fx;
-          if (fx.bleed) addStatus(tgt, 'bleed', fx.bleed);
+          // 강타: 주사위 값의 1/n 고정 피해 (내성·보호·피해 감소 무시)
+          if (fx.smash && tgt.hp > 0) {
+            const extra = Math.max(1, Math.floor(value / fx.smash));
+            damage(tgt, extra);
+            push({ t: 'proc', side: sideOf(tgt), key: 'smash', amount: extra });
+          }
+          // 파열: 피격마다 수치만큼 피해, 1/3 감소
+          if (tgt.status.rupture > 0 && tgt.hp > 0) {
+            const r = tgt.status.rupture;
+            damage(tgt, r);
+            tgt.status.rupture = r - Math.ceil(r / 3);
+            push({ t: 'proc', side: sideOf(tgt), key: 'rupture', amount: r });
+          }
+          // 속성: 같은 속성이 이미 걸려 있으면 효과 발동, 다르면 새 속성으로
+          if (fx.element && tgt.hp > 0) {
+            const em = tgt.status.element;
+            if (em && em.type === fx.element) {
+              em.n++;
+              const n = em.n;
+              push({ t: 'element', side: sideOf(tgt), type: fx.element, n });
+              const per = D.ELEMENTS[fx.element].per;
+              if (fx.element === 'fire') addStatus(tgt, 'burn', per * n);
+              else if (fx.element === 'ice') addStatus(tgt, 'weakNext', per * n);
+              else if (fx.element === 'lightning') { damage(tgt, per * n); push({ t: 'proc', side: sideOf(tgt), key: 'lightning', amount: per * n }); }
+              else if (fx.element === 'holy') heal(X.owner, per * n);
+            } else {
+              tgt.status.element = { type: fx.element, n: 1 };
+              push({ t: 'status', side: sideOf(tgt), key: 'element', amount: 1, element: fx.element });
+            }
+          }
+          if (fx.bleed) addBleed(X.owner, tgt, fx.bleed);
           if (fx.burn) addStatus(tgt, 'burn', fx.burn);
+          if (fx.rupture) addStatus(tgt, 'rupture', fx.rupture);
           if (!X.hit) {
             X.hit = true;
-            if (X.owner.firstHitBleed) addStatus(tgt, 'bleed', X.owner.firstHitBleed);
+            if (X.owner.firstHitBleed) addBleed(X.owner, tgt, X.owner.firstHitBleed);
             if (X.owner.firstHitBurn) addStatus(tgt, 'burn', X.owner.firstHitBurn);
             if (fx.weak) addStatus(tgt, 'weakNext', fx.weak);
             if (fx.fragile) addStatus(tgt, 'fragileNext', fx.fragile);
@@ -719,11 +825,13 @@
     run.gold += gold;
     if (p.winHeal) applyMods(p, { heal: p.winHeal });
     const boss = b.kind === 'boss';
+    let won = false;
     if (boss) {
       run.bossKills++;
       applyMods(p, { heal: Math.round(p.maxHp * D.BALANCE.bossHealPct) });
+      if (run.floor >= D.WIN_FLOOR && !run.won) { run.won = true; won = true; }
     }
-    return { boss, gold };
+    return { boss, gold, won };
   }
 
   // ───────── 보상 / 아이템 ─────────
@@ -734,7 +842,9 @@
     return Object.keys(weights)[0];
   }
 
-  const itemOk = (run, it) => !it.cond || it.cond(run.player);
+  const itemOk = (run, it) => (!it.cond || it.cond(run.player)) && isUnlocked(run.unlocked, 'item', it.id)
+    && (it.type !== 'relic' || isUnlocked(run.unlocked, 'relics', it.rarity));
+  const cardOk = (run, id) => isUnlocked(run.unlocked, 'cards', D.CARDS[id].rarity);
 
   // 희귀도에 맞는 아이템 하나 (카드 아이템이면 직업 카드도 정한다). 이미 뽑힌 것은 제외.
   function rollItem(run, rarity, taken, rng) {
@@ -743,7 +853,7 @@
     const item = pick(items, rng);
     const opt = { item };
     if (item.type === 'card') {
-      const pool = D.CLASS_MAP[run.classId].pool.filter(id => D.CARDS[id].rarity === rarity && !taken.some(o => o.cardId === id));
+      const pool = D.CLASS_MAP[run.classId].pool.filter(id => D.CARDS[id].rarity === rarity && cardOk(run, id) && !taken.some(o => o.cardId === id));
       if (!pool.length) return null;
       opt.cardId = pick(pool, rng);
     }
@@ -751,7 +861,9 @@
   }
 
   function rollRewards(run, kind, rng) {
-    const weights = D.RARITY_WEIGHTS[kind] || D.RARITY_WEIGHTS.normal;
+    const base = D.RARITY_WEIGHTS[kind] || D.RARITY_WEIGHTS.normal;
+    const weights = Object.assign({}, base);
+    if (ascMods(run.asc).legendaryHalf) weights.legendary = base.legendary / 2;
     const out = [];
     let tries = 0;
     while (out.length < 3 && tries++ < 200) {
@@ -785,13 +897,15 @@
   // 상단: 최하급 고정 3개 (여러 번 구매 가능) / 하단: 일반~전설 무작위 5개 (각 1회)
   function rollShop(run, rng) {
     const S = D.SHOP;
-    const fixed = S.fixed.map(id => ({ item: D.ITEMS.find(i => i.id === id), price: S.price.basic, fixed: true }));
+    const mul = 1 + ascMods(run.asc).shopPrice;
+    const price = r => Math.round(S.price[r] * mul);
+    const fixed = S.fixed.map(id => ({ item: D.ITEMS.find(i => i.id === id), price: price('basic'), fixed: true }));
     const random = [];
     const weights = S.weights(run.floor);
     let tries = 0;
     while (random.length < S.randomCount && tries++ < 300) {
       const opt = rollItem(run, weighted(weights, rng), random, rng);
-      if (opt) random.push(Object.assign(opt, { price: S.price[opt.item.rarity], sold: false }));
+      if (opt) random.push(Object.assign(opt, { price: price(opt.item.rarity), sold: false }));
     }
     return { fixed, random };
   }
@@ -827,6 +941,7 @@
     rollRewards, needsCardTarget, applyReward, rollShop, buy, regionChoices, chooseRegion, applyMods, isSigTurn,
     makeMap, mapChoices, enterNode, currentNode, finishNode, startRegion, rest, rollTreasure,
     rollEvent, canChoose, applyEventChoice, swapEventCard, upgradeCard, addPotion, usePotion, serializeRun, loadRun,
+    freshMeta, unlockedIds, isUnlocked, ascensionOf, ascMods, lightPoints, recordBossKill, recordRun,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

@@ -84,7 +84,7 @@
 
       // ── 바벨: 꽃잎 같은 여덟 받침, 동그란 홀(던전 입구), 위로 가늘어지는 흰 탑 ──
       const coreR = 12, lobeOff = 12, TOP = G + 124;
-      const R = y => y < G + 26 ? coreR : Math.max(5.2, coreR - (y - G - 26) * 0.069);
+      const R = y => y < G + 26 ? coreR : Math.max(4.2, coreR - 2 - (y - G - 26) * 0.058);
       const lobeR = y => y <= G + 18 ? 7.4 : 7.4 * Math.sqrt(Math.max(0, 1 - ((y - G - 18) / 8) ** 2));
       const lobes = [...Array(8)].map((_, k) => [BX + Math.cos(k * Math.PI / 4) * lobeOff, BZ + Math.sin(k * Math.PI / 4) * lobeOff, k * Math.PI / 4]);
       const HALL = 9, CEIL = G + 12;                         // 홀 반지름과 천장 높이
@@ -225,7 +225,7 @@
         name: '길드 본부 판테온', hint: '길드 본부의 색유리 창이 빛나며 의뢰서가 바람에 흩날려요', hit: [GX0 + 2, G + 1, GZ1 - 1, GX1 - 2, G + 20, GZ1 + 1],
         run: async a => { a.flash('guild', 6, 4); a.glow(1.6, 4); for (let k = 0; k < 8; k++) { a.burst([(GX0 + GX1) / 2 + 0.5, G + 4, GZ1 + 1.5], { n: 14, colors: ['#f4f0e8', '#e8e0c8', '#ffffff'], speed: 3, up: 3, life: 2.2, gravity: 1, spread: 2, flat: true }); await a.wait(0.3); } },
       });
-      landmarks.push({ name: '길드 본부', note: '판테온 · 도시 북서쪽', p: [(GX0 + GX1) / 2, G + 42, (GZ0 + GZ1) / 2] });
+      landmarks.push({ name: '길드 본부', note: '판테온 · 북서쪽 큰길', p: [(GX0 + GX1) / 2, G + 42, (GZ0 + GZ1) / 2] });
 
       // ── 광장 가장자리 감자튀김 노점 ──
       const SX = Math.round(BX + Math.cos(Math.PI * 0.75) * 44), SZ = Math.round(BZ + Math.sin(Math.PI * 0.75) * 44);
@@ -242,9 +242,9 @@
       // ── 이정표: 큰길마다 다른 장소로 이동 ──
       const go = [
         [Math.PI, 'mistress', '서쪽 큰길 · 풍요의 여주인', '서쪽 큰길을 따라 술집 「풍요의 여주인」으로 가요'],
-        [-Math.PI / 4, 'loki', '북동쪽 · 황혼의 저택', '북동쪽 구역에 있는 로키 파밀리아의 홈 「황혼의 저택」으로 가요'],
-        [Math.PI * 0.75, 'freya', '남서쪽 · 전쟁의 들판', '로키 홈과 도시 반대편, 상업 지구 한가운데쯤 있는 프레이야 파밀리아의 홈 「전쟁의 들판」으로 가요'],
-        [Math.PI / 4, 'hestia', '화덕의 저택', '헤스티아 파밀리아의 홈 「화덕의 저택」으로 가요'],
+        [-Math.PI / 2, 'loki', '북쪽 큰길 · 황혼의 저택', '북쪽 큰길 끝 로키 파밀리아의 홈 「황혼의 저택」으로 가요'],
+        [Math.PI / 2, 'freya', '남쪽 큰길 · 전쟁의 들판', '남쪽 큰길 끝, 로키 홈과 정반대편에 있는 프레이야 파밀리아의 홈 「전쟁의 들판」으로 가요'],
+        [Math.PI * 0.75, 'hestia', '남서쪽 · 화덕의 저택', '남서쪽 구역 헤스티아 파밀리아의 홈 「화덕의 저택」으로 가요'],
       ];
       for (const [a, id, name, hint] of go) {
         const ca = Math.cos(a), sa = Math.sin(a), r = PR - 4, s = SW + 1.5;

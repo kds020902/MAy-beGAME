@@ -1,12 +1,12 @@
-// 로키 파밀리아 홈 — 황혼의 저택: 좁은 땅에 높은 둥근 탑 여럿이 서로 기대어 선 하얀 저택, 가운데 가장 높은 탑, 계단식 박공 날개와 발코니, 앞뜰 훈련장 (오라리오 북동쪽 구역)
+// 로키 파밀리아 홈 — 황혼의 저택: 좁은 땅에 높은 둥근 탑 여럿이 서로 기대어 선 하얀 저택, 가운데 가장 높은 탑, 계단식 박공 날개와 발코니, 앞뜰 훈련장 (오라리오 북쪽 큰길 끝)
 (function () {
   'use strict';
   const { hash3 } = VX;
   const W = 192, D = 192, Hh = 176, TAU = Math.PI * 2;
   MAPS.push({
     id: 'loki', cat: 'orario', name: '로키 파밀리아 홈', en: 'Loki Familia · Twilight Manor', color: '#c86a4a', seed: 1104, base: 30, time: 'day', size: [W, D, Hh],
-    desc: '오라리오 북동쪽 구역, 프레이야 파밀리아 홈과 도시 반대편에 선 「황혼의 저택」. 좁은 땅에 높은 탑 여러 개가 서로 기대어 받치듯 솟아 있고, 가운데 탑이 가장 높다. 하얀 돌벽에 붉은 고깔지붕, 앞뜰에는 단원들이 땀 흘리는 훈련장이 있다.',
-    info: { title: '장소 정보', en: 'ORARIO', rows: [['자리', '도시 북동쪽 구역'], ['생김새', '서로 기댄 둥근 탑들 · 가운데 탑이 가장 높음'], ['문장', '익살스럽게 웃는 광대 얼굴']] },
+    desc: '북쪽 큰길 끝, 프레이야 파밀리아 홈과 도시 정반대편에 선 「황혼의 저택」. 좁은 땅에 높은 탑 여러 개가 서로 기대어 받치듯 솟아 있고, 가운데 탑이 가장 높다. 하늘빛이 도는 하얀 돌벽에 가늘고 뾰족한 고깔지붕, 앞뜰에는 단원들이 땀 흘리는 훈련장이 있다.',
+    info: { title: '장소 정보', en: 'ORARIO', rows: [['자리', '북쪽 큰길 끝 · 도시 북쪽'], ['생김새', '서로 기댄 둥근 탑들 · 가운데 탑이 가장 높음'], ['문장', '익살스럽게 웃는 광대 얼굴']] },
     sky: ['#f4dcc0', '#7a90c0', '#ffe8c8'], stars: false,
     hemi: ['#fff4e4', '#5a5040', 0.62], sun: ['#ffeed8', 0.8, [0.45, 1, 0.6]],
     night: { sky: ['#3a2e4a', '#0a0a1a', '#e89a68'], stars: true, hemi: ['#c8b8d0', '#1c1814', 0.46], sun: ['#e0d8ff', 0.34, [0.45, 1, 0.6]], haze: '#2e2a38' },
@@ -18,11 +18,11 @@
       { n: 60, colors: ['#ffd8a0', '#fff0d0'], mode: 'rise', speed: 0.25, area: [96, 66, 8], y0: 130, y1: 170, glow: true },
     ],
     blocks: Object.assign(OR.blocks(), {
-      lw: { c: '#ece6da', v: 0.04, pat: 'big' }, lw2: { c: '#dcd4c4', v: 0.04 }, lBase: { c: '#c4baa6', v: 0.05, pat: 'stone' }, lTrim: { c: '#faf6ee', v: 0.02 },
-      lRoof: { c: '#a8503a', v: 0.05, pat: 'tile' }, lRoofDk: { c: '#7a3a2a', v: 0.04 }, lFloor: { c: '#b8ae9a', top: '#cec4b0', v: 0.04, pat: 'check', alt: '#c4baa6' },
+      lw: { c: '#e6eae6', v: 0.04, pat: 'big' }, lw2: { c: '#d2d8d4', v: 0.04 }, lBase: { c: '#bcc2bc', v: 0.05, pat: 'stone' }, lTrim: { c: '#f6f8f4', v: 0.02 },
+      lRoof: { c: '#b88a70', v: 0.05, pat: 'tile' }, lRoofDk: { c: '#8e6a58', v: 0.04 }, lRoofW: { c: '#d8dcd8', v: 0.04, pat: 'tile' }, winD: { c: '#4e5c6a', v: 0.03 }, lFloor: { c: '#b8ae9a', top: '#cec4b0', v: 0.04, pat: 'check', alt: '#c4baa6' },
       sand: { c: '#c8b088', top: '#d8c09a', v: 0.08 }, hay: { c: '#d8b860', v: 0.08 }, wood: { c: '#7a5a3a', v: 0.05, pat: 'plank' },
       beacon: { c: '#ffd890', glow: true }, torch: { c: '#ff9a3a', glow: true }, rune: { c: '#6ae8a8', glow: true }, runeD: { c: '#3a8a6a', v: 0.04 },
-      flagR: { c: '#b8382e', v: 0.03 }, flagO: { c: '#e8783a', v: 0.03 }, jest: { c: '#1e1a20', v: 0.02 },
+      flagW: { c: '#f4f2ec', v: 0.02 }, jest: { c: '#1e1a20', v: 0.02 },
       canvas: { c: '#efe6d0', v: 0.03 }, wheel: { c: '#3e2c22', v: 0.04 }, crate: { c: '#9a7448', v: 0.05, pat: 'plank' }, glassL: { c: '#ffe0a8', night: true, day: '#7a8a9a' },
       wine: { c: '#8a1e3a', v: 0.04 },
     }),
@@ -60,7 +60,7 @@
               b = B.lw;
               if (y <= G + 3) b = B.lBase;
               else if (fy === 0) b = B.lTrim;
-              else if (winCol && fy >= 2 && fy <= 4 && y < top - 3 && y > (o.winFrom || G + 4)) b = B.win;
+              else if (winCol && fy >= 2 && fy <= 4 && y < top - 3 && y > (o.winFrom || G + 4)) b = hash3(cx + dx, (y - G - 1) / 7 | 0, cz + dz) > 0.55 ? B.win : B.winD;
             }
             w.set(cx + dx, y, cz + dz, b);
           }
@@ -68,7 +68,7 @@
         w.ring(cx, cz, top - 1, r - 0.5, r + 1, B.lTrim);                                      // 내쌓기 띠
         w.ring(cx, cz, top, r - 0.5, r + 1, B.lw);
         let peak = top;
-        if (roofH) peak = LB.spire(w, cx, cz, top + 1, r + 1.6, roofH, B.lRoof, { curve: 0.9, band: B.lRoofDk, bandGap: 5, tip: B.gold });
+        if (roofH) peak = LB.spire(w, cx, cz, top + 1, r + 1, Math.round(roofH * 1.45), o.white ? B.lRoofW : B.lRoof, { curve: 1, band: o.white ? B.lTrim : B.lRoofDk, bandGap: 6, tip: B.gold });
         towers.push({ cx, cz, r, top, peak });
         return peak;
       };
@@ -81,7 +81,7 @@
           const fy = (y - G - 1) % 7, u = (x === x0 || x === x1) ? z : x;
           let b = y <= G + 3 ? B.lBase : B.lw;
           if (fy === 0 && y > G + 1) b = B.lTrim;
-          else if (fy >= 2 && fy <= 4 && y < top - 1 && y > G + 3 && u % 5 >= 1 && u % 5 <= 2) b = B.win;
+          else if (fy >= 2 && fy <= 4 && y < top - 1 && y > G + 3 && u % 5 >= 1 && u % 5 <= 2) b = hash3(u / 5 | 0, (y - G - 1) / 7 | 0, x + z) > 0.55 ? B.win : B.winD;
           if (y === top) b = B.lTrim;
           w.set(x, y, z, b);
         }
@@ -103,28 +103,28 @@
       wing(58, 134, 86, 100, G + 22, 'x');
       // 탑들: 서로 겹쳐 기대듯 모여 선다(가운데가 가장 높다)
       rtower(96, 42, 6, G + 80, 16);
-      rtower(60, 46, 4.5, G + 50, 12); rtower(132, 44, 4.5, G + 48, 12);
+      rtower(60, 46, 4.5, G + 50, 12, { white: true }); rtower(132, 44, 4.5, G + 48, 12);
       rtower(76, 60, 7, G + 70, 18, { rot: 0.3 }); rtower(116, 60, 7, G + 74, 18, { rot: 0.1 });
-      rtower(64, 74, 5, G + 44, 13); rtower(128, 72, 5, G + 46, 13);
+      rtower(64, 74, 5, G + 44, 13, { white: true }); rtower(128, 72, 5, G + 46, 13);
       rtower(82, 80, 6, G + 56, 15, { rot: 0.2 }); rtower(110, 80, 6, G + 52, 15);
-      rtower(56, 100, 3.5, G + 30, 9); rtower(136, 100, 3.5, G + 30, 9);
+      rtower(56, 100, 3.5, G + 30, 9, { white: true }); rtower(136, 100, 3.5, G + 30, 9);
       // 가운데 탑: 가장 높고, 꼭대기에 아치 전망대와 톱니 난간, 그 위 작은 탑과 고깔지붕
-      const CX = 96, CZ = 66, CT = G + 90;
+      const CX = 96, CZ = 66, CT = G + 106;
       rtower(CX, CZ, 10, CT, 0, { nw: 12 });
-      const BY = CT + 1;                                                                   // 전망대 바닥
-      for (let y = BY; y <= BY + 9; y++) for (let dz = -11; dz <= 11; dz++) for (let dx = -11; dx <= 11; dx++) {
+      const BY = CT + 1;                                                                   // 전망대 바닥: 아래보다 조금 좁은 원통
+      for (let y = BY; y <= BY + 11; y++) for (let dz = -9; dz <= 9; dz++) for (let dx = -9; dx <= 9; dx++) {
         const d = Math.hypot(dx, dz);
-        if (d > 10.3 || d < 9.2) continue;
-        const f = ((Math.atan2(dz, dx) / TAU * 8) % 1 + 1) % 1, u = (f - 0.5) * (10 * TAU / 8);
-        const open = LB.inArch(Math.round(u), y - BY, 1.6, 5, 'round');
-        w.set(CX + dx, y, CZ + dz, open ? 0 : (y === BY + 9 ? B.lTrim : B.lw));
+        if (d > 8.4 || d < 7.3) continue;
+        const f = ((Math.atan2(dz, dx) / TAU * 12) % 1 + 1) % 1, u = (f - 0.5) * (8 * TAU / 12);
+        const open = LB.inArch(Math.round(u), y - BY - 1, 1.1, 7, 'round');
+        w.set(CX + dx, y, CZ + dz, open ? 0 : (y === BY + 11 ? B.lTrim : B.lw));
       }
-      w.ring(CX, CZ, BY + 10, 9, 11.4, B.lTrim);
-      for (let dz = -12; dz <= 12; dz++) for (let dx = -12; dx <= 12; dx++) { const d = Math.hypot(dx, dz); if (d <= 11.4 && d > 10.2 && ((Math.round(Math.atan2(dz, dx) / TAU * 32) + 32) % 2 === 0)) w.box(CX + dx, BY + 11, CZ + dz, CX + dx, BY + 12, CZ + dz, B.lw); }
+      w.cyl(CX, CZ, BY, BY, 8.4, B.lFloor);
+      w.ring(CX, CZ, BY + 12, 7, 9.4, B.lTrim);
+      for (let dz = -10; dz <= 10; dz++) for (let dx = -10; dx <= 10; dx++) { const d = Math.hypot(dx, dz); if (d <= 9.4 && d > 8.3 && ((Math.round(Math.atan2(dz, dx) / TAU * 28) + 28) % 2 === 0)) w.box(CX + dx, BY + 13, CZ + dz, CX + dx, BY + 14, CZ + dz, B.lw); }
       w.cyl(CX, CZ, BY + 1, BY + 1, 1.6, B.lBase); w.cyl(CX, CZ, BY + 2, BY + 3, 1, B.beacon);   // 전망대 가운데 등불
-      w.cyl(CX, CZ, BY + 4, BY + 10, 1.2, B.lw);
-      rtower(CX, CZ, 5, BY + 22, 14, { nw: 6, winFrom: BY + 13, y0: BY + 11 });
-      const CTOP = towers[towers.length - 1].peak;
+      w.cyl(CX, CZ, BY + 4, BY + 12, 1.2, B.lw);
+      const CTOP = BY + 13;
       lights.push({ name: 'beacon', p: [CX + 0.5, BY + 3, CZ + 0.5], c: '#ffd890', i: 0.7, d: 40, flicker: 0.15, srcR: 3 });
       landmarks.push({ name: '황혼의 저택', note: '로키 파밀리아 홈 · 가운데 탑', p: [CX + 0.5, CTOP + 14, CZ + 0.5], boss: true });
       // 탑과 탑을 잇는 구름다리
@@ -134,25 +134,25 @@
       }
 
       // 깃발(부품): 가운데 탑 꼭대기, 붉은 바탕에 웃는 광대 얼굴
-      w.box(CX, CTOP, CZ, CX, CTOP + 10, CZ, B.iron);
-      const flag = w.prop({ name: 'flag', pivot: [CX + 0.5, CTOP + 10, CZ + 0.5], rock: 0.14, rockSpeed: 1.3 });
-      for (let x = CX + 1; x <= CX + 10; x++) for (let y = CTOP + 4; y <= CTOP + 10; y++) {
-        const u = x - CX - 5.5, v = y - CTOP - 7;
-        let b = (x + y) % 5 === 0 ? B.flagO : B.flagR;
-        if (Math.hypot(u, v * 1.2) < 2.8) b = B.flagO;
-        if ((Math.abs(u - 1.2) < 0.6 || Math.abs(u + 1.2) < 0.6) && v > 0.4 && v < 1.6) b = B.jest;
-        if (v < -0.4 && v > -1.6 && Math.abs(u) < 2 && Math.abs(v + 1 + Math.abs(u) * 0.35) < 0.6) b = B.jest;
-        flag.set(x, y, CZ, b);
+      w.box(CX, CTOP, CZ, CX, CTOP + 11, CZ, B.iron);
+      const flag = w.prop({ name: 'flag', pivot: [CX + 0.5, CTOP + 11, CZ + 0.5], rock: 0.14, rockSpeed: 1.3 });
+      // 광대: 방울 셋 달린 모자, 흰 얼굴에 웃는 입, 마름모 몸, 다리
+      const jester = ['.#...#...#..', '.##..#..##..', '..#######...', '...#...#....', '..#.....#...', '...#####....', '.....#......', '....###.....', '...#.#.#....', '....#.#.....'];
+      for (let x = CX + 1; x <= CX + 13; x++) for (let y = CTOP + 2; y <= CTOP + 11; y++) {
+        const u = x - CX - 1, v = CTOP + 11 - y;
+        if (u >= 11 && (v === 3 || v === 6)) continue;                                    // 갈라진 깃발 끝
+        const ch = (jester[v] || '')[u - 1];
+        flag.set(x, y, CZ, ch === '#' ? B.jest : B.flagW);
       }
       acts.push({
-        name: '광대 얼굴 깃발', hint: '가운데 탑 꼭대기에서 웃는 광대 얼굴의 로키 파밀리아 깃발이 펄럭여요', hit: [CX, CTOP + 3, CZ - 1, CX + 10, CTOP + 11, CZ + 1],
-        run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.6, 0], 0.35); await a.turn('flag', [0, -0.5, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([CX + 5.5, CTOP + 7, CZ + 0.5], { n: 24, colors: ['#e8783a', '#ffd890', '#b8382e'], speed: 1.6, up: 2, life: 1.4, gravity: -0.3, spread: 1.6 }); },
+        name: '광대 깃발', hint: '가운데 탑 꼭대기에서 흰 바탕에 검은 광대가 그려진 로키 파밀리아 깃발이 펄럭여요', hit: [CX, CTOP + 2, CZ - 1, CX + 13, CTOP + 12, CZ + 1],
+        run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.6, 0], 0.35); await a.turn('flag', [0, -0.5, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([CX + 6.5, CTOP + 6, CZ + 0.5], { n: 24, colors: ['#ffffff', '#ffd890', '#1e1a20'], speed: 1.6, up: 2, life: 1.4, gravity: -0.3, spread: 1.6 }); },
       });
       acts.push({
-        name: '황혼의 등불', hint: '가운데 탑 아치 전망대에 등불이 켜지며 노을빛이 저택 위로 번져요', hit: [CX - 10, BY, CZ - 10, CX + 10, BY + 12, CZ + 10],
+        name: '황혼의 등불', hint: '가운데 탑 아치 전망대에 등불이 켜지며 노을빛이 저택 위로 번져요', hit: [CX - 9, BY, CZ - 9, CX + 9, BY + 14, CZ + 9],
         run: async a => {
           a.flash('beacon', 6, 4); a.glow(1.6, 4);
-          for (let k = 0; k < 16; k++) { const t = k / 16 * TAU; a.burst([CX + 0.5 + Math.cos(t) * 12, BY + 4, CZ + 0.5 + Math.sin(t) * 10], { n: 10, colors: ['#ffd890', '#ff9a5a', '#fff0d0'], speed: 2.4, up: 1, life: 1.4, gravity: -0.2, spread: 0.8 }); await a.wait(0.15); }
+          for (let k = 0; k < 16; k++) { const t = k / 16 * TAU; a.burst([CX + 0.5 + Math.cos(t) * 10, BY + 5, CZ + 0.5 + Math.sin(t) * 10], { n: 10, colors: ['#ffd890', '#ff9a5a', '#fff0d0'], speed: 2.4, up: 1, life: 1.4, gravity: -0.2, spread: 0.8 }); await a.wait(0.15); }
         },
       });
       // 풍향계(부품): 뒤 탑 꼭대기
@@ -286,7 +286,7 @@
       });
       // 이정표: 골목가에서 남쪽 중앙 광장(바벨)으로
       const sp = OR.signpost(w, B, 114, EZ1 + 3, { dir: [1, 0], boards: 1 });
-      acts.push(OR.goAct({ at: sp, name: '중앙 광장 · 바벨로', goto: 'babel', hint: '북동쪽 큰길을 따라 남서쪽으로 내려가면 오라리오 한가운데 중앙 광장과 바벨이 나와요' }));
+      acts.push(OR.goAct({ at: sp, name: '중앙 광장 · 바벨로', goto: 'babel', hint: '북쪽 큰길을 따라 남쪽으로 내려가면 오라리오 한가운데 중앙 광장과 바벨이 나와요' }));
 
       // ── 담장 밖 시가지와 가로등 ──
       const placed = [[EX0 - 2, EZ0 - 2, EX1 + 2, EZ1 + 3]];

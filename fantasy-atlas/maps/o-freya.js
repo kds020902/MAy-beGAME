@@ -5,8 +5,8 @@
   const W = 192, D = 192, Hh = 128, TAU = Math.PI * 2;
   MAPS.push({
     id: 'freya', cat: 'orario', name: '프레이야 파밀리아 홈', en: 'Freya Familia · Folkvangr', color: '#e88aa8', seed: 1105, base: 30, time: 'day', size: [W, D, Hh],
-    desc: '로키 파밀리아 홈과 도시 반대편, 상업 지구 한가운데쯤 자리한 「전쟁의 들판(폴크방)」. 네 면의 큰 성벽 안에 신전처럼 엄숙한 큰 저택이 서 있고, 단원 모두가 모일 만큼 넓은 정원에서는 해 뜰 때부터 해 질 때까지 단원끼리 겨루는 난전 「세례」가 벌어진다.',
-    info: { title: '장소 정보', en: 'ORARIO', rows: [['이름', '폴크방(전쟁의 들판)'], ['큰 저택', '신전 같은 엄숙한 저택 · 연회의 큰 홀'], ['정원', '해 뜰 때부터 해 질 때까지 벌이는 난전 「세례」']] },
+    desc: '도시 남쪽 제5구획, 남쪽 큰길 끝에 자리한 「전쟁의 들판(폴크방)」. 북쪽 끝 로키 파밀리아 홈과 정반대편이다. 네 면의 큰 성벽 안에 신전처럼 엄숙한 큰 저택이 서 있고, 단원 모두가 모일 만큼 넓은 정원에서는 해 뜰 때부터 해 질 때까지 단원끼리 겨루는 난전 「세례」가 벌어진다.',
+    info: { title: '장소 정보', en: 'ORARIO', rows: [['자리', '남쪽 큰길 끝 · 도시 제5구획'], ['큰 저택', '신전 같은 엄숙한 저택 · 연회의 큰 홀'], ['정원', '해 뜰 때부터 해 질 때까지 벌이는 난전 「세례」']] },
     sky: ['#f8e0e4', '#8a9ad0', '#fff0e8'], stars: false,
     hemi: ['#fff6f0', '#5a5048', 0.62], sun: ['#fff2e8', 0.8, [0.45, 1, 0.6]],
     night: { sky: ['#3a2a48', '#0a0818', '#e890a8'], stars: true, hemi: ['#d0c0d8', '#1c1618', 0.46], sun: ['#e8e0ff', 0.36, [0.45, 1, 0.6]], haze: '#302838' },
@@ -23,7 +23,7 @@
       wallF: { c: '#cfc6b4', v: 0.05, pat: 'big' }, wallF2: { c: '#b4aa96', v: 0.05, pat: 'stone' },
       urnB: { c: '#e8e2d4', v: 0.03 }, dirt: { c: '#8a7458', top: '#a08868', v: 0.1 }, scorch: { c: '#4a4038', top: '#5a4e44', v: 0.08 },
       divine: { c: '#f4ecff', glow: true }, candle: { c: '#ffd890', glow: true }, carpet: { c: '#a8203a', v: 0.03 }, cloth: { c: '#f4f0f0', v: 0.02 }, tableW: { c: '#6a4a30', v: 0.04, pat: 'plank' },
-      food: { c: '#d89040', v: 0.08 }, fruit: { c: '#c83a4a', v: 0.08 }, silverB: { c: '#d8dce8', v: 0.03 }, flagP: { c: '#e88aa8', v: 0.03 }, flagS: { c: '#f4f2f8', v: 0.02 },
+      food: { c: '#d89040', v: 0.08 }, fruit: { c: '#c83a4a', v: 0.08 }, silverB: { c: '#d8dce8', v: 0.03 }, flagS: { c: '#f4f2f8', v: 0.02 }, ink: { c: '#1e1a20', v: 0.02 },
     }),
     build(w) {
       const B = w.id, G = w.base;
@@ -50,11 +50,11 @@
       };
       const urn = (x, z, y, top) => {
         w.box(x - 1, y, z - 1, x + 1, y, z + 1, B.mTrim); w.set(x, y + 1, z, B.marb2);
-        w.ellipsoid(x, y + 3, z, 1.7, 1.6, 1.7, B.urnB); w.ring(x, z, y + 3, 1, 1.8, B.gold);
-        w.ring(x, z, y + 5, 0.6, 1.6, B.marb); w.set(x, y + 5, z, B.soil);
-        if (top !== false) { w.set(x, y + 6, z, B.rose); w.set(x - 1, y + 6, z, B.hedge); w.set(x + 1, y + 6, z, B.roseP); w.set(x, y + 6, z + 1, B.hedge); w.set(x, y + 6, z - 1, B.rose); w.set(x, y + 7, z, B.roseP); }
+        w.cyl(x, z, y + 2, y + 2, 1.2, B.urnB); w.cyl(x, z, y + 3, y + 3, 1.9, B.urnB); w.cyl(x, z, y + 4, y + 4, 2.5, B.urnB);
+        for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const d = Math.hypot(dx, dz); if (d > 1.4 && d <= 1.95 && (dx + dz) % 2 === 0) w.set(x + dx, y + 3, z + dz, B.rose); }
+        w.ring(x, z, y + 5, 1.6, 2.7, B.mTrim); w.cyl(x, z, y + 5, y + 5, 1.6, B.soil);
+        if (top !== false) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { w.set(x + dx, y + 6, z + dz, hash3(x + dx, y, z + dz) > 0.5 ? B.rose : (hash3(x + dx, y + 1, z + dz) > 0.5 ? B.roseP : B.hedge)); if (!dx && !dz) w.set(x, y + 7, z, B.roseP); }
       };
-
       // ── 기단과 큰 계단 ──
       w.box(24, G + 1, 20, 168, P, 70, B.marb2);
       for (let x = 24; x <= 168; x++) { w.set(x, P, 70, B.mTrim); w.set(x, P, 20, B.mTrim); }
@@ -62,6 +62,7 @@
       for (let k = 0; k < 5; k++) w.box(76, G + 1, 71 + 2 * k, 116, G + 4 - k, 72 + 2 * k, k % 2 ? B.marb : B.mTrim);
       for (let k = 0; k < 10; k++) for (const x of [75, 117]) w.box(x, G + 1, 71 + k, x, G + 6 - Math.floor(k / 2), 71 + k, B.marb);
       urn(75, 71, P + 2); urn(117, 71, P + 2); urn(75, 81, G + 2); urn(117, 81, G + 2);
+      for (const x of [82, 110]) { col(x, 85, G + 1, G + 22); w.sphere(x, G + 25, 85, 2.2, B.marb); w.cyl(x, 85, G + 23, G + 23, 1.2, B.mTrim); }
       for (let x = 28; x <= 164; x += 8) if (x < 72 || x > 120) urn(x, 68, P + 1);
 
       // ── 큰 저택: 큰 홀(내부), 이중 줄 기둥 현관, 옆 기둥, 박공 페디먼트와 돔(부품: 연회 때 들어 올린다) ──
@@ -243,12 +244,13 @@
         run: async a => { await Promise.all([a.turn('gateL', [0, 1.4, 0], 2), a.turn('gateR', [0, -1.4, 0], 2)]); await a.wait(1.8); await Promise.all([a.turn('gateL', [0, 0, 0], 1.6), a.turn('gateR', [0, 0, 0], 1.6)]); },
       });
       // 깃발(부품): 문루 서쪽 탑 위, 분홍 바탕에 은빛 장미
-      w.box(82, G + 20, WZ1 - 1, 82, G + 30, WZ1 - 1, B.iron);
-      const flag = w.prop({ name: 'flag', pivot: [82.5, G + 30, WZ1 - 0.5], rock: 0.12, rockSpeed: 1.2 });
-      for (let x = 83; x <= 91; x++) for (let y = G + 24; y <= G + 30; y++) { const u = x - 87, v = y - G - 27; flag.set(x, y, WZ1 - 1, Math.hypot(u, v) < 1.3 ? B.flagS : (Math.hypot(u, v) < 2.4 && (u + v) % 2 === 0 ? B.flagS : B.flagP)); }
+      w.box(82, G + 20, WZ1 - 1, 82, G + 32, WZ1 - 1, B.iron);
+      const flag = w.prop({ name: 'flag', pivot: [82.5, G + 31, WZ1 - 0.5], rock: 0.12, rockSpeed: 1.2 });
+      const crest = ['.##......##.', '..##....##..', '...######...', '..#......#..', '.#...##...#.', '.#..###...#.', '.#...#....#.', '..#......#..', '...######...', '..##.##.##..'];   // 둥근 테두리, 위 날개 한 쌍, 가운데 투구 날개, 아래 날개
+      for (let x = 83; x <= 94; x++) for (let y = G + 22; y <= G + 31; y++) { const ch = (crest[G + 31 - y] || '')[x - 83]; flag.set(x, y, WZ1 - 1, ch === '#' ? B.ink : B.flagS); }
       acts.push({
-        name: '파밀리아 깃발', hint: '문루 탑 위 분홍빛 깃발이 바람에 크게 나부껴요', hit: [82, G + 23, WZ1 - 2, 91, G + 31, WZ1],
-        run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.55, 0], 0.35); await a.turn('flag', [0, -0.45, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([87.5, G + 27, WZ1 - 0.5], { n: 22, colors: ['#e88aa8', '#ffffff', '#f4f2f8'], speed: 1.4, up: 2, life: 1.4, gravity: -0.2, spread: 1.4 }); },
+        name: '파밀리아 깃발', hint: '문루 탑 위, 날개 달린 둥근 문장이 그려진 흰 깃발이 바람에 크게 나부껴요', hit: [82, G + 22, WZ1 - 2, 94, G + 32, WZ1],
+        run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.55, 0], 0.35); await a.turn('flag', [0, -0.45, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([88.5, G + 27, WZ1 - 0.5], { n: 22, colors: ['#ffffff', '#f07890', '#f4f2f8'], speed: 1.4, up: 2, life: 1.4, gravity: -0.2, spread: 1.4 }); },
       });
       // 문 밖 마석등과 이정표
       const lp1 = OR.lamp(w, B, 80, WZ1 + 5, 5), lp2 = OR.lamp(w, B, 112, WZ1 + 5, 5);

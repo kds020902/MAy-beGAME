@@ -23,7 +23,7 @@
       wallF: { c: '#cfc6b4', v: 0.05, pat: 'big' }, wallF2: { c: '#b4aa96', v: 0.05, pat: 'stone' },
       urnB: { c: '#e8e2d4', v: 0.03 }, dirt: { c: '#8a7458', top: '#a08868', v: 0.1 }, scorch: { c: '#4a4038', top: '#5a4e44', v: 0.08 },
       divine: { c: '#f4ecff', glow: true }, candle: { c: '#ffd890', glow: true }, carpet: { c: '#a8203a', v: 0.03 }, cloth: { c: '#f4f0f0', v: 0.02 }, tableW: { c: '#6a4a30', v: 0.04, pat: 'plank' },
-      food: { c: '#d89040', v: 0.08 }, fruit: { c: '#c83a4a', v: 0.08 }, silverB: { c: '#d8dce8', v: 0.03 }, flagS: { c: '#f4f2f8', v: 0.02 }, ink: { c: '#1e1a20', v: 0.02 },
+      food: { c: '#d89040', v: 0.08 }, fruit: { c: '#c83a4a', v: 0.08 }, silverB: { c: '#d8dce8', v: 0.03 },
     }),
     build(w) {
       const B = w.id, G = w.base;
@@ -242,15 +242,6 @@
       acts.push({
         name: '폴크방 정문', hint: '문루 아래 커다란 정문이 안쪽으로 천천히 열려요', hit: [88, G + 1, WZ1 - 2, 104, G + 11, WZ1],
         run: async a => { await Promise.all([a.turn('gateL', [0, 1.4, 0], 2), a.turn('gateR', [0, -1.4, 0], 2)]); await a.wait(1.8); await Promise.all([a.turn('gateL', [0, 0, 0], 1.6), a.turn('gateR', [0, 0, 0], 1.6)]); },
-      });
-      // 깃발(부품): 문루 서쪽 탑 위, 분홍 바탕에 은빛 장미
-      w.box(82, G + 20, WZ1 - 1, 82, G + 32, WZ1 - 1, B.iron);
-      const flag = w.prop({ name: 'flag', pivot: [82.5, G + 31, WZ1 - 0.5], rock: 0.12, rockSpeed: 1.2 });
-      const crest = ['.##......##.', '..##....##..', '...######...', '..#......#..', '.#...##...#.', '.#..###...#.', '.#...#....#.', '..#......#..', '...######...', '..##.##.##..'];   // 둥근 테두리, 위 날개 한 쌍, 가운데 투구 날개, 아래 날개
-      for (let x = 83; x <= 94; x++) for (let y = G + 22; y <= G + 31; y++) { const ch = (crest[G + 31 - y] || '')[x - 83]; flag.set(x, y, WZ1 - 1, ch === '#' ? B.ink : B.flagS); }
-      acts.push({
-        name: '파밀리아 깃발', hint: '문루 탑 위, 날개 달린 둥근 문장이 그려진 흰 깃발이 바람에 크게 나부껴요', hit: [82, G + 22, WZ1 - 2, 94, G + 32, WZ1],
-        run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.55, 0], 0.35); await a.turn('flag', [0, -0.45, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([88.5, G + 27, WZ1 - 0.5], { n: 22, colors: ['#ffffff', '#f07890', '#f4f2f8'], speed: 1.4, up: 2, life: 1.4, gravity: -0.2, spread: 1.4 }); },
       });
       // 문 밖 마석등과 이정표
       const lp1 = OR.lamp(w, B, 80, WZ1 + 5, 5), lp2 = OR.lamp(w, B, 112, WZ1 + 5, 5);

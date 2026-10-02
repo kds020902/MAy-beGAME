@@ -23,7 +23,6 @@
       chStone: { c: '#c8c4b8', v: 0.06, pat: 'stone' }, chStone2: { c: '#a8a49a', v: 0.06, pat: 'brick' }, chRoof: { c: '#7a3a44', v: 0.05, pat: 'tile' }, ivy: { c: '#4a7a3a', v: 0.1 }, ruin: { c: '#b8b0a0', v: 0.06, pat: 'big' },
       plank: { c: '#7a5a3a', top: '#9a7448', v: 0.05, pat: 'plank' }, sofa: { c: '#a83a3a', v: 0.04 }, bed: { c: '#ece4d4', v: 0.02 }, bookR: { c: '#8a3a3a', v: 0.04 }, bookB: { c: '#3a4a8a', v: 0.04 }, lampW: { c: '#ffd890', glow: true },
       anvil: { c: '#3a3a40', v: 0.03 }, forge: { c: '#ff8a3a', glow: true }, cedar: { c: '#b07a4a', v: 0.05, pat: 'plank' }, cedarDk: { c: '#8a5a34', v: 0.05 },
-      flagW: { c: '#f4f0e6', v: 0.02 }, fireO: { c: '#ff7a2a', glow: true }, bell: { c: '#d8b048', v: 0.04 },
     }),
     build(w) {
       const B = w.id, n = w.noise, G = w.base;
@@ -106,17 +105,6 @@
       acts.push({
         name: '화덕의 불', hint: '저택 안 화덕에 불이 지펴지며 창마다 따뜻한 불빛이 번져요', hit: [CX - 2, G + 1, DZ, CX + 2, G + 5, DZ + 3],
         run: async a => { a.flash('hearth', 6, 4); a.glow(1.4, 4); for (let k = 0; k < 10; k++) { const x = MX0 + 4 + k * 8; a.burst([x + 0.5, G + 4 + (k % 3) * FH, MZ1 + 3.5], { n: 12, colors: ['#ffb860', '#ffe0a0', '#ff7a2a'], speed: 0.8, up: 2, life: 1.2, gravity: -0.3, spread: 0.8 }); await a.wait(0.2); } },
-      });
-      // 파밀리아 깃발(부품): 불꽃과 종
-      w.box(CX, TOPM + 6, DZ - 2, CX, TOPM + 16, DZ - 2, B.iron);
-      const flag = w.prop({ name: 'flag', pivot: [CX + 0.5, TOPM + 15, DZ - 1.5], rock: 0.12, rockSpeed: 1.4 });
-      for (let x = CX + 1; x <= CX + 8; x++) for (let y = TOPM + 10; y <= TOPM + 15; y++) {
-        const u = x - CX - 4.5, v = y - TOPM - 12.5;
-        flag.set(x, y, DZ - 2, Math.hypot(u * 0.8, v + 0.5) < 1.3 ? B.bell : (Math.abs(u) < 1.6 - (v + 2.5) * 0.3 && v > -0.5 && v < 2.5 ? B.fireO : B.flagW));
-      }
-      acts.push({
-        name: '파밀리아 깃발', hint: '불꽃과 종이 그려진 헤스티아 파밀리아 깃발이 힘차게 나부껴요', hit: [CX, TOPM + 9, DZ - 3, CX + 8, TOPM + 16, DZ - 1],
-        run: async a => { a.glow(1.5, 3); for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.55, 0], 0.35); await a.turn('flag', [0, -0.45, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([CX + 4.5, TOPM + 12.5, DZ - 1.5], { n: 24, colors: ['#ff7a2a', '#ffe9a0', '#d8b048'], speed: 1.4, up: 2, life: 1.4, gravity: -0.3, spread: 1.4 }); },
       });
 
       // ── 앞정원: 가운데 길, 둥근 분수와 반달 꽃밭, 생울타리와 나무, 흰 철책과 철문 ──

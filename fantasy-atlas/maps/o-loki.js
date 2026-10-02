@@ -22,8 +22,7 @@
       lRoof: { c: '#b88a70', v: 0.05, pat: 'tile' }, lRoofDk: { c: '#8e6a58', v: 0.04 }, lRoofW: { c: '#d8dcd8', v: 0.04, pat: 'tile' }, lw3: { c: '#d8ccb4', v: 0.05, pat: 'stone' }, winD: { c: '#4e5c6a', v: 0.03 }, lFloor: { c: '#b8ae9a', top: '#cec4b0', v: 0.04, pat: 'check', alt: '#c4baa6' },
       sand: { c: '#c8b088', top: '#d8c09a', v: 0.08 }, hay: { c: '#d8b860', v: 0.08 }, wood: { c: '#7a5a3a', v: 0.05, pat: 'plank' },
       beacon: { c: '#ffd890', glow: true }, torch: { c: '#ff9a3a', glow: true }, rune: { c: '#6ae8a8', glow: true }, runeD: { c: '#3a8a6a', v: 0.04 },
-      flagW: { c: '#f4f2ec', v: 0.02 }, jest: { c: '#1e1a20', v: 0.02 },
-      canvas: { c: '#efe6d0', v: 0.03 }, wheel: { c: '#3e2c22', v: 0.04 }, crate: { c: '#9a7448', v: 0.05, pat: 'plank' }, glassL: { c: '#ffe0a8', night: true, day: '#7a8a9a' },
+            canvas: { c: '#efe6d0', v: 0.03 }, wheel: { c: '#3e2c22', v: 0.04 }, crate: { c: '#9a7448', v: 0.05, pat: 'plank' }, glassL: { c: '#ffe0a8', night: true, day: '#7a8a9a' },
       wine: { c: '#8a1e3a', v: 0.04 },
     }),
     build(w) {
@@ -193,21 +192,6 @@
       lights.push({ name: 'beacon', p: [CX + 0.5, BY + 3, CZ + 0.5], c: '#ffd890', i: 0.7, d: 40, flicker: 0.15, srcR: 3 });
       landmarks.push({ name: '황혼의 저택', note: '로키 파밀리아 홈 · 가장 높은 탑', p: [CX + 0.5, CTOP + 16, CZ + 0.5], boss: true });
 
-      // 깃발(부품): 가장 높은 탑 꼭대기, 흰 바탕에 검은 광대
-      w.box(CX, CTOP, CZ, CX, CTOP + 11, CZ, B.iron);
-      const flag = w.prop({ name: 'flag', pivot: [CX + 0.5, CTOP + 11, CZ + 0.5], rock: 0.14, rockSpeed: 1.3 });
-      // 광대: 방울 셋 달린 모자, 흰 얼굴에 웃는 입, 마름모 몸, 다리
-      const jester = ['.#...#...#..', '.##..#..##..', '..#######...', '...#...#....', '..#.....#...', '...#####....', '.....#......', '....###.....', '...#.#.#....', '....#.#.....'];
-      for (let x = CX + 1; x <= CX + 13; x++) for (let y = CTOP + 2; y <= CTOP + 11; y++) {
-        const u = x - CX - 1, v = CTOP + 11 - y;
-        if (u >= 11 && (v === 3 || v === 6)) continue;                                    // 갈라진 깃발 끝
-        const ch = (jester[v] || '')[u - 1];
-        flag.set(x, y, CZ, ch === '#' ? B.jest : B.flagW);
-      }
-      acts.push({
-        name: '광대 깃발', hint: '가장 높은 탑 꼭대기에서 흰 바탕에 검은 광대가 그려진 로키 파밀리아 깃발이 펄럭여요', hit: [CX, CTOP + 2, CZ - 1, CX + 13, CTOP + 12, CZ + 1],
-        run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.6, 0], 0.35); await a.turn('flag', [0, -0.5, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([CX + 6.5, CTOP + 6, CZ + 0.5], { n: 24, colors: ['#ffffff', '#ffd890', '#1e1a20'], speed: 1.6, up: 2, life: 1.4, gravity: -0.3, spread: 1.6 }); },
-      });
       acts.push({
         name: '황혼의 등불', hint: '가장 높은 탑의 아치 전망대에 등불이 켜지며 노을빛이 저택 위로 번져요', hit: [CX - 8, BY, CZ - 8, CX + 8, BY + 14, CZ + 8],
         run: async a => {
@@ -308,7 +292,7 @@
       const WX = 96, WZ0 = 110, WZ1 = 118;
       const wag = w.prop({ name: 'wagon', pivot: [WX + 0.5, G + 1, (WZ0 + WZ1 + 1) / 2] });
       wag.box(WX - 2, G + 2, WZ0, WX + 2, G + 3, WZ1, B.crate);
-      for (let z = WZ0 + 1; z <= WZ1 - 1; z++) for (let dx = -3; dx <= 3; dx++) { const y = G + 4 + Math.round(Math.sqrt(Math.max(0, 9 - dx * dx)) * 0.9); wag.set(WX + dx, y, z, z % 3 === 0 ? B.flagR : B.canvas); if (Math.abs(dx) === 3) wag.box(WX + dx, G + 4, z, WX + dx, y, z, B.canvas); }
+      for (let z = WZ0 + 1; z <= WZ1 - 1; z++) for (let dx = -3; dx <= 3; dx++) { const y = G + 4 + Math.round(Math.sqrt(Math.max(0, 9 - dx * dx)) * 0.9); wag.set(WX + dx, y, z, z % 3 === 0 ? B.cloth : B.canvas); if (Math.abs(dx) === 3) wag.box(WX + dx, G + 4, z, WX + dx, y, z, B.canvas); }
       for (const z of [WZ0 + 1, WZ1 - 1]) for (const x of [WX - 3, WX + 3]) wag.box(x, G + 1, z - 1, x, G + 3, z + 1, B.wheel);
       wag.box(WX, G + 2, WZ1 + 1, WX, G + 2, WZ1 + 4, B.wood); wag.box(WX - 1, G + 3, WZ0 + 1, WX + 1, G + 4, WZ0 + 2, B.crate);
       acts.push({

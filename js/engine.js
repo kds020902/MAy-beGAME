@@ -541,7 +541,7 @@
     const dice = cardDice(c).map(d => {
       const atk = isAtk(d.t);
       const bonus = owner.basePower + first + (d.t === 'S' ? owner.slashPower : 0) +
-        (atk ? st.might + buff.might - st.weak : st.endure + buff.endure + (owner.guardPower || 0));
+        (atk ? st.might + buff.might - st.weak + (owner.atkPower || 0) : st.endure + buff.endure + (owner.guardPower || 0));
       const min = Math.max(0, d.min + owner.diceMin + bonus);
       const max = Math.max(min, d.max + owner.diceMax + bonus);
       return { t: d.t, atk, min, max };
@@ -903,7 +903,9 @@
 
   // 희귀도에 맞는 아이템 하나 (카드 아이템이면 직업 카드도 정한다). 이미 뽑힌 것은 제외.
   function rollItem(run, rarity, taken, rng) {
-    const items = D.ITEMS.filter(it => it.rarity === rarity && itemOk(run, it) && !taken.some(o => o.item.id === it.id));
+    // 이미 가진 유물은 다시 나오지 않는다
+    const items = D.ITEMS.filter(it => it.rarity === rarity && itemOk(run, it) && !taken.some(o => o.item.id === it.id)
+      && !(it.type === 'relic' && run.player.relics.includes(it.id)));
     if (!items.length) return null;
     const item = pick(items, rng);
     const opt = { item };

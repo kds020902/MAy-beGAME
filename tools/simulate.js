@@ -2,7 +2,7 @@
 /*
  * 밸런스 확인용 자동 플레이 시뮬레이터.
  * 게임의 '자동 배치'와 같은 방식으로 여러 판을 플레이하고 직업별 도달 층을 출력한다.
- *   node tools/simulate.js [직업당 판 수] [승천 단계]
+ *   node tools/simulate.js [직업당 판 수] [승천 단계] [시작 유물 id]
  */
 'use strict';
 const D = require('../js/data.js');
@@ -12,6 +12,7 @@ const RUNS = Number(process.argv[2]) || 300;
 const rng = Math.random;
 const MAX_FLOOR = 40;
 const ASC = Number(process.argv[3]) || 0; // 승천 단계
+const RELIC = process.argv[4] || null;   // 시작 시 쥐고 출발할 유물 id (유물 밸런스 평가용)
 const ALL_UNLOCKED = G.unlockedIds({ bossKills: 99, wins: 99, maxFloor: 99, runs: 99, ascension: {} });
 
 function randomPassives(classId) {
@@ -138,6 +139,7 @@ function battle(run) {
 function playRun(classId) {
   const run = G.createRun(classId, randomPassives(classId), { asc: ASC, unlocked: ALL_UNLOCKED, ascReached: ASC });
   if (G.hasAscReward(run, 'legacy')) G.applyReward(run, G.startRelicChoices(run, rng)[0]);
+  if (RELIC) G.applyReward(run, { item: D.ITEMS.find(i => i.id === RELIC) });
   G.startRegion(run, rng);
   while (run.floor <= MAX_FLOOR) {
     const c = pickNode(run);

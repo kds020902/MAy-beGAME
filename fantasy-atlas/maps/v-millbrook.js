@@ -1,0 +1,201 @@
+// 물레방아 마을 — 두 언덕 사이 강 계곡, 보와 물레방앗간, 언덕 위 풍차 (128칸)
+(function () {
+  'use strict';
+  const { W, D, hash3 } = VX;
+  MAPS.push({
+    id: 'millbrook', cat: 'village', name: '물레방아 마을', en: 'Millbrook', color: '#8fc46a', seed: 101, base: 22, time: 'day',
+    desc: '강물이 물레방아를 돌리는 평화로운 마을. 장날이면 이웃 마을 사람들까지 밀가루를 사러 온다.',
+    info: { title: '마을 정보', en: 'VILLAGE', rows: [['주민', '농부와 방앗간지기 120여 명'], ['특산물', '고운 밀가루 · 사과주'], ['소문', '강 상류에서 물의 정령을 봤다는 이야기']] },
+    sky: ['#d6eef8', '#5c9ad6', '#fff4d2'], stars: false,
+    hemi: ['#ffffff', '#5a6a40', 0.54], sun: ['#fff2d8', 0.74, [0.5, 1, 0.4]],
+    liquid: ['#2a6a9a', '#4a9ad0', '#e0f6ff'], liqSpeed: 1,
+    fog: { start: 0.78, floor: 12, depth: 10 },
+    particles: [
+      { n: 90, colors: ['#ffffff', '#fff4a0'], mode: 'drift', speed: 0.3, y0: 26, y1: 60, glow: false },
+      { n: 26, colors: ['#ffd0e8', '#fff080'], mode: 'wisp', speed: 1, size: 2, y0: 26, glow: false },
+    ],
+    blocks: {
+      grass: { c: '#6b4a30', top: '#6fae4a', v: 0.08 }, grass2: { c: '#6b4a30', top: '#86bc52', v: 0.08 }, grass3: { c: '#6b4a30', top: '#5a9a40', v: 0.08 },
+      dirt: { c: '#6b4a30', v: 0.08 }, rock: { c: '#7a7a80', v: 0.06, pat: 'stone' }, rockDk: { c: '#5a5a62', v: 0.06, pat: 'stone' },
+      path: { c: '#6b4a30', top: '#c8b48a', v: 0.1 }, cobble: { c: '#8a8680', top: '#a8a49a', v: 0.1, pat: 'stone' }, soil: { c: '#5a3a24', top: '#6a4428', v: 0.08 },
+      plaster: { c: '#efe4c8', v: 0.03 }, plaster2: { c: '#e8d8c0', v: 0.03 }, frame: { c: '#5a3a24', v: 0.05 }, thatch: { c: '#c8a050', v: 0.08, pat: 'tile' },
+      tile: { c: '#b04a3a', v: 0.06, pat: 'tile' }, tileDk: { c: '#7a3028', v: 0.05 }, found: { c: '#8a8a88', v: 0.06, pat: 'stone' },
+      door: { c: '#4a2e1c', v: 0.03, pat: 'plank' }, shutter: { c: '#3a6a4a', v: 0.03 }, shutter2: { c: '#8a3a2a', v: 0.03 },
+      win: { c: '#ffd890', night: true, day: '#9ad4f0' }, lamp: { c: '#ffe6a8', night: true, day: '#d8d0b0' },
+      wheat: { c: '#d8b84a', v: 0.1 }, cabbage: { c: '#5aa040', v: 0.1 }, lavender: { c: '#8a6ac8', v: 0.08 }, hay: { c: '#dcb456', v: 0.08 },
+      plank: { c: '#9a6a40', v: 0.08, pat: 'plank' }, wood: { c: '#6a4428', v: 0.05 }, bark: { c: '#5a3a24', v: 0.06 }, birch: { c: '#e8e4d8', v: 0.05 },
+      leaf: { c: '#4a8a3a', v: 0.1 }, leaf2: { c: '#6aaa48', v: 0.1 }, leafDk: { c: '#3a6a30', v: 0.08 }, apple: { c: '#d8403a', v: 0.05 },
+      hedge: { c: '#3e7a36', v: 0.1 }, flower: { c: '#e86a8a', v: 0.06 }, flower2: { c: '#f0e060', v: 0.06 }, flower3: { c: '#ffffff', v: 0.03 },
+      sail: { c: '#f0ead8', v: 0.03 }, iron: { c: '#4a4a52', v: 0.03 }, rope: { c: '#b8a080', v: 0.04 }, barnR: { c: '#a83a2a', v: 0.05, pat: 'plank' }, sign: { c: '#d8a83a', v: 0.04 },
+    },
+    build(w) {
+      const B = w.id, n = w.noise, base = w.base;
+      const rX = z => 66 + Math.sin(z * 0.05) * 7;
+      const UPL = base + 3, DNL = base, WEIR = 60;
+      MH.terrain(w, {
+        floor: 4,
+        height: (x, z) => {
+          const d = Math.abs(x - rX(z));
+          let hh = Math.pow(d, 1.1) * 0.1 + Math.max(0, 18 - MH.dist(x, z, 24, 56) * 0.5) + Math.max(0, 10 - MH.dist(x, z, 116, 24) * 0.4);
+          if (z < WEIR) hh += 2.5;
+          return base + hh + n.fbm(x * 0.04, z * 0.04) * 3;
+        },
+        surface: (x, z, y, s) => s >= 3 ? B.rock : (() => { const f = n.fbm(x * 0.11 + 7, z * 0.11, 2); return f > 0.6 ? B.grass2 : f < 0.38 ? B.grass3 : B.grass; })(),
+        under: (x, z, y, dep, s) => dep < 3 && s < 3 ? B.dirt : B.rock,
+      });
+      const lights = [], acts = [], landmarks = [];
+      const up = [], dn = [];
+      for (let z = -4; z <= WEIR; z += 4) up.push([rX(z), z]);
+      for (let z = WEIR; z <= 132; z += 4) dn.push([rX(z), z]);
+      MH.river(w, up, 5.2, UPL, B.rockDk, B.path);
+      MH.river(w, dn, 5.6, DNL, B.rockDk, B.path);
+      const wr = Math.round(rX(WEIR));
+      for (let x = wr - 7; x <= wr + 7; x++) { w.liquid(x, WEIR, -1); w.liquid(x, WEIR + 1, -1); for (let y = base - 5; y <= UPL; y++) { w.set(x, y, WEIR, B.rock); w.set(x, y, WEIR + 1, y < UPL ? B.rockDk : 0); } w.liquid(x, WEIR, UPL + 0); w.set(x, UPL, WEIR, 0); w.set(x, UPL - 1, WEIR, B.rock); }
+      const wet = (x, z) => x >= 0 && z >= 0 && x < W && z < D && w.liq[x + W * z] >= 0;
+
+      // ── 물레방앗간(동쪽 강변)과 물레방아 ──
+      const mz = 40, mrx = Math.round(rX(mz));
+      const millX = mrx + 9;
+      const my = MH.maxG(w, millX - 1, mz - 8, millX + 15, mz + 8) + 1;
+      MH.flatten(w, millX - 2, mz - 9, millX + 17, mz + 9, my - 1, B.cobble, B.rock);
+      const mm = { found: B.found, wall: B.plaster, frame: B.frame, quoin: B.found, win: B.win, shutter: B.shutter, sill: B.wood, door: B.door, roof: B.thatch, eave: B.tileDk, ridge: B.frame, chimney: B.found, lamp: B.lamp, flower: B.flower };
+      const mill = MH.houseX(w, { x: millX, z: mz - 7, sx: 14, sz: 13, floors: 2, fh: 6, face: 'e', studs: true, pitch: 1, dormers: 2, y: my - 1, m: mm });
+      lights.push({ p: [millX + 15, my + 4, mz], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
+      // 바퀴 구덩이를 파서 바퀴가 강바닥에 닿지 않게 한다
+      const wy = UPL + 3, WR = 8;
+      for (let z = mz - WR - 2; z <= mz + WR + 2; z++) for (let x = mrx + 2; x <= mrx + 8; x++) {
+        const lim = wy - Math.sqrt(Math.max(0, (WR + 2) * (WR + 2) - (z - mz) * (z - mz))) - 1;
+        if (MH.g(w, x, z) > lim) MH.setH(w, x, z, Math.floor(lim), B.rockDk, B.rockDk);
+        for (let y = Math.floor(lim) + 1; y <= UPL; y++) w.set(x, y, z, 0);
+        if (x <= mrx + 7) w.liquid(x, z, UPL); else { for (let y = Math.floor(lim); y <= my - 1; y++) w.set(x, y, z, B.found); w.hm[x + W * z] = my - 1; w.liquid(x, z, -1); }
+      }
+      w.box(mrx + 8, wy, mz, millX, wy, mz, B.wood);
+      const wheel = w.prop({ name: 'wheel', pivot: [mrx + 5, wy + 0.5, mz + 0.5], axis: 'x', speed: -0.7 });
+      for (let dy = -WR - 1; dy <= WR + 1; dy++) for (let dz = -WR - 1; dz <= WR + 1; dz++) {
+        const r = Math.hypot(dy, dz);
+        if (r > WR + 0.4) continue;
+        const rim = r > WR - 1.2, spoke = (dy === 0 || dz === 0 || Math.abs(dy) === Math.abs(dz)) && r > 1;
+        if (rim || spoke || r < 1.5) for (const x of [mrx + 4, mrx + 5, mrx + 6]) { if (spoke && !rim && x === mrx + 5) continue; wheel.set(x, wy + dy, mz + dz, r < 1.5 ? B.iron : rim ? B.plank : B.wood); }
+      }
+      for (let a = 0; a < 16; a++) { const ang = a / 16 * Math.PI * 2; for (const x of [mrx + 4, mrx + 5, mrx + 6]) wheel.set(x, wy + Math.round(Math.sin(ang) * (WR + 1)), mz + Math.round(Math.cos(ang) * (WR + 1)), B.wood); }
+      wheel.box(mrx + 3, wy, mz, mrx + 7, wy, mz, B.iron);
+      // 수문: 틀 사이의 문짝이 위로 올라간다
+      const gz = mz - 14, gy0 = base - 2;
+      for (const x of [mrx - 1, mrx + 7]) w.box(x, gy0, gz, x, UPL + 9, gz, B.wood);
+      w.box(mrx - 1, UPL + 9, gz, mrx + 7, UPL + 9, gz, B.wood); w.box(mrx - 1, UPL + 5, gz, mrx + 7, UPL + 5, gz + 0, 0);
+      for (const x of [mrx - 1, mrx + 7]) w.box(x, gy0, gz, x, UPL + 9, gz, B.wood);
+      const gate = w.prop({ name: 'sluice', pivot: [mrx + 3.5, UPL, gz + 0.5] });
+      for (let x = mrx; x <= mrx + 6; x++) for (let y = gy0; y <= UPL + 1; y++) if (!w.get(x, y, gz)) gate.set(x, y, gz, (x + y) % 4 === 0 ? B.iron : B.plank);
+      acts.push({
+        name: '방앗간 수문', hint: '수문이 올라가면 물레방아가 빨라져요', hit: [mrx - 1, UPL - 1, gz - 1, mrx + 7, UPL + 9, gz + 1],
+        run: async a => {
+          await a.move('sluice', [0, 6, 0], 1.4);
+          a.spin('wheel', 4, 4.5);
+          for (let k = 0; k < 7; k++) { a.burst([mrx + 5, UPL + 1, mz + 0.5], { n: 26, colors: ['#ffffff', '#d8f0ff', '#8ac8f0'], speed: 4, up: 4, life: 1, gravity: 9, spread: 4 }); await a.wait(0.6); }
+          await a.move('sluice', [0, 0, 0], 1.2);
+        },
+      });
+      landmarks.push({ name: '물레방앗간', note: '강물이 돌리는 큰 바퀴', p: [millX + 7, mill.peak + 7, mz], tag: 'MILL' });
+
+      // ── 아치 돌다리 ──
+      const bz = 88, brx = rX(bz), by = Math.max(MH.g(w, Math.round(brx - 12), bz), MH.g(w, Math.round(brx + 12), bz)) + 1;
+      MH.bridge(w, [brx - 12, bz], [brx + 12, bz], by, { width: 5, rise: 3, arch: true, archH: 6, m: { deck: B.cobble, parapet: B.rock, arch: B.rockDk, cap: B.found } });
+      landmarks.push({ name: '아치 돌다리', note: '마을과 밀밭을 잇는 다리', p: [brx, by + 10, bz + 0.5] });
+      // ── 마을: 동쪽 강변의 골목과 집 ──
+      const lane = [[brx + 13, bz + 1], [96, 86], [102, 70], [98, 52], [millX + 8, mz + 10]];
+      MH.path(w, lane, 2, B.cobble, B.path);
+      MH.path(w, [[brx - 13, bz], [40, 86], [26, 78], [24, 64]], 1.6, B.path);
+      const hm = k => ({ found: B.found, wall: k % 2 ? B.plaster2 : B.plaster, frame: B.frame, quoin: k % 3 === 0 ? B.found : null, win: B.win, shutter: k % 2 ? B.shutter : B.shutter2, sill: B.wood, flower: B.flower, door: B.door,
+        roof: k % 2 ? B.thatch : B.tile, eave: B.tileDk, ridge: B.frame, chimney: k % 2 ? B.found : null, lamp: B.lamp });
+      const houses = [[82, 96, 11, 9, 'n'], [104, 94, 10, 9, 'w'], [110, 76, 10, 11, 'w'], [84, 62, 11, 9, 'e'], [108, 56, 11, 9, 'w'], [86, 110, 10, 9, 'n'], [102, 110, 11, 9, 'n']];
+      const smokes = [];
+      houses.forEach(([x, z, sx, sz, face], k) => {
+        const h = MH.houseX(w, { x, z, sx, sz, floors: k % 3 === 0 ? 1 : 2, fh: 6, face, jetty: k % 2 === 1, studs: true, dormers: k % 3 === 1 ? 1 : 0, m: hm(k) });
+        if (h.chimney && smokes.length < 2) smokes.push(h.chimney);
+        if (k % 2 === 0) lights.push({ p: [h.door[0] + 0.5, h.door[1] + 3, h.door[2] + 0.5], c: '#ffd890', i: 0.8, d: 10, flicker: 0.1, night: true });
+      });
+      // 여관(삼층, 간판)
+      const inn = MH.houseX(w, { x: 88, z: 74, sx: 13, sz: 9, floors: 3, fh: 6, face: 's', jetty: true, studs: true, balcony: 2, dormers: 2, m: hm(1) });
+      w.box(94, inn.y + 5, 84, 94, inn.y + 5, 86, B.wood); w.box(94, inn.y + 3, 86, 94, inn.y + 4, 86, B.sign);
+      lights.push({ p: [inn.door[0] + 0.5, inn.door[1] + 3, inn.door[2] + 1.5], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
+      // 광장과 우물: 두레박과 밧줄은 부품
+      const SX = 98, SZ = 88, sg = MH.g(w, SX, SZ);
+      for (let z = SZ - 7; z <= SZ + 7; z++) for (let x = SX - 7; x <= SX + 7; x++) if (MH.dist(x, z, SX, SZ) < 7.5 && !w.get(x, MH.g(w, x, z) + 2, z)) MH.setH(w, x, z, sg, B.cobble, B.rock);
+      w.ring(SX, SZ, sg + 1, 1.6, 3, B.found); w.ring(SX, SZ, sg + 2, 1.6, 3, B.found);
+      w.cyl(SX, SZ, sg - 9, sg, 1.6, 0);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { w.set(SX + dx, sg - 10, SZ + dz, B.rockDk); w.hm[SX + dx + W * (SZ + dz)] = sg - 10; w.liquid(SX + dx, SZ + dz, sg - 8); }
+      for (const px of [SX - 3, SX + 3]) w.box(px, sg + 3, SZ, px, sg + 8, SZ, B.wood);
+      w.box(SX - 3, sg + 8, SZ, SX + 3, sg + 8, SZ, B.wood); w.box(SX - 1, sg + 8, SZ, SX + 1, sg + 8, SZ, B.iron);
+      MH.roof(w, SX - 4, SX + 4, SZ - 2, SZ + 2, sg + 9, { b: B.tile, eave: B.tileDk, axis: 'x' });
+      MH.rope(w, 'wrope', SX, sg + 7, SZ, 3, B.rope);
+      const bucket = w.prop({ name: 'bucket', pivot: [SX + 0.5, sg + 4, SZ + 0.5] });
+      bucket.box(SX - 1, sg + 3, SZ - 1, SX + 1, sg + 4, SZ + 1, B.wood); bucket.walls(SX - 1, sg + 4, SZ - 1, SX + 1, sg + 4, SZ + 1, B.iron); bucket.set(SX, sg + 4, SZ, B.water || B.wood);
+      acts.push({
+        name: '우물 두레박', hint: '밧줄이 풀리며 두레박이 물을 길어 와요', hit: [SX - 3, sg + 1, SZ - 3, SX + 3, sg + 9, SZ + 3],
+        run: async a => {
+          await Promise.all([a.move('bucket', [0, -10, 0], 1.8, t => t), a.rope('wrope', 3, 13, 1.8, t => t)]);
+          a.burst([SX + 0.5, sg - 6, SZ + 0.5], { n: 18, colors: ['#e0f6ff', '#8ac8f0'], speed: 2, up: 3, life: 0.8, gravity: 7, spread: 1 });
+          await a.wait(0.7);
+          await Promise.all([a.move('bucket', [0, 0, 0], 2.2, t => t), a.rope('wrope', 3, 3, 2.2, t => t)]);
+          a.burst([SX + 0.5, sg + 4.5, SZ + 0.5], { n: 22, colors: ['#e0f6ff', '#8ac8f0'], speed: 2.4, up: 1.5, life: 0.9, gravity: 7, spread: 1.4 });
+        },
+      });
+      MH.tree(w, SX + 6, sg + 1, SZ - 6, { kind: 'oak', h: 11, bark: B.bark, leaves: [B.leaf2, B.leaf, B.leafDk], r: 4.6, trunkR: 1.3 });
+      for (const [lx, lz] of [[SX - 6, SZ + 5], [SX + 5, SZ + 6]]) lights.push({ p: MH.lamp(w, lx, lz, { m: { post: B.iron, glow: B.lamp, found: B.found }, h: 6 }), c: '#ffe0a0', i: 1, d: 12, flicker: 0.05, night: true });
+      landmarks.push({ name: '우물 광장', note: '장날이면 노점이 선다', p: [SX + 0.5, sg + 16, SZ + 0.5] });
+
+      // ── 서쪽 언덕: 풍차 ──
+      const WX = 24, WZ = 56, wg = MH.g(w, WX, WZ) + 1;
+      MH.flatten(w, WX - 7, WZ - 7, WX + 7, WZ + 8, wg - 1, B.path, B.dirt);
+      // 풍차 터 둘레를 완만한 풀 언덕으로 메우고, 마을 길을 터까지 다시 잇는다
+      MH.skirt(w, WX - 7, WZ - 7, WX + 7, WZ + 8, wg - 1, { R: 10, rate: 0.95, noise: (x, z) => n.fbm(x * 0.2, z * 0.2 + 5, 2) * 1.6 - 0.4, surf: (x, z) => n.fbm(x * 0.11 + 7, z * 0.11, 2) > 0.6 ? B.grass2 : B.grass, fill: B.dirt });
+      MH.path(w, [[26, 78], [24, 64]], 1.6, B.path);
+      for (let y = wg; y < wg + 22; y++) w.cyl(WX, WZ, y, y, 5 - (y - wg) * 0.09, (y - wg) % 6 === 5 ? B.frame : B.plaster);
+      w.cyl(WX, WZ, wg, wg + 1, 5.6, B.found);
+      for (let y = wg + 4; y < wg + 20; y += 6) { w.box(WX + 4, y, WZ, WX + 4, y + 1, WZ, B.win); w.box(WX - 4, y, WZ, WX - 4, y + 1, WZ, B.win); w.box(WX, y, WZ - 4, WX, y + 1, WZ - 4, B.win); }
+      w.box(WX, wg, WZ + 5, WX, wg + 3, WZ + 5, B.door); w.set(WX - 1, wg + 3, WZ + 6, B.lamp);
+      lights.push({ p: [WX - 0.5, wg + 3, WZ + 6.5], c: '#ffd890', i: 0.8, d: 10, flicker: 0.1, night: true });
+      w.ring(WX, WZ, wg + 9, 4.2, 6.2, B.plank); for (let a = 0; a < 12; a++) w.set(Math.round(WX + Math.cos(a * 0.52) * 6), wg + 10, Math.round(WZ + Math.sin(a * 0.52) * 6), B.wood);
+      const cap = MH.cone(w, WX, WZ, wg + 22, 4.6, B.thatch, 0.42, B.tileDk);
+      const hy = wg + 19;
+      w.box(WX, hy, WZ + 3, WX, hy, WZ + 6, B.wood);
+      const blades = w.prop({ name: 'blades', pivot: [WX + 0.5, hy + 0.5, WZ + 7.5], axis: 'z', speed: 0.5 });
+      for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) for (let s = 1; s <= 14; s++) {
+        blades.set(WX + dx * s, hy + dy * s, WZ + 7, B.wood);
+        if (s >= 3) for (let q = 1; q <= 4; q++) blades.set(WX + dx * s - dy * q, hy + dy * s + dx * q, WZ + 7, (s % 3 === 0 || q === 4) ? B.wood : B.sail);
+      }
+      blades.box(WX - 1, hy - 1, WZ + 7, WX + 1, hy + 1, WZ + 7, B.iron); blades.set(WX, hy, WZ + 8, B.iron);
+      acts.push({
+        name: '풍차', hint: '바람을 받아 날개가 힘차게 돌아요', hit: [WX - 14, hy - 14, WZ + 6, WX + 14, hy + 14, WZ + 8],
+        run: async a => { a.spin('blades', 6, 4.5); for (let k = 0; k < 5; k++) { a.burst([WX + 0.5, hy, WZ + 8], { n: 14, colors: ['#fff4d0', '#e8d8a0'], speed: 11, up: 1, life: 1.2, gravity: 0, spread: 8, flat: true }); await a.wait(0.8); } },
+      });
+      landmarks.push({ name: '풍차 언덕', note: '밀밭을 내려다보는 풍차', p: [WX + 0.5, cap + 6, WZ + 0.5] });
+      // ── 조각보 밭, 산울타리, 붉은 헛간 ──
+      const crops = [B.wheat, B.cabbage, B.lavender, B.wheat];
+      const westPath = [[brx - 13, bz], [40, 86], [26, 78], [24, 64]];
+      for (let fz = 72; fz < 120; fz += 13) for (let fx = 6; fx < 50; fx += 15) {
+        const crop = crops[((fx / 15) + (fz / 13)) % 4 | 0];
+        for (let z = fz; z < fz + 10; z++) for (let x = fx; x < fx + 12; x++) {
+          const g = MH.g(w, x, z);
+          if (g < base || wet(x, z) || MH.polyDist(x, z, westPath) < 3) continue;
+          w.set(x, g, z, B.soil);
+          if ((z - fz) % 2 === 0) { w.set(x, g + 1, z, crop); if (crop === B.wheat && hash3(x, 2, z) > 0.5) w.set(x, g + 2, z, crop); }
+        }
+        for (let x = fx - 1; x <= fx + 12; x++) for (const z of [fz - 1, fz + 10]) { const g = MH.g(w, x, z); if (g > 0 && !w.get(x, g + 1, z) && MH.polyDist(x, z, westPath) > 3) { w.set(x, g + 1, z, B.hedge); if (hash3(x, 1, z) > 0.5) w.set(x, g + 2, z, B.hedge); } }
+      }
+      MH.house(w, { x: 38, z: 96, sx: 12, sz: 9, fh: 8, face: 'e', m: { found: B.found, wall: B.barnR, frame: B.sail, door: B.sail, roof: B.tile, eave: B.tileDk, ridge: B.sail } });
+      for (const [hx, hz] of [[34, 108], [36, 111], [52, 100]]) { const g = MH.g(w, hx, hz); w.box(hx, g + 1, hz, hx + 2, g + 2, hz + 1, B.hay); w.box(hx, g + 3, hz, hx + 1, g + 3, hz + 1, B.hay); }
+      // ── 숲, 과수, 들꽃 ──
+      for (let i = 0; i < 70; i++) {
+        const x = w.ri(2, 125), z = w.ri(2, 125), g = MH.g(w, x, z), gb = w.get(x, g, z);
+        if (g < base || wet(x, z) || w.get(x, g + 1, z) || gb === B.soil || gb === B.cobble || gb === B.path) continue;
+        if ((x > 76 && z > 46) || (x < 56 && z > 66) || MH.dist(x, z, WX, WZ) < 16 || MH.dist(x, z, millX + 7, mz) < 18 || Math.abs(x - rX(z)) < 8) continue;
+        if (z < 40) MH.tree(w, x, g + 1, z, { kind: 'pine', h: w.ri(13, 20), bark: B.bark, leaves: [B.leaf, B.leafDk, B.leafDk], r: 4 });
+        else MH.tree(w, x, g + 1, z, { kind: 'oak', h: w.ri(7, 10), bark: i % 4 === 0 ? B.birch : B.bark, barkDk: i % 4 === 0 ? B.frame : null, leaves: [B.leaf2, B.leaf, B.leafDk, i % 5 === 0 ? B.apple : null], r: w.r(3.2, 4.4) });
+      }
+      MH.scatter(w, 1600, (x, g, z, b) => { if ((b === B.grass || b === B.grass2 || b === B.grass3) && w.chance(0.18)) w.set(x, g + 1, z, w.chance(0.7) ? B.grass3 : w.pick([B.flower, B.flower2, B.flower3])); });
+      const smoke = smokes.concat(mill.chimney ? [mill.chimney] : []).map(c => ({ n: 30, colors: ['#e8e8e8', '#c8c8c8'], mode: 'rise', speed: 0.6, area: [c[0], c[2], 0.6], y0: c[1], y1: c[1] + 20, glow: false }));
+      return { lights, landmarks, acts, particles: smoke };
+    },
+  });
+})();

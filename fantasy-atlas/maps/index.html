@@ -1,0 +1,318 @@
+<title>Fate Five 지역 지도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nanum+Myeongjo:wght@400;700;800&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  /* 레이아웃: 화면 전체가 픽셀 디오라마, UI는 도트 테두리 패널로 네 모서리에 띄운다 */
+  :root {
+    color-scheme: dark;
+    --bg: #0b090d;
+    --panel: rgba(17, 13, 20, 0.9);
+    --panel-solid: #16111b;
+    --line: #3a2f40;
+    --line-hi: #5c4c63;
+    --text: #ece4d4;
+    --muted: #a1949f;
+    --gold: #d2ae67;
+    --boss: #e0474f;
+    --mid: #b565e0;
+    --region: #9aa0a6;
+    --act: #7ae0ff;
+    --font: 'Nanum Myeongjo', 'Noto Serif KR', 'AppleMyungjo', serif;
+    --deco: 'Cinzel', 'Nanum Myeongjo', serif;
+    --pixel: 'Silkscreen', 'Courier New', monospace;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; }
+  button { font: inherit; color: inherit; }
+  #app { position: relative; height: 100%; overflow: hidden; }
+
+  #stage { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; background: var(--bg); }
+  #stage.grab { cursor: grabbing; }
+  #view { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  /* 픽셀 패널 공통 */
+  .px-box {
+    background: var(--panel);
+    border: 2px solid var(--line);
+    box-shadow: 0 0 0 2px #000, 4px 4px 0 2px rgba(0, 0, 0, 0.55);
+  }
+  .px-btn {
+    background: var(--panel-solid);
+    border: 2px solid var(--line);
+    box-shadow: 0 0 0 2px #000;
+    padding: 6px 10px;
+    cursor: pointer;
+    min-height: 34px;
+    line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .px-btn:hover { border-color: var(--line-hi); }
+  .px-btn:active { transform: translate(1px, 1px); }
+  .px-btn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+  /* 제목 */
+  #title { position: absolute; top: 16px; left: 16px; max-width: min(430px, calc(100% - 32px)); pointer-events: none; display: grid; gap: 6px; }
+  .eyebrow { font-family: var(--pixel); font-size: 10px; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; }
+  #en { font-family: var(--deco); font-weight: 700; font-size: 13px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--region); }
+  #name {
+    margin: 0; font-weight: 800; font-size: 44px; line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance;
+    text-shadow: 3px 3px 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
+  }
+  #desc { margin: 2px 0 0; color: var(--text); opacity: 0.82; line-height: 1.6; max-width: 34ch; text-shadow: 1px 1px 0 #000; }
+
+  /* 오른쪽 정보 패널 */
+  #panel { position: absolute; top: 16px; right: 16px; width: 280px; max-height: calc(100% - 150px); overflow: auto; padding: 14px 14px 12px; display: grid; gap: 16px; }
+  #panel h2 { margin: 0 0 8px; display: flex; align-items: baseline; justify-content: space-between; font-size: 15px; font-weight: 800; }
+  #panel h2 small { font-family: var(--pixel); font-size: 9px; font-weight: 400; letter-spacing: 0.14em; color: var(--muted); }
+  #places, #mobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .place {
+    width: 100%; text-align: left; background: transparent; border: 2px solid transparent; padding: 7px 8px; cursor: pointer;
+    display: grid; gap: 3px; border-left-color: var(--line);
+  }
+  .place:hover { background: rgba(255, 255, 255, 0.04); border-left-color: var(--region); }
+  .place.on { border-color: var(--region); background: rgba(255, 255, 255, 0.05); }
+  .pn { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .pnote { font-size: 12px; color: var(--muted); }
+  .tag { font-family: var(--pixel); font-size: 9px; letter-spacing: 0.08em; padding: 2px 4px 1px; border: 1px solid currentColor; line-height: 1; }
+  .tag.boss { color: var(--boss); }
+  .tag.mid { color: var(--mid); }
+  .tag.key { color: var(--gold); }
+  #mobs li { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: baseline; font-size: 13px; }
+  .mk { font-size: 11px; color: var(--muted); }
+  .mk.mid { color: var(--mid); }
+  .mk.boss { color: var(--boss); }
+  .keys { font-size: 11px; color: var(--muted); line-height: 1.7; border-top: 2px solid var(--line); padding-top: 10px; }
+  .keys kbd { font-family: var(--pixel); font-size: 10px; border: 1px solid var(--line-hi); padding: 0 4px; color: var(--text); }
+
+  /* 지도 라벨 */
+  #pins { position: absolute; inset: 0; pointer-events: none; }
+  .pin { position: absolute; left: 0; top: 0; width: 0; height: 0; padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer; }
+  .pin .pl {
+    position: absolute; bottom: 12px; left: 0; transform: translateX(-50%); white-space: nowrap;
+    background: var(--panel-solid); border: 2px solid var(--line-hi); box-shadow: 0 0 0 2px #000, 2px 2px 0 2px rgba(0, 0, 0, 0.5);
+    padding: 4px 7px 3px; font-size: 12px; font-weight: 700;
+  }
+  .pin .stem { position: absolute; left: -1px; bottom: 0; width: 2px; height: 12px; background: var(--line-hi); }
+  .pin::after { content: ''; position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; background: var(--text); box-shadow: 0 0 0 2px #000; }
+  .pin.is-boss .pl { border-color: var(--boss); color: #ffd9d9; }
+  .pin.is-boss .stem, .pin.is-boss::after { background: var(--boss); }
+  .pin.is-mid .pl { border-color: var(--mid); }
+  .pin.is-mid .stem, .pin.is-mid::after { background: var(--mid); }
+  .pin.is-key .pl { border-color: var(--gold); color: #fff1cf; }
+  .pin.is-key .stem, .pin.is-key::after { background: var(--gold); }
+  .pin:hover .pl, .pin:focus-visible .pl { border-color: var(--gold); }
+
+  /* 상호작용 표시 */
+  #stage.can-act { cursor: pointer; }
+  .actpin { position: absolute; left: 0; top: 0; width: 0; height: 0; padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer; }
+  .actpin span {
+    position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; background: var(--panel-solid);
+    border: 2px solid var(--act); box-shadow: 0 0 0 2px #000; transform: rotate(45deg);
+    animation: pulse 1.6s steps(4) infinite;
+  }
+  .actpin span::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; background: var(--act); }
+  .actpin.busy span { border-color: var(--muted); animation: none; }
+  .actpin.busy span::after { background: var(--muted); }
+  .actpin.go span { border-color: var(--gold); }
+  .actpin.go span::after { left: 2px; top: 2px; width: 6px; height: 6px; background: var(--gold); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+  .act.go { border-style: dashed; }
+  .act.go .an::before { background: var(--gold); }
+  .act.go .an::after { content: '→'; color: var(--gold); margin-left: auto; font-weight: 800; }
+  #fade { position: fixed; inset: 0; background: #0b090d; opacity: 0; pointer-events: none; transition: opacity 0.38s steps(5); z-index: 8; }
+  #fade.on { opacity: 1; }
+  @keyframes pulse { 0%, 100% { transform: rotate(45deg) scale(1); } 50% { transform: rotate(45deg) scale(1.3); } }
+  #tip {
+    position: absolute; left: 0; top: 0; pointer-events: none; z-index: 6; display: grid; gap: 2px;
+    background: var(--panel-solid); border: 2px solid var(--act); box-shadow: 0 0 0 2px #000; padding: 6px 9px 5px; font-size: 12px; max-width: 240px;
+  }
+  #tip b { font-weight: 800; }
+  #tip span { color: var(--muted); }
+  .act {
+    width: 100%; text-align: left; background: transparent; border: 2px solid var(--line); padding: 7px 8px; cursor: pointer;
+    display: grid; gap: 3px;
+  }
+  .act:hover { border-color: var(--act); }
+  .act .an { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .act .an::before { content: ''; width: 8px; height: 8px; background: var(--act); transform: rotate(45deg); box-shadow: 0 0 0 2px #000; flex: none; }
+  .act .ah { font-size: 12px; color: var(--muted); }
+  .act[aria-busy="true"] { opacity: 0.55; cursor: progress; }
+  #acts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  @media (prefers-reduced-motion: reduce) { .actpin span { animation: none; } }
+
+  /* 하단: 조작 + 지역 탭 */
+  #bottom { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; pointer-events: none; }
+  #bottom > * { pointer-events: auto; }
+  #ctrl { display: flex; flex-wrap: wrap; gap: 8px; max-width: 420px; }
+  .grp { display: inline-flex; gap: 4px; }
+  .ico { width: 34px; padding: 0; font-family: var(--pixel); font-size: 14px; }
+  .pxb { font-family: var(--pixel); font-size: 11px; width: 30px; padding: 0; }
+  .lbl-sm { font-size: 12px; }
+  #nav { display: grid; gap: 6px; padding: 6px; min-width: 0; max-width: 100%; }
+  #cats { display: flex; gap: 4px; border-bottom: 2px solid var(--line); padding-bottom: 6px; overflow-x: auto; }
+  .cat {
+    background: transparent; border: 2px solid transparent; padding: 5px 10px 4px; cursor: pointer; white-space: nowrap;
+    font-size: 12px; font-weight: 700; color: var(--muted); display: inline-flex; align-items: baseline; gap: 6px;
+  }
+  .cat:hover { color: var(--text); }
+  .cat[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); background: rgba(210, 174, 103, 0.08); }
+  .cn { font-family: var(--pixel); font-size: 9px; color: var(--muted); }
+  #tabs { display: flex; gap: 6px; overflow-x: auto; }
+  .tab {
+    background: transparent; border: 2px solid transparent; padding: 8px 12px 7px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 700;
+  }
+  .tab:hover { border-color: var(--line-hi); }
+  .tab[aria-pressed="true"] { border-color: var(--c); background: rgba(255, 255, 255, 0.05); }
+  .gem { width: 8px; height: 8px; background: var(--c); transform: rotate(45deg); box-shadow: 0 0 0 2px #000; }
+  .tk { font-family: var(--pixel); font-size: 9px; color: var(--muted); }
+  #compass { width: 58px; height: 58px; flex: none; display: grid; place-items: center; }
+  #compass svg { width: 44px; height: 44px; display: block; image-rendering: pixelated; }
+  #compass-needle { transform-origin: 50% 50%; display: block; }
+
+  #sheet-toggle { display: none; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--pixel); color: var(--muted); letter-spacing: 0.12em; background: var(--bg); }
+
+  @media (max-width: 1180px) {
+    #bottom { flex-wrap: wrap; }
+    #nav { order: -1; width: 100%; }
+  }
+  @media (max-width: 760px) {
+    #name { font-size: 30px; }
+    #desc { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 28ch; }
+    #title { max-width: calc(100% - 120px); }
+    #sheet-toggle { display: inline-flex; position: absolute; top: 16px; right: 16px; }
+    #panel { top: auto; bottom: 16px; left: 16px; right: 16px; width: auto; max-height: 58%; display: none; z-index: 5; }
+    #panel.open { display: grid; }
+    #compass { position: absolute; top: 64px; right: 16px; }
+    #bottom { gap: 8px; }
+    .tab { padding: 7px 9px 6px; font-size: 13px; }
+    .tab .tk { display: none; }
+    .hide-sm { display: none; }
+  }
+</style>
+
+<div id="app">
+  <div id="stage" aria-label="3D 지역 지도. 드래그해서 돌리고 휠로 확대합니다." role="img">
+    <canvas id="view"></canvas>
+  </div>
+  <div id="pins"></div>
+  <div id="tip" hidden></div>
+
+  <header id="title">
+    <span class="eyebrow" id="eyebrow">Fate Five Dungeon · Region Atlas</span>
+    <span id="en">Ashen Cemetery</span>
+    <h1 id="name">잿빛 묘지</h1>
+    <p id="desc"></p>
+  </header>
+
+  <button type="button" id="sheet-toggle" class="px-btn" aria-expanded="false" aria-controls="panel">장소 · 정보</button>
+
+  <aside id="panel" class="px-box">
+    <section id="acts-sec">
+      <h2>움직여 보기 <small>INTERACT</small></h2>
+      <ul id="acts"></ul>
+    </section>
+    <section>
+      <h2>주요 장소 <small>PLACES</small></h2>
+      <ul id="places"></ul>
+    </section>
+    <section>
+      <h2><span id="info-title">출몰 몬스터</span> <small id="info-en">BESTIARY</small></h2>
+      <ul id="mobs"></ul>
+    </section>
+    <div class="keys">
+      지도 위 깜빡이는 마름모를 누르면 움직여요<br>
+      낮 · 밤 버튼으로 시간을 바꿔요(기본은 지도마다 다름)<br>
+      드래그 회전 · 휠 확대 · 우클릭 드래그 이동<br>
+      <kbd>Q</kbd> <kbd>E</kbd> 45° 회전 · <kbd>R</kbd> 처음 시점<br>
+      <kbd>1</kbd>–<kbd>5</kbd> 지도 · <kbd>←</kbd> <kbd>→</kbd> 이전/다음 · <kbd>↑</kbd> <kbd>↓</kbd> 카테고리
+    </div>
+  </aside>
+
+  <div id="bottom">
+    <div id="ctrl">
+      <div class="grp">
+        <button type="button" class="px-btn ico" id="rl" aria-label="왼쪽으로 45도 회전">&lt;</button>
+        <button type="button" class="px-btn ico" id="rr" aria-label="오른쪽으로 45도 회전">&gt;</button>
+        <button type="button" class="px-btn ico" id="zi" aria-label="확대">+</button>
+        <button type="button" class="px-btn ico" id="zo" aria-label="축소">-</button>
+        <button type="button" class="px-btn lbl-sm" id="home">처음 시점</button>
+      </div>
+      <div class="grp">
+        <button type="button" class="px-btn lbl-sm" id="auto" aria-pressed="true">자동 회전</button>
+        <button type="button" class="px-btn lbl-sm" id="lbl" aria-pressed="true">라벨</button>
+        <button type="button" class="px-btn lbl-sm hide-sm" id="dth" aria-pressed="true">디더링</button>
+      </div>
+      <div class="grp" role="group" aria-label="시간">
+        <button type="button" class="px-btn lbl-sm" id="tauto" aria-pressed="true">기본</button>
+        <button type="button" class="px-btn lbl-sm" id="tday" aria-pressed="false">낮</button>
+        <button type="button" class="px-btn lbl-sm" id="tnight" aria-pressed="false">밤</button>
+      </div>
+      <div class="grp" role="group" aria-label="도트 크기">
+        <span class="px-btn lbl-sm" aria-hidden="true" style="cursor:default">도트</span>
+        <button type="button" class="px-btn pxb" data-px="2" aria-pressed="true">2</button>
+        <button type="button" class="px-btn pxb" data-px="3" aria-pressed="false">3</button>
+        <button type="button" class="px-btn pxb" data-px="4" aria-pressed="false">4</button>
+      </div>
+    </div>
+    <nav id="nav" class="px-box" aria-label="지도 선택">
+      <div id="cats" role="group" aria-label="카테고리"></div>
+      <div id="tabs"></div>
+    </nav>
+    <div id="compass" class="px-box" aria-hidden="true">
+      <svg viewBox="0 0 11 11" shape-rendering="crispEdges">
+        <g id="compass-needle">
+          <rect x="5" y="1" width="1" height="4" fill="#e0474f"/>
+          <rect x="4" y="2" width="3" height="2" fill="#e0474f"/>
+          <rect x="5" y="6" width="1" height="4" fill="#a1949f"/>
+          <rect x="4" y="7" width="3" height="2" fill="#a1949f"/>
+          <rect x="5" y="5" width="1" height="1" fill="#ece4d4"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div id="loading">지도를 그리는 중</div>
+  <div id="fade" aria-hidden="true"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="voxel.js"></script>
+<script src="kit.js"></script>
+<script src="kit2.js"></script>
+<script src="d-ashen.js"></script>
+<script src="d-forest.js"></script>
+<script src="d-cathedral.js"></script>
+<script src="d-abyss.js"></script>
+<script src="d-frost.js"></script>
+<script src="v-millbrook.js"></script>
+<script src="v-harbor.js"></script>
+<script src="v-ironhollow.js"></script>
+<script src="v-silverleaf.js"></script>
+<script src="v-harvest.js"></script>
+<script src="k-common.js"></script>
+<script src="k-market.js"></script>
+<script src="k-elmrow.js"></script>
+<script src="k-canal.js"></script>
+<script src="k-castlegate.js"></script>
+<script src="k-innerkeep.js"></script>
+<script src="m-academy.js"></script>
+<script src="m-alembic.js"></script>
+<script src="m-stellaris.js"></script>
+<script src="m-cogspire.js"></script>
+<script src="m-lunaris.js"></script>
+<script src="e-kit.js"></script>
+<script src="e-leyndell.js"></script>
+<script src="e-flamepeak.js"></script>
+<script src="e-mohgwyn.js"></script>
+<script src="e-elphael.js"></script>
+<script src="e-farum.js"></script>
+<script src="o-kit.js"></script>
+<script src="o-babel.js"></script>
+<script src="o-mistress.js"></script>
+<script src="o-hestia.js"></script>
+<script src="o-church.js"></script>
+<script src="app.js"></script>

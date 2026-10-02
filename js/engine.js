@@ -130,17 +130,15 @@
     });
     return out;
   }
-  const lightPoints = level => D.LIGHT_POINTS + ascMods(level).light;
-  // 승천 보상: run.ascReached(그 직업으로 열어 둔 최고 승천 단계)가 보상 단계 이상이면 사용 가능
+  // 승천 보상: 플레이 중인 승천 단계(run.asc) 이하의 보상을 모두 받는다
+  const ascRewards = level => D.ASC_REWARDS.filter(r => r.level <= (level || 0));
   const ascRewardLevel = key => (D.ASC_REWARDS.find(r => r.key === key) || { level: 99 }).level;
-  const hasAscReward = (run, key) => (run.ascReached || 0) >= ascRewardLevel(key);
-  const potionSlots = run => D.POTION_SLOTS + (hasAscReward(run, 'potion4') ? 1 : 0);
-  // 승천 보상 카드인지, 쓸 수 있는지
-  function ascCardLevel(classId, id) {
-    const t = D.ASC_CARDS[classId] || {};
-    const lv = Object.keys(t).find(l => t[l].includes(id));
-    return lv ? Number(lv) : 0;
-  }
+  const hasAscReward = (run, key) => (run.asc || 0) >= ascRewardLevel(key);
+  const lightPoints = level => D.LIGHT_POINTS + ascMods(level).light + ascRewards(level).reduce((s, r) => s + (r.light || 0), 0);
+  const potionSlots = run => D.POTION_SLOTS + (hasAscReward(run, 'legacy') ? D.LEGACY_POTION_SLOTS : 0);
+  // 직업 전용 카드(승천 2 보상 「전용 무구」)인지
+  const isAscCard = (classId, id) => (D.ASC_CARDS[classId] || []).includes(id);
+  const classPassive = classId => D.PASSIVES.find(p => p.cls === classId);
   // 보스 처치·판 종료를 기록해 해금 조건을 갱신한다
   function recordBossKill(meta) { meta.bossKills++; return meta; }
   function recordRun(meta, run, won) {
@@ -172,14 +170,16 @@
     passiveIds.forEach(id => {
       const x = D.PASSIVES.find(y => y.id === id);
       if (x.cost >= 4 && !isUnlocked(unlocked, 'passive', 4)) throw new Error('아직 열리지 않은 가호입니다');
-      if (x.cls && (x.cls !== classId || (x.ascReq || 0) > ascReached)) throw new Error('이 직업·승천에서는 고를 수 없는 가호입니다');
+      if (x.cls) throw new Error('직업 전용 가호는 승천 2부터 자동으로 적용됩니다');
     });
+    const rewards = ascRewards(asc);
+    const hpPct = rewards.reduce((s, r) => s + (r.hpPct || 0), 0);
     const p = baseCombatant();
     p.isPlayer = true;
     p.classId = cls.id;
     p.name = cls.name;
     p.icon = cls.icon;
-    p.maxHp = p.hp = Math.round(cls.hp * (1 + A.startHp));
+    p.maxHp = p.hp = Math.round(cls.hp * (1 + A.startHp) * (1 + hpPct));
     p.energy = cls.energy;
     p.slots = 9; // 턴당 카드 수 제한 없음 (코스트가 허락하는 만큼)
     p.hemorrhage = !!cls.trait.hemorrhage;
@@ -188,9 +188,15 @@
     p.deck = cls.starter.map(makeCard);
     applyMods(p, cls.trait.mods);
     passiveIds.forEach(id => applyMods(p, D.PASSIVES.find(x => x.id === id).mods));
+    // 승천 보상 (플레이 단계 이하 전부)
+    rewards.forEach(r => { if (r.mods) applyMods(p, r.mods); });
     const start = D.REGIONS[0].id;
-    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [], asc, unlocked, ascReached, won: false, nextBuff: null };
-    if (hasAscReward(run, 'gold')) run.gold = 50;
+    const run = { classId: cls.id, floor: 1, regionId: start, visited: [start], player: p, gold: 0, potions: [], lastMonster: null, kills: 0, bossKills: 0, map: null, seen: [], asc, unlocked, ascReached, won: false, nextBuff: null, revives: 0 };
+    if (hasAscReward(run, 'arsenal')) {
+      const cp = classPassive(cls.id);
+      if (cp) { applyMods(p, cp.mods); p.passives.push(cp.id); }
+    }
+    if (hasAscReward(run, 'rebirth')) run.revives = 1;
     return run;
   }
 
@@ -271,10 +277,16 @@
       applyMods(p, { heal: amount });
       return { ok: true, amount };
     }
-    if (choice === 'focus') {
-      if (!hasAscReward(run, 'focus')) return { ok: false, msg: '승천 7 보상입니다' };
+    if (choice === 'full') {
+      if (!hasAscReward(run, 'fullRest')) return { ok: false, msg: '승천 7 보상입니다' };
+      const c = p.deck.find(x => x.uid === targetUid);
+      if (!c) return { ok: false, msg: '단련할 카드를 고르세요' };
+      const amount = Math.round(p.maxHp * D.FULL_REST_HEAL);
+      applyMods(p, { heal: amount });
+      c.ub += D.MAP.restUpgrade.ub || 0;
+      c.umax += D.MAP.restUpgrade.umax || 0;
       run.nextBuff = { might: 2, protect: 2 };
-      return { ok: true };
+      return { ok: true, amount };
     }
     if (choice === 'upgrade') {
       const c = p.deck.find(x => x.uid === targetUid);
@@ -300,7 +312,7 @@
 
   // ───────── 사건 ─────────
   function rollEvent(run, rng) {
-    const avail = D.EVENTS.filter(e => (e.ascReq || 0) <= (run.ascReached || 0));
+    const avail = D.EVENTS.slice();
     const pool = avail.filter(e => !run.seen.includes(e.id));
     const ev = pick(pool.length ? pool : avail, rng);
     run.seen.push(ev.id);
@@ -413,6 +425,7 @@
     run.unlocked = run.unlocked || unlockedIds(null);
     run.asc = run.asc || 0;
     run.ascReached = run.ascReached || 0;
+    run.revives = run.revives || 0;
     p.hemorrhage = !!D.CLASS_MAP[run.classId].trait.hemorrhage;
     const maxUid = Math.max(0, ...p.deck.map(c => c.uid));
     if (maxUid >= uidSeq) uidSeq = maxUid + 1;
@@ -646,8 +659,9 @@
     const n = iterations || 300;
     let dealt = 0;
     let taken = 0;
+    const pMax = !!p.firstTurnMax && b.turn === 1; // 첫 수의 축복
     const cb = {
-      roll: (side, d) => randInt(d.min, d.max, Math.random),
+      roll: (side, d) => (side === 'a' && pMax ? d.max : randInt(d.min, d.max, Math.random)),
       hit: (side, d, v) => {
         if (side === 'a') dealt += hitDamage(v, d.t, e, e.status.protect, e.status.fragile);
         else taken += hitDamage(v, d.t, p, p.status.protect, p.status.fragile);
@@ -686,6 +700,12 @@
         target.hp = 1;
         target.undyingUsed = true;
         push({ t: 'undying', side: sideOf(target) });
+      }
+      // 불멸 (승천 9 보상): 판당 1회, 최대 체력 절반으로 되살아난다
+      if (target.hp <= 0 && target.isPlayer && b.run && b.run.revives > 0) {
+        b.run.revives--;
+        target.hp = Math.ceil(target.maxHp / 2);
+        push({ t: 'revive', side: sideOf(target), amount: target.hp });
       }
     }
     function heal(c, amount) {
@@ -754,6 +774,7 @@
             o.status.hemo = h - Math.ceil(h / 4);
             push({ t: 'proc', side: sideOf(o), key: 'hemo', amount: h });
           }
+          if (o.isPlayer && o.firstTurnMax && b.turn === 1) return d.max; // 첫 수의 축복
           return randInt(d.min, d.max, rng);
         },
         clash: (ia, ib, va, vb, result) => push({ t: 'clash', row: i, pi: ia, ei: ib, pv: va, ev: vb, result: SIDE[result] }),
@@ -855,7 +876,7 @@
     const p = run.player;
     run.kills++;
     const [lo, hi] = D.GOLD[b.kind];
-    const gold = randInt(lo, hi, rng || Math.random) + (p.goldBonus || 0);
+    const gold = (randInt(lo, hi, rng || Math.random) + (p.goldBonus || 0)) * (hasAscReward(run, 'plenty') ? 2 : 1);
     run.gold += gold;
     if (p.winHeal) applyMods(p, { heal: p.winHeal });
     const boss = b.kind === 'boss';
@@ -878,7 +899,7 @@
 
   const itemOk = (run, it) => (!it.cond || it.cond(run.player)) && isUnlocked(run.unlocked, 'item', it.id)
     && (it.type !== 'relic' || isUnlocked(run.unlocked, 'relics', it.rarity));
-  const cardOk = (run, id) => isUnlocked(run.unlocked, 'cards', D.CARDS[id].rarity) && ascCardLevel(run.classId, id) <= (run.ascReached || 0);
+  const cardOk = (run, id) => isUnlocked(run.unlocked, 'cards', D.CARDS[id].rarity) && (!isAscCard(run.classId, id) || hasAscReward(run, 'arsenal'));
 
   // 희귀도에 맞는 아이템 하나 (카드 아이템이면 직업 카드도 정한다). 이미 뽑힌 것은 제외.
   function rollItem(run, rarity, taken, rng) {
@@ -945,19 +966,10 @@
   }
 
   // 승천 9 보상: 은화를 내고 하단 물건을 새로 뽑는다 (상점마다 1회)
-  function restock(run, shop, rng) {
-    if (!hasAscReward(run, 'restock')) return { ok: false, msg: '승천 9 보상입니다' };
-    if (shop.restocked) return { ok: false, msg: '이미 재입고했습니다' };
-    if (run.gold < D.RESTOCK_PRICE) return { ok: false, msg: '은화가 부족합니다' };
-    run.gold -= D.RESTOCK_PRICE;
-    shop.random = rollShop(run, rng).random;
-    shop.restocked = true;
-    return { ok: true };
-  }
-
   // 승천 4 보상: 시작 유물 후보 (일반 유물 3개)
+  // 승천 4 보상 「전설의 유산」: 시작 전설 유물 후보 3개
   function startRelicChoices(run, rng) {
-    const items = shuffle(D.ITEMS.filter(it => it.type === 'relic' && it.rarity === 'common' && itemOk(run, it)), rng);
+    const items = shuffle(D.ITEMS.filter(it => it.type === 'relic' && it.rarity === 'legendary' && (!it.cond || it.cond(run.player))), rng);
     return items.slice(0, 3).map(item => ({ item }));
   }
 
@@ -993,7 +1005,7 @@
     makeMap, mapChoices, enterNode, currentNode, finishNode, startRegion, rest, rollTreasure,
     rollEvent, canChoose, applyEventChoice, swapEventCard, upgradeCard, addPotion, usePotion, serializeRun, loadRun,
     freshMeta, unlockedIds, isUnlocked, ascensionOf, ascMods, lightPoints, recordBossKill, recordRun,
-    hasAscReward, potionSlots, ascCardLevel, restock, startRelicChoices,
+    hasAscReward, ascRewards, potionSlots, isAscCard, classPassive, startRelicChoices,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

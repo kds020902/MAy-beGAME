@@ -17,7 +17,7 @@ const ALL_UNLOCKED = G.unlockedIds({ bossKills: 99, wins: 99, maxFloor: 99, runs
 function randomPassives(classId) {
   const ids = [];
   let left = G.lightPoints(ASC);
-  const pool = D.PASSIVES.filter(p => !p.cls || (p.cls === classId && (p.ascReq || 0) <= ASC)).sort(() => rng() - 0.5);
+  const pool = D.PASSIVES.filter(p => !p.cls).sort(() => rng() - 0.5);
   for (const p of pool) if (p.cost <= left) { ids.push(p.id); left -= p.cost; }
   return ids;
 }
@@ -27,10 +27,20 @@ function playerPlan(b) {
   const p = b.player;
   const hand = p.hand;
   const rows = b.rows;
-  const table = hand.map(c => Array.from({ length: rows }, (_, r) => G.pairOdds(b, c, b.enemyPlan[r] || null, null, 40)));
+  const fullTable = hand.map(c => Array.from({ length: rows }, (_, r) => G.pairOdds(b, c, b.enemyPlan[r] || null, null, 40)));
   const idle = Array.from({ length: rows }, (_, r) => (b.enemyPlan[r] ? G.pairOdds(b, null, b.enemyPlan[r], null, 40).taken : 0));
+  // 손패가 많으면(승천 보상 등) 조합 폭발을 막기 위해 (가함-받음) 최대값이 좋은 5장만 후보로 둔다
+  const CAND = 5;
+  let table = fullTable;
+  if (hand.length > CAND) {
+    const score = fullTable.map(t => Math.max(...t.map(x => x.dealt - x.taken)));
+    const keep = hand.map((_, h) => h).sort((a, c) => score[c] - score[a]).slice(0, CAND).sort((a, c) => a - c);
+    table = keep.map(h => fullTable[h]);
+    var cands = keep.map(h => hand[h]);
+  }
+  const cand = typeof cands !== 'undefined' ? cands : hand;
   let best = { v: -Infinity, pick: [] };
-  const used = new Array(hand.length).fill(false);
+  const used = new Array(cand.length).fill(false);
   const pick = new Array(rows).fill(-1);
   (function rec(r, count, cost) {
     if (r === rows) {
@@ -45,7 +55,7 @@ function playerPlan(b) {
     }
     rec(r + 1, count, cost);
     if (count >= p.slots) return;
-    hand.forEach((c, h) => {
+    cand.forEach((c, h) => {
       const cc = G.cardDef(c).cost;
       if (used[h] || cost + cc > p.energy) return;
       used[h] = true;
@@ -55,7 +65,7 @@ function playerPlan(b) {
       used[h] = false;
     });
   })(0, 0, 0);
-  best.pick.forEach((h, r) => { if (h >= 0) b.plan[r] = hand[h].uid; });
+  best.pick.forEach((h, r) => { if (h >= 0) b.plan[r] = cand[h].uid; });
 }
 
 function cardValue(p, c) {
@@ -71,12 +81,14 @@ function target(run, opt) {
 function pickReward(run, opts) {
   const p = run.player;
   const pref = (p.hp < p.maxHp * 0.5 && opts.find(o => o.item.type === 'potion' && o.item.potion.heal)) || opts.find(o => o.item.type === 'relic') || opts[0];
+  if (!pref) return null;
   G.applyReward(run, pref, target(run, pref));
   // 회복 물약은 바로 마신다
   for (let i = run.potions.length - 1; i >= 0; i--) {
     const it = D.ITEMS.find(x => x.id === run.potions[i]);
     if (it.potion.heal && p.hp < p.maxHp * 0.6) G.usePotion(run, i, null);
   }
+  return pref;
 }
 
 function shop(run) {
@@ -117,13 +129,15 @@ function battle(run) {
   st.turns += b.turn;
   if (b.outcome === 'lose') return false;
   G.finishBattle(run, b, rng);
-  pickReward(run, G.rollRewards(run, b.kind, rng));
+  const opts = G.rollRewards(run, b.kind, rng);
+  const taken = pickReward(run, opts);
+  if (G.hasAscReward(run, 'plenty')) pickReward(run, opts.filter(o => o !== taken));
   return true;
 }
 
 function playRun(classId) {
   const run = G.createRun(classId, randomPassives(classId), { asc: ASC, unlocked: ALL_UNLOCKED, ascReached: ASC });
-  if (G.hasAscReward(run, 'startRelic')) G.applyReward(run, G.startRelicChoices(run, rng)[0]);
+  if (G.hasAscReward(run, 'legacy')) G.applyReward(run, G.startRelicChoices(run, rng)[0]);
   G.startRegion(run, rng);
   while (run.floor <= MAX_FLOOR) {
     const c = pickNode(run);
@@ -132,8 +146,10 @@ function playRun(classId) {
       if (!battle(run)) return { floor: run.floor, kind: node.kind };
     } else if (node.kind === 'rest') {
       const p = run.player;
-      if (p.hp < p.maxHp * 0.7) G.rest(run, 'heal');
-      else { const d = p.deck.slice().sort((a, x) => cardValue(p, x) - cardValue(p, a)); G.rest(run, 'upgrade', d[0].uid); }
+      const best = () => p.deck.slice().sort((a, x) => cardValue(p, x) - cardValue(p, a))[0].uid;
+      if (G.hasAscReward(run, 'fullRest')) G.rest(run, 'full', best());
+      else if (p.hp < p.maxHp * 0.7) G.rest(run, 'heal');
+      else G.rest(run, 'upgrade', best());
     } else if (node.kind === 'treasure') {
       pickReward(run, G.rollTreasure(run, rng));
     } else if (node.kind === 'event') {

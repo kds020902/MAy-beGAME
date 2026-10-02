@@ -438,15 +438,15 @@
     const maxAsc = S.classId ? G.ascensionOf(S.meta, S.classId) : 0;
     if (S.asc > maxAsc) S.asc = maxAsc;
     const rewards = S.classId ? `<div class="asc-rewards">
-        <div class="asc-rewards-head">승천 보상 <small>단계에 도달하면 이 직업의 모든 판에서 사용</small></div>
-        <div class="asc-reward-list">${D.ASC_REWARDS.map(r => `<span class="asc-reward${maxAsc >= r.level ? ' on' : ''}" title="${r.desc}">${maxAsc >= r.level ? '✔' : '🔒'} ${r.level} ${r.name}</span>`).join('')}</div>
+        <div class="asc-rewards-head">승천 보상 <small>고른 단계까지의 보상을 이번 판에서 전부 받습니다 — 하이 리스크 · 하이 리턴</small></div>
+        <div class="asc-reward-list">${D.ASC_REWARDS.map(r => `<span class="asc-reward${S.asc >= r.level ? ' on' : ''}${r.level > maxAsc ? ' far' : ''}" title="${r.desc}">${S.asc >= r.level ? '✔' : r.level > maxAsc ? '🔒' : '○'} ${r.level} ${r.name}</span>`).join('')}</div>
       </div>` : '';
     const ascRow = S.classId && maxAsc > 0 ? `<div class="asc-pick">
         <span class="asc-label">승천</span>
         <button class="btn small" data-act="ascDown" ${S.asc <= 0 ? 'disabled' : ''}>−</button>
         <b class="asc-level">${S.asc}</b>
         <button class="btn small" data-act="ascUp" ${S.asc >= maxAsc ? 'disabled' : ''}>+</button>
-        <span class="asc-desc">${S.asc ? D.ASCENSION.filter(a => a.level <= S.asc).map(a => a.desc).join(' · ') : '보정 없음 (기본 난이도)'}</span>
+        <span class="asc-desc">${S.asc ? ascSummary(S.asc) : '보정 없음 (기본 난이도)'}</span>
       </div>` : (S.classId ? '<div class="asc-pick muted">순례를 완수하면 이 직업의 승천이 열립니다.</div>' : '');
     return `<div class="screen class-screen">
       <h2 class="screen-title">직업 선택</h2>
@@ -461,6 +461,25 @@
     </div>`;
   }
 
+  // 승천 n 까지 누적된 위험을 한 줄로
+  function ascSummary(level) {
+    const A = G.ascMods(level);
+    const pct = v => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`;
+    const out = [];
+    if (A.enemyHp) out.push(`적 체력 ${pct(A.enemyHp)}`);
+    if (A.enemyPower) out.push(`적 주사위 위력 +${A.enemyPower}`);
+    if (A.enemyDiceMax) out.push(`적 주사위 최대값 +${A.enemyDiceMax}`);
+    if (A.enemyEnergy) out.push(`적 코스트 +${A.enemyEnergy}`);
+    if (A.bossHp) out.push(`보스 체력 ${pct(A.bossHp)}`);
+    if (A.startHp) out.push(`시작 체력 ${pct(A.startHp)}`);
+    if (A.restHeal) out.push(`모닥불 회복 ${Math.round((D.MAP.restHeal + A.restHeal) * 100)}%`);
+    if (A.shopPrice) out.push(`상점 가격 ${pct(A.shopPrice)}`);
+    if (A.legendaryHalf) out.push('전설 확률 절반');
+    if (A.light) out.push(`시작 빛 ${A.light}`);
+    if (A.sigEvery !== 3) out.push(`고유 스킬 ${A.sigEvery}턴마다`);
+    return `<b>위험</b> ${out.join(' · ')}`;
+  }
+
   // ───────── 빛(패시브) 선택 ─────────
   function renderLight() {
     const total = G.lightPoints(S.asc);
@@ -468,25 +487,32 @@
     const left = total - used;
     const pips = Array.from({ length: total }, (_, i) => `<i class="light-pip${i < left ? ' on' : ''}"></i>`).join('');
     const light4 = isUnlocked('passive', 4);
-    const reached = G.ascensionOf(S.meta, S.classId);
-    const cards = D.PASSIVES.filter(p => !p.cls || p.cls === S.classId).map(p => {
+    const cards = D.PASSIVES.filter(p => !p.cls).map(p => {
       const sel = S.light.includes(p.id);
-      const sealed = (p.cost >= 4 && !light4) || (p.ascReq || 0) > reached;
+      const sealed = p.cost >= 4 && !light4;
       const locked = sealed || (!sel && p.cost > left);
-      const why = p.ascReq && p.ascReq > reached ? `승천 ${p.ascReq} 보상` : sealed ? '해금 조건: 보스 1회 처치' : '';
-      return `<button class="passive${sel ? ' sel' : ''}${locked ? ' locked' : ''}${p.cls ? ' cls' : ''}" data-act="light" data-id="${p.id}" title="${why}">
-        <div class="p-cost">${'◆'.repeat(p.cost)}<span>${'◇'.repeat(4 - p.cost)}</span>${p.cls ? '<em>전용</em>' : ''}</div>
+      const why = sealed ? '해금 조건: 보스 1회 처치' : '';
+      return `<button class="passive${sel ? ' sel' : ''}${locked ? ' locked' : ''}" data-act="light" data-id="${p.id}" title="${why}">
+        <div class="p-cost">${'◆'.repeat(p.cost)}<span>${'◇'.repeat(4 - p.cost)}</span></div>
         <div class="p-name">${sealed ? '🔒 ' : ''}${p.name}</div>
         <div class="p-desc">${p.desc}</div>
       </button>`;
     }).join('');
     const cls = D.CLASS_MAP[S.classId];
+    const cp = G.classPassive(S.classId);
+    const auto = cp && S.asc >= 2 ? `<div class="passive sel cls auto" title="승천 2 보상 「전용 무구」">
+        <div class="p-cost"><em>전용 · 자동 적용</em></div>
+        <div class="p-name">✦ ${cp.name}</div>
+        <div class="p-desc">${cp.desc}</div>
+      </div>` : '';
+    const bonus = S.asc ? G.ascRewards(S.asc).map(r => `<span class="tag" title="${r.desc}">✦ ${r.name}</span>`).join('') : '';
     return `<div class="screen light-screen">
       <h2 class="screen-title">빛의 선택</h2>
       <p class="screen-sub">${cls.icon} ${cls.name}${S.asc ? ` · 승천 ${S.asc}` : ''} — 빛 ${total}을 나누어 가호를 고르세요. 강한 가호일수록 많은 빛이 듭니다.</p>
       <div class="light-meter">${pips}</div>
       <div class="light-left">남은 빛 ${left} / ${total}</div>
-      <div class="passive-grid">${cards}</div>
+      ${bonus ? `<div class="asc-bonus-row"><b>승천 ${S.asc} 보상</b> ${bonus}</div>` : ''}
+      <div class="passive-grid">${auto}${cards}</div>
       <div class="bottom-actions">
         <button class="btn" data-act="new">뒤로</button>
         <button class="btn primary big" data-act="begin">순례 시작</button>
@@ -885,6 +911,13 @@
           log('good', `✦ 불굴! ${nm(ev.side)}이(가) 체력 1로 버텼습니다`);
           await sleep(400);
           break;
+        case 'revive':
+          setHp(ev.hp);
+          screenFlash();
+          particles(ev.side, 'heal', 26);
+          log('good', `✦ 불멸! ${nm(ev.side)}이(가) 체력 ${ev.amount}로 되살아났습니다`);
+          await sleep(700);
+          break;
         case 'end':
           await resetStage();
           break;
@@ -932,6 +965,7 @@
       if (res.won) { G.recordRun(S.meta, S.run, true); saveMeta(); S.justWon = true; }
       S.rewards = G.rollRewards(S.run, b.kind, rng);
       S.rewardKind = 'battle';
+      S.rewardPicks = G.hasAscReward(S.run, 'plenty') ? 2 : 1;
       sfx('win');
       go('reward');
     } else if (b.outcome === 'lose') {
@@ -1054,7 +1088,7 @@
     sfx('click');
     if (node.kind === 'battle' || node.kind === 'midboss' || node.kind === 'boss') startBattle();
     else if (node.kind === 'rest') go('rest');
-    else if (node.kind === 'treasure') { S.rewardKind = 'treasure'; S.rewards = G.rollTreasure(S.run, rng); S.pendingBoss = false; go('reward'); }
+    else if (node.kind === 'treasure') { S.rewardKind = 'treasure'; S.rewards = G.rollTreasure(S.run, rng); S.rewardPicks = 1; S.pendingBoss = false; go('reward'); }
     else if (node.kind === 'event') { S.event = G.rollEvent(S.run, rng); S.eventResult = null; go('event'); }
   }
 
@@ -1078,7 +1112,7 @@
     }
   }
 
-  // ───────── 시작 유물 (승천 4 보상) ─────────
+  // ───────── 시작 유물 (승천 4 보상 「전설의 유산」) ─────────
   function renderStartRelic() {
     const opts = S.rewards.map((o, i) => `<div class="reward ${o.item.rarity}" data-act="startRelicPick" data-i="${i}">
         <span class="rarity-tag ${o.item.rarity}">${D.RARITY_NAME[o.item.rarity]}</span>
@@ -1088,8 +1122,8 @@
       </div>`).join('');
     return `<div class="screen reward-screen">
       ${runBar()}
-      <h2 class="screen-title">시작 유물</h2>
-      <p class="screen-sub">승천 보상 — 순례를 시작하며 유물 하나를 챙깁니다.</p>
+      <h2 class="screen-title">전설의 유산</h2>
+      <p class="screen-sub">승천 4 보상 — 순례를 시작하며 전설 유물 하나를 물려받습니다.</p>
       <div class="reward-grid">${opts}</div>
     </div>`;
   }
@@ -1098,15 +1132,17 @@
   function renderRest() {
     const p = S.run.player;
     const heal = Math.round(p.maxHp * (D.MAP.restHeal + G.ascMods(S.run.asc).restHeal));
+    const full = G.hasAscReward(S.run, 'fullRest');
+    const fullHeal = Math.round(p.maxHp * D.FULL_REST_HEAL);
     return `<div class="screen rest-screen">
       ${runBar()}
       <div class="rest-fire">🔥</div>
       <h2 class="screen-title">모닥불</h2>
-      <p class="screen-sub">불가에 앉아 숨을 고릅니다. 하나를 고르세요.</p>
+      <p class="screen-sub">${full ? '승천 7 「완전한 휴식」 — 회복·단련·명상을 한꺼번에 받습니다.' : '불가에 앉아 숨을 고릅니다. 하나를 고르세요.'}</p>
       <div class="reward-grid">
+        ${full ? `<div class="reward legendary" data-act="restFull"><div class="reward-icon">🔥</div><div class="reward-name">완전한 휴식</div><div class="reward-desc">체력 ${fullHeal} 회복 (${p.hp} → ${Math.min(p.maxHp, p.hp + fullHeal)}) · 카드 1장 단련 +${D.MAP.restUpgrade.ub} · 다음 전투 힘 2, 보호 2</div></div>` : ''}
         <div class="reward" data-act="restHeal"><div class="reward-icon">🛌</div><div class="reward-name">휴식</div><div class="reward-desc">체력 ${heal} 회복 (${p.hp} → ${Math.min(p.maxHp, p.hp + heal)})</div></div>
         <div class="reward" data-act="restUpgrade"><div class="reward-icon">⚒️</div><div class="reward-name">단련</div><div class="reward-desc">카드 1장의 모든 주사위 +${D.MAP.restUpgrade.ub}</div></div>
-        ${G.hasAscReward(S.run, 'focus') ? `<div class="reward" data-act="restFocus"><div class="reward-icon">🧘</div><div class="reward-name">명상</div><div class="reward-desc">다음 전투 시작 시 힘 2, 보호 2</div></div>` : ''}
       </div>
     </div>`;
   }
@@ -1172,10 +1208,12 @@
       </div>`).join('');
     const treasure = S.rewardKind === 'treasure';
     const next = !treasure && G.isShopFloor(S.run.floor) ? ' 다음은 상점입니다.' : '';
+    const picks = S.rewardPicks || 1;
+    const howMany = picks > 1 ? `<b>${picks}개</b>를 고르세요 (승천 5 「풍요」).` : '하나를 선택하세요.';
     return `<div class="screen reward-screen">
       ${runBar()}
       <h2 class="screen-title">${treasure ? '보물 상자' : '전리품'}</h2>
-      <p class="screen-sub">${treasure ? '먼지 쌓인 상자 안에 유물이 들어 있습니다. 하나를 고르세요.' : `${S.run.floor}층 돌파 · 은화 +${S.lastGold}. 하나를 선택하세요.${S.pendingBoss ? ' 보스를 쓰러뜨려 체력을 회복했습니다.' : ''}${next}`}</p>
+      <p class="screen-sub">${treasure ? '먼지 쌓인 상자 안에 유물이 들어 있습니다. 하나를 고르세요.' : `${S.run.floor}층 돌파 · 은화 +${S.lastGold}. ${howMany}${S.pendingBoss ? ' 보스를 쓰러뜨려 체력을 회복했습니다.' : ''}${next}`}</p>
       <div class="reward-grid">${opts}</div>
       <div class="bottom-actions"><button class="btn small" data-act="skipReward">건너뛰기</button></div>
     </div>`;
@@ -1183,7 +1221,14 @@
 
   function pickReward(i) {
     const opt = S.rewards[i];
-    const done = () => { toast(`${opt.item.name} 획득`); sfx(opt.item.type === 'potion' ? 'potion' : 'coin'); afterReward(); };
+    const done = () => {
+      toast(`${opt.item.name} 획득`);
+      sfx(opt.item.type === 'potion' ? 'potion' : 'coin');
+      S.rewardPicks = (S.rewardPicks || 1) - 1;
+      S.rewards = S.rewards.filter(o => o !== opt);
+      if (S.rewardPicks > 0 && S.rewards.length) render();
+      else afterReward();
+    };
     if (G.needsCardTarget(opt)) { openDeckPicker(opt, uid => { G.applyReward(S.run, opt, uid); done(); }); return; }
     G.applyReward(S.run, opt);
     done();
@@ -1240,7 +1285,7 @@
       <p class="screen-sub">5층마다 나타나는 상인입니다. 은화로 물건을 사세요. 층이 높을수록 좋은 물건이 들어옵니다.</p>
       <h3 class="shop-head">기본 물품 <small>언제나 있음 · 여러 번 구매 가능</small></h3>
       <div class="shop-grid fixed">${S.shop.fixed.map((e, i) => shopItem(e, 'f' + i)).join('')}</div>
-      <h3 class="shop-head">오늘의 물건 <small>일반 ~ 전설 · 각 1개</small>${G.hasAscReward(S.run, 'restock') ? `<button class="btn small restock" data-act="restock" ${S.shop.restocked || S.run.gold < D.RESTOCK_PRICE ? 'disabled' : ''}>${S.shop.restocked ? '재입고 완료' : `재입고 🪙 ${D.RESTOCK_PRICE}`}</button>` : ''}</h3>
+      <h3 class="shop-head">오늘의 물건 <small>일반 ~ 전설 · 각 1개</small></h3>
       <div class="shop-grid">${S.shop.random.map((e, i) => shopItem(e, 'r' + i)).join('')}</div>
       <div class="bottom-actions"><button class="btn primary big" data-act="leaveShop">상점 떠나기</button></div>
     </div>`;
@@ -1323,7 +1368,7 @@
         <dt>${cls.name} 승천</dt><dd>${nextAsc}단계까지 열림</dd>
       </dl>
       ${newly.length ? `<div class="unlock-pop">새로 열림: ${newly.map(u => `<b>${u.name}</b>`).join(', ')}</div>` : ''}
-      ${(() => { const r = D.ASC_REWARDS.find(x => x.level === nextAsc); return r && nextAsc > run.ascReached ? `<div class="unlock-pop">승천 ${r.level} 보상: <b>${r.name}</b> — ${r.desc}</div>` : ''; })()}
+      ${(() => { const r = D.ASC_REWARDS.find(x => x.level === nextAsc); return r && nextAsc > run.ascReached ? `<div class="unlock-pop">승천 ${r.level}이 열렸습니다. 그 단계로 도전하면 <b>${r.name}</b>: ${r.desc}</div>` : ''; })()}
       <div class="title-actions">
         <button class="btn primary big" data-act="continueRun">계속 오르기 <small>(끝없는 순례)</small></button>
         <button class="btn" data-act="title">타이틀로</button>
@@ -1346,7 +1391,7 @@
       <div class="unlock-grid">
         <section><h4>해금</h4>${rows}</section>
         <section><h4>승천</h4>${asc}<p class="muted small">${D.WIN_FLOOR}층 보스를 쓰러뜨리면 그 직업의 다음 승천 단계가 열립니다. 단계는 누적됩니다.</p><ol class="asc-list">${ascList}</ol></section>
-        <section><h4>승천 보상</h4><p class="muted small">단계에 도달하면 그 직업의 모든 판에서 쓸 수 있습니다.</p>${D.ASC_REWARDS.map(r => `<div class="unlock-row on"><span class="u-icon">${r.level}</span><b>${r.name}</b><small>${r.desc}</small></div>`).join('')}</section>
+        <section><h4>승천 보상</h4><p class="muted small">고른 승천 단계까지의 보상을 그 판에서 전부 받습니다. 높이 오를수록 적도, 나도 강해집니다.</p>${D.ASC_REWARDS.map(r => `<div class="unlock-row on"><span class="u-icon">${r.level}</span><b>${r.name}</b><small>${r.desc}</small></div>`).join('')}</section>
       </div>
       <div class="bottom-actions"><button class="btn" data-act="title">뒤로</button></div>
     </div>`;
@@ -1444,7 +1489,7 @@
       <ul>
         <li>${D.WIN_FLOOR}층 보스를 쓰러뜨리면 순례 완수입니다. 완수할 때마다 그 직업의 승천 단계가 하나 열리고, 직업 선택에서 단계를 골라 더 어렵게 도전할 수 있습니다.</li>
         <li>보스 처치·층 도달·완수 횟수에 따라 직업, 카드, 유물, 가호가 열립니다. 타이틀의 해금 · 승천에서 확인하세요.</li>
-        <li>승천 단계에 도달할 때마다 <b>승천 보상</b>이 열립니다: ${D.ASC_REWARDS.map(r => `${r.level} ${r.name}`).join(' · ')}.</li>
+        <li>승천은 하이 리스크 · 하이 리턴입니다. 고른 단계까지의 <b>승천 보상</b>을 그 판에서 전부 받습니다: ${D.ASC_REWARDS.map(r => `${r.level} ${r.name}`).join(' · ')}.</li>
       </ul>
       <h4>상태이상</h4>
       <ul>${st}</ul>
@@ -1483,7 +1528,6 @@
         else {
           const p = D.PASSIVES.find(x => x.id === id);
           if (p.cost >= 4 && !isUnlocked('passive', 4)) { toast('보스를 1회 처치하면 열립니다.'); return; }
-          if (p.ascReq && p.ascReq > G.ascensionOf(S.meta, S.classId)) { toast(`승천 ${p.ascReq}에 도달하면 열립니다.`); return; }
           if (G.passiveCost(S.light) + p.cost > G.lightPoints(S.asc)) { toast('빛이 부족합니다.'); return; }
           S.light.push(id);
         }
@@ -1494,7 +1538,7 @@
         S.run = G.createRun(S.classId, S.light, { asc: S.asc, unlocked: unlocked(), ascReached: G.ascensionOf(S.meta, S.classId) });
         G.startRegion(S.run, rng);
         sfx('click');
-        if (G.hasAscReward(S.run, 'startRelic')) { S.rewards = G.startRelicChoices(S.run, rng); go('startRelic'); }
+        if (G.hasAscReward(S.run, 'legacy')) { S.rewards = G.startRelicChoices(S.run, rng); go('startRelic'); }
         else go('map');
         break;
       case 'startRelicPick': {
@@ -1505,14 +1549,15 @@
         go('map');
         break;
       }
-      case 'restFocus': { const r = G.rest(S.run, 'focus'); if (!r.ok) { toast(r.msg); return; } sfx('heal'); toast('다음 전투 시작 시 힘 2, 보호 2'); leaveNode(); break; }
-      case 'restock': {
-        const r = G.restock(S.run, S.shop, rng);
-        if (!r.ok) { toast(r.msg); return; }
-        sfx('coin');
-        render();
+      case 'restFull':
+        openDeckPicker({ item: { icon: '🔥', name: '완전한 휴식', type: 'upgrade', desc: `카드 1장의 모든 주사위 +${D.MAP.restUpgrade.ub}` } }, uid => {
+          const r = G.rest(S.run, 'full', uid);
+          if (!r.ok) { toast(r.msg); return; }
+          sfx('heal');
+          toast(`체력 ${r.amount} 회복 · 카드 단련 · 다음 전투 힘 2, 보호 2`);
+          leaveNode();
+        });
         break;
-      }
       case 'card': {
         if (S.busy) return;
         const res = G.assignCard(S.battle, Number(el.dataset.uid), S.targetRow);

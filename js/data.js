@@ -110,7 +110,7 @@
     ['s_afterimage', '잔상', 2, [['E', 5, 8], ['E', 4, 7], ['S', 4, 7]], null, 'rare'],
     ['s_reaper', '혈마검', 5, [['S', 8, 13], ['S', 7, 12], ['S', 6, 10]], { bleed: 3, fragile: 2 }, 'legendary'],
   ], { owner: 'swordsman' });
-  ASC_CARDS.swordsman = { 1: ['s_bloodlet', 's_shadow'], 5: ['s_crimson', 's_afterimage'], 8: ['s_reaper'] };
+  ASC_CARDS.swordsman = ['s_bloodlet', 's_shadow', 's_crimson', 's_afterimage', 's_reaper'];
 
   // 전령 — 창과 성령 (회복, 기도)
   defCards([
@@ -141,7 +141,7 @@
     ['h_grace', '은총', 2, [['G', 4, 8], ['P', 3, 6]], { element: 'holy', start: { heal: 5 } }, 'rare'],
     ['h_seraph', '세라핌의 창', 5, [['P', 7, 12], ['P', 7, 12], ['P', 6, 10]], { element: 'holy' }, 'legendary'],
   ], { owner: 'herald' });
-  ASC_CARDS.herald = { 1: ['h_spark', 'h_frost'], 5: ['h_thunder', 'h_grace'], 8: ['h_seraph'] };
+  ASC_CARDS.herald = ['h_spark', 'h_frost', 'h_thunder', 'h_grace', 'h_seraph'];
 
   // 중기병 — 메이스와 튼튼한 갑옷
   defCards([
@@ -172,7 +172,7 @@
     ['c_ironwill', '철의 의지', 2, [['G', 6, 9], ['B', 4, 7]], { start: { protect: 2 } }, 'rare'],
     ['c_meteor', '운석 낙하', 5, [['B', 9, 14], ['B', 8, 13]], { smash: 2, rupture: 3 }, 'legendary'],
   ], { owner: 'cavalry' });
-  ASC_CARDS.cavalry = { 1: ['c_hammer', 'c_bulwark'], 5: ['c_shatter', 'c_ironwill'], 8: ['c_meteor'] };
+  ASC_CARDS.cavalry = ['c_hammer', 'c_bulwark', 'c_shatter', 'c_ironwill', 'c_meteor'];
 
   CLASSES.forEach(c => {
     c.pool = Object.values(CARDS).filter(x => x.owner === c.id && !c.starter.includes(x.id)).map(x => x.id);
@@ -199,10 +199,10 @@
     { id: 'l_third', name: '세 번째 손', cost: 4, desc: '턴당 코스트 +2', mods: { energy: 2 } },
     { id: 'l_radiance', name: '광휘의 가호', cost: 4, desc: '매 턴 첫 번째로 쓰는 카드의 주사위 위력 +2', mods: { firstSkillBonus: 2 } },
     { id: 'l_saint', name: '성인의 생명력', cost: 4, desc: '최대 체력 +40, 매 턴 종료 시 체력 2 회복', mods: { maxHp: 40, regen: 2 } },
-    // 직업 전용 가호 (승천 2 보상)
-    { id: 'l_sw_blood', name: '혈기', cost: 2, cls: 'swordsman', ascReq: 2, desc: '전투 시작 시 적에게 출혈 3', mods: { openBleed: 3 } },
-    { id: 'l_h_fervor', name: '열성', cost: 2, cls: 'herald', ascReq: 2, desc: '속성을 처음 걸 때도 1단계 효과가 터진다', mods: { elementPrime: 1 } },
-    { id: 'l_c_wall', name: '방벽', cost: 2, cls: 'cavalry', ascReq: 2, desc: '방어·회피 주사위 위력 +1', mods: { guardPower: 1 } },
+    // 직업 전용 가호: 승천 2 보상 「전용 무구」로 빛 소모 없이 자동 적용된다 (직접 고를 수 없음)
+    { id: 'l_sw_blood', name: '혈기', cost: 0, cls: 'swordsman', desc: '전투 시작 시 적에게 출혈 4, 참격 주사위 위력 +1', mods: { openBleed: 4, slashPower: 1 } },
+    { id: 'l_h_fervor', name: '열성', cost: 0, cls: 'herald', desc: '속성을 처음 걸 때도 1단계 효과가 터진다', mods: { elementPrime: 1 } },
+    { id: 'l_c_wall', name: '방벽', cost: 0, cls: 'cavalry', desc: '방어·회피 주사위 위력 +2, 받는 피해 -1 (적중마다)', mods: { guardPower: 2, dmgReduce: 1 } },
   ];
 
   // ───────── 아이템 ─────────
@@ -337,13 +337,13 @@
 
   // 승천 6 보상 사건
   EVENTS.push(
-    { id: 'relicseller', icon: '🧳', name: '성유물 상인', ascReq: 6, text: '검은 외투의 상인이 천에 싸인 유물을 보여 줍니다. "값은 비싸지만, 가짜는 아니오."',
+    { id: 'relicseller', icon: '🧳', name: '성유물 상인', text: '검은 외투의 상인이 천에 싸인 유물을 보여 줍니다. "값은 비싸지만, 가짜는 아니오."',
       choices: [
         { label: '은화 70을 낸다', hint: '희귀 유물 획득', fx: { gold: -70, relic: 'rare' }, need: { gold: 70 } },
         { label: '물약으로 흥정한다', hint: '치유 물약 획득, 체력 -10', fx: { hp: -10, potion: 'it_potion' } },
         { label: '떠난다', hint: '아무 일도 없음', fx: {} },
       ] },
-    { id: 'arena', icon: '🏟️', name: '고대 훈련장', ascReq: 6, text: '무너진 훈련장에 낡은 허수아비가 서 있습니다. 검을 휘두르기 좋은 곳입니다.',
+    { id: 'arena', icon: '🏟️', name: '고대 훈련장', text: '무너진 훈련장에 낡은 허수아비가 서 있습니다. 검을 휘두르기 좋은 곳입니다.',
       choices: [
         { label: '훈련한다', hint: '체력 -15, 카드 1장 모든 주사위 +1', fx: { hp: -15, upgrade: { ub: 1 } } },
         { label: '허수아비를 뒤진다', hint: '60%: 은화 50 / 40%: 체력 -12', fx: { chance: { p: 0.6, win: { gold: 50 }, lose: { hp: -12 } } } },
@@ -585,33 +585,35 @@
 
   // 승천: 승리할 때마다 그 직업의 다음 단계가 열린다. 단계는 누적된다.
   const ASCENSION = [
-    { level: 1, desc: '적 체력 +10%', mods: { enemyHp: 0.1 } },
-    { level: 2, desc: '모닥불 회복량 30% → 20%', mods: { restHeal: -0.1 } },
-    { level: 3, desc: '전리품 전설 확률 절반', mods: { legendaryHalf: true } },
-    { level: 4, desc: '시작 체력 -10%', mods: { startHp: -0.1 } },
-    { level: 5, desc: '상점 가격 +25%', mods: { shopPrice: 0.25 } },
-    { level: 6, desc: '중간 보스·보스 체력 +10%', mods: { bossHp: 0.1 } },
-    { level: 7, desc: '시작 빛 -1', mods: { light: -1 } },
-    { level: 8, desc: '적 체력 +10% (누적 +20%)', mods: { enemyHp: 0.1 } },
-    { level: 9, desc: '적 주사위 최대값 +1', mods: { enemyDiceMax: 1 } },
-    { level: 10, desc: '적 코스트 +1', mods: { enemyEnergy: 1 } },
+    { level: 1, desc: '적 체력 +40% · 적 코스트 +1', mods: { enemyHp: 0.4, enemyEnergy: 1 } },
+    { level: 2, desc: '적 체력 +40% · 모닥불 회복량 30% → 20%', mods: { enemyHp: 0.4, restHeal: -0.1 } },
+    { level: 3, desc: '적 주사위 최대값 +1 · 적 코스트 +1 · 전리품 전설 확률 절반', mods: { enemyDiceMax: 1, enemyEnergy: 1, legendaryHalf: true } },
+    { level: 4, desc: '적 주사위 위력 +1 · 시작 체력 -10%', mods: { enemyPower: 1, startHp: -0.1 } },
+    { level: 5, desc: '적 주사위 최대값 +1 · 적 체력 +30% · 중간 보스·보스 체력 +50%', mods: { enemyDiceMax: 1, enemyHp: 0.3, bossHp: 0.5 } },
+    { level: 6, desc: '적 주사위 위력 +1 · 적 주사위 최대값 +1 · 적 코스트 +1 · 적 체력 +40% · 상점 가격 +50%', mods: { enemyPower: 1, enemyDiceMax: 1, enemyEnergy: 1, enemyHp: 0.4, shopPrice: 0.5 } },
+    { level: 7, desc: '적 체력 +30% · 상점 가격 +25%', mods: { enemyHp: 0.3, shopPrice: 0.25 } },
+    { level: 8, desc: '적 주사위 최대값 +1 · 적 체력 +20% · 시작 체력 -10%', mods: { enemyDiceMax: 1, enemyHp: 0.2, startHp: -0.1 } },
+    { level: 9, desc: '적 주사위 최대값 +1 · 적 체력 +30% · 시작 체력 -10%', mods: { enemyDiceMax: 1, enemyHp: 0.3, startHp: -0.1 } },
+    { level: 10, desc: '적 주사위 위력 +1 · 적 체력 +50% · 적 코스트 +1', mods: { enemyPower: 1, enemyHp: 0.5, enemyEnergy: 1 } },
   ];
   const MAX_ASCENSION = ASCENSION.length;
 
-  // 승천 보상: 그 직업으로 단계 n 에 도달하면 이후 모든 판에서 쓸 수 있다
+  // 승천 보상: 승천 단계 n 으로 플레이하면 1~n 단계의 보상을 모두 받는다 (하이 리스크 · 하이 리턴)
+  //   mods: 플레이어 영구 보정 / light: 빛 추가 / hpPct: 최대 체력 배율
   const ASC_REWARDS = [
-    { level: 1, name: '전용 카드 2장', desc: '직업 전용 일반 카드 2장이 보상·상점에 추가', key: 'cards1' },
-    { level: 2, name: '전용 가호', desc: '직업 전용 가호 1개 (빛 2)', key: 'passive' },
-    { level: 3, name: '물약 벨트 4칸', desc: '물약을 하나 더 들고 다닌다', key: 'potion4' },
-    { level: 4, name: '시작 유물', desc: '순례 시작 시 일반 유물 3개 중 1개 선택', key: 'startRelic' },
-    { level: 5, name: '전용 희귀 카드 2장', desc: '직업 전용 희귀 카드 2장이 추가', key: 'cards5' },
-    { level: 6, name: '새 사건 2종', desc: '성유물 상인, 고대 훈련장', key: 'events' },
-    { level: 7, name: '모닥불 명상', desc: '모닥불에서 명상: 다음 전투 시작 시 힘 2, 보호 2', key: 'focus' },
-    { level: 8, name: '전용 전설 카드', desc: '직업 전용 전설 카드 1장이 추가', key: 'cards8' },
-    { level: 9, name: '상점 재입고', desc: '상점에서 은화 30으로 하단 물건을 새로 뽑는다 (1회)', key: 'restock' },
-    { level: 10, name: '황금 순례자', desc: '시작 은화 50', key: 'gold' },
+    { level: 1, key: 'oath', name: '피의 서약', desc: '턴당 코스트 +2', mods: { energy: 2 } },
+    { level: 2, key: 'arsenal', name: '전용 무구', desc: '직업 전용 카드 5장(일반 2 · 희귀 2 · 전설 1)이 전리품·상점에 나오고, 직업 전용 가호가 빛 소모 없이 자동 적용' },
+    { level: 3, key: 'firstMax', name: '첫 수의 축복', desc: '매 전투 첫 턴, 내 주사위는 모두 최대값', mods: { firstTurnMax: 1 } },
+    { level: 4, key: 'legacy', name: '전설의 유산', desc: '순례 시작 시 전설 유물 3개 중 1개 선택, 물약 벨트 5칸' },
+    { level: 5, key: 'plenty', name: '풍요', desc: '전투 전리품을 2개 고르고, 은화 획득 2배' },
+    { level: 6, key: 'awaken', name: '주사위 각성', desc: '모든 주사위 위력 +2', mods: { basePower: 2 } },
+    { level: 7, key: 'fullRest', name: '완전한 휴식', desc: '모닥불에서 체력 50% 회복 · 카드 단련 · 다음 전투 힘 2 보호 2를 한꺼번에 받는다' },
+    { level: 8, key: 'dominion', name: '전장의 지배자', desc: '손패 +2, 매 턴 종료 시 체력 4 회복', mods: { handSize: 2, regen: 4 } },
+    { level: 9, key: 'rebirth', name: '불멸', desc: '판당 1회, 쓰러지면 최대 체력 절반으로 되살아난다' },
+    { level: 10, key: 'transcend', name: '초월', desc: '빛 +6, 최대 체력 +30%', light: 6, hpPct: 0.3 },
   ];
-  const RESTOCK_PRICE = 30;
+  const FULL_REST_HEAL = 0.5;
+  const LEGACY_POTION_SLOTS = 2;
 
   // 해금: 조건을 채우면 열린다. meta = { bossKills, wins, maxFloor, runs }
   const UNLOCKS = [
@@ -630,7 +632,7 @@
 
   const DATA = {
     CARDS, CLASSES, CLASS_MAP, DICE, ATK_TYPES, TYPE_OF, TYPES, RES_NAME, LIGHT_POINTS, PASSIVES, ITEMS,
-    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, ELEMENTS, WIN_FLOOR, ASCENSION, MAX_ASCENSION, ASC_REWARDS, ASC_CARDS, RESTOCK_PRICE, UNLOCKS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
+    RARITY_WEIGHTS, SHOP, GOLD, POTION_SLOTS, NODES, MAP, EVENTS, ELEMENTS, WIN_FLOOR, ASCENSION, MAX_ASCENSION, ASC_REWARDS, ASC_CARDS, FULL_REST_HEAL, LEGACY_POTION_SLOTS, UNLOCKS, REGIONS, REGION_MAP, STATUS_INFO, RARITY_NAME, BALANCE,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = DATA;

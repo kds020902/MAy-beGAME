@@ -895,4 +895,9 @@ h2.screen-title {
 .asc-reward.on { border-color: var(--gold); color: var(--gold-2); }
 .passive.cls { border-color: #6a4a6a; }
 .passive .p-cost em { font-style: normal; font-size: 10px; margin-left: 6px; color: var(--r-exclusive); letter-spacing: 0; }
-.shop-head .restock { margin-left: 10px; vertical-align: middle; }
+.asc-reward.far { opacity: .45; }
+.passive.auto { cursor: default; border-color: var(--gold); background: linear-gradient(180deg, rgba(210, 174, 103, .12), transparent); }
+.passive.auto .p-cost em { color: var(--gold-2); font-style: normal; font-size: 11px; }
+.asc-bonus-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: -8px 0 16px; font-size: 13px; color: var(--muted); }
+.asc-bonus-row b { color: var(--gold-2); margin-right: 4px; }
+.asc-bonus-row .tag { font-size: 12px; }

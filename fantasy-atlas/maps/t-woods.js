@@ -11,7 +11,7 @@
     hemi: ['#dfe6dc', '#3a4232', 0.64], sun: ['#eef0e6', 0.52, [0.5, 1, 0.55]],
     liquid: ['#3e5458', '#5e7a7c', '#b4c6c4'], liqSpeed: 0.35,
     fog: { start: 0.86, floor: 12, depth: 8, haze: [26, 0.24, 7], hazeColor: '#c8ccc4' },
-    camY: 6, zoom: 1.05,
+    camY: -4, zoom: 1.05,
     particles: [
       { n: 46, colors: ['#dfe2da', '#c8ccc4'], mode: 'wisp', speed: 0.5, size: 3, y0: 21, glow: false },
       { n: 90, colors: ['#8a9a72', '#c8c0a4', '#6a7a5a'], mode: 'drift', speed: 0.3, wind: 0.4, y0: 24, y1: 64, glow: false },

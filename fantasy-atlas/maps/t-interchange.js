@@ -35,7 +35,7 @@
     hemi: ['#e8e4dc', '#4a4640', 0.6], sun: ['#ffe4c4', 0.72, [0.5, 1, 0.55]],
     night: { sky: ['#2e2a30', '#0a0c14', '#a86a48'], stars: true, hemi: ['#8a90a8', '#14121a', 0.34], sun: ['#b8c0e0', 0.22, [0.5, 1, 0.55]], haze: '#22242a' },
     fog: { start: 0.86, floor: 12, depth: 8, haze: [24, 0.1, 6], hazeColor: '#c8c0b4' },
-    camY: 6, zoom: 0.95,
+    camY: -6, zoom: 1.15,
     particles: [
       { n: 120, colors: ['#b8b4ac', '#8a8680', '#d8d0c4'], mode: 'drift', speed: 0.35, wind: 0.5, y0: 22, y1: 70, glow: false },
       { n: 70, colors: ['#5a5654', '#7a7470', '#3e3c3a'], mode: 'rise', speed: 0.35, area: [69, 34, 7], y0: 38, y1: 80, glow: false, size: 2 },

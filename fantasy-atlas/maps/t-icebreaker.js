@@ -12,7 +12,7 @@
     day: { sky: ['#a8b4c0', '#6a7c90', '#dce4ea'], stars: false, hemi: ['#e8f0f8', '#4a5462', 0.6], sun: ['#f0f4ff', 0.6, [0.5, 1, 0.7]], haze: '#b8c6d4' },
     liquid: ['#0a141e', '#16283a', '#4a6a84'], liqSpeed: 0.12,
     fog: { start: 0.82, floor: 10, depth: 10, haze: [30, 0.3, 10], hazeColor: '#3a4c62' },
-    camY: 18, zoom: 1.3,
+    camY: 6, zoom: 1.15,
     particles: [
       { n: 1100, colors: ['#ffffff', '#e4eef8', '#c0d4e8'], mode: 'fall', speed: 0.9, wind: 1.6, y0: 18, y1: 116, glow: false },
       { n: 34, colors: ['#5affb0', '#3ae0c8', '#a0ffd8'], mode: 'wisp', speed: 0.3, size: 2, y0: 104, glow: true },

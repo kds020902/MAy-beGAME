@@ -901,3 +901,21 @@ h2.screen-title {
 .asc-bonus-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: -8px 0 16px; font-size: 13px; color: var(--muted); }
 .asc-bonus-row b { color: var(--gold-2); margin-right: 4px; }
 .asc-bonus-row .tag { font-size: 12px; }
+
+/* 드래그로 카드 내기 */
+.fan .card.playable { touch-action: pan-x; cursor: grab; }
+.slot.p .chip { touch-action: none; cursor: grab; }
+body.dragging, body.dragging * { cursor: grabbing !important; }
+body.dragging { user-select: none; -webkit-user-select: none; }
+.drag-src { opacity: .3; }
+.drag-ghost {
+  position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; margin: 0;
+  transform: translate(var(--x, 0px), var(--y, 0px)) rotate(-3deg) scale(1.06);
+  transition: none; box-shadow: 0 0 0 2px var(--gold-2), 0 26px 44px rgba(0, 0, 0, .8); opacity: .96;
+}
+.chip.drag-ghost { background: var(--panel-2); border-radius: 8px; }
+.row.droppable .slot.p .empty { border-color: var(--gold); color: var(--gold); background: rgba(210, 174, 103, .06); }
+.row.droppable { border-style: dashed; }
+.row.over { border-style: solid; border-color: var(--gold-2); box-shadow: 0 0 0 2px var(--gold-2), 0 0 22px rgba(243, 213, 143, .35); }
+.row.over .slot.p .empty { color: var(--gold-2); border-color: var(--gold-2); background: rgba(243, 213, 143, .12); }
+.hand-zone.over-hand { box-shadow: inset 0 0 0 2px var(--gold-2); border-radius: 12px; }

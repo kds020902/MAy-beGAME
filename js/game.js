@@ -619,10 +619,10 @@
       const pc = uid != null ? p.hand.find(h => h.uid === uid) : null;
       const ec = b.enemyPlan[i] || null;
       const target = S.targetRow === i;
-      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${!canMore ? '—' : target ? '낼 카드를 고르세요' : '카드를 내세요'}</div>`;
+      const pSlot = pc ? chipHtml(pc, p, e) : `<div class="empty">${!canMore ? '—' : target ? '낼 카드를 고르세요' : '카드를 끌어다 놓으세요'}</div>`;
       const eSlot = ec ? chipHtml(ec, e, p) : '<div class="empty">—</div>';
       return `<div class="row${target ? ' target' : ''}" data-row="${i}">
-        <div class="slot p" data-act="slot" data-row="${i}" title="${pc ? '눌러서 손패로 되돌리기' : '눌러서 이 줄에 낼 카드 지정'}">${pSlot}</div>
+        <div class="slot p" data-act="slot" data-row="${i}" title="${pc ? '끌어서 다른 줄로 옮기거나 손패로 되돌리기 (누르면 손패로)' : '손패의 카드를 이 줄로 끌어다 놓으세요'}">${pSlot}</div>
         <div class="clash-mid"><span class="vs">VS</span>${oddsHtml(b, i)}</div>
         <div class="slot e">${eSlot}</div>
       </div>`;
@@ -1463,7 +1463,7 @@
       <h4>전투 순서</h4>
       <ol>
         <li>매 턴 9장짜리 덱에서 5장을 뽑습니다. 적도 자기 덱에서 카드를 뽑고, 머리 위의 <b>의도</b>로 이번 턴에 낼 카드를 보여줍니다.</li>
-        <li>턴당 코스트(직업마다 8~13)가 허락하는 만큼 손패의 카드를 냅니다. 낸 카드는 합 대진의 줄로 들어가 같은 줄의 적 카드와 합을 겨룹니다. 대진의 카드를 누르면 손패로 돌아옵니다.</li>
+        <li>턴당 코스트(직업마다 8~13)가 허락하는 만큼 손패의 카드를 냅니다. 손패의 카드를 <b>끌어서</b> 대진의 원하는 줄에 놓으면 같은 줄의 적 카드와 합을 겨루고, 적 카드가 없는 줄에 놓으면 일방 공격이 됩니다. 대진의 카드는 끌어서 다른 줄로 옮기거나 손패로 되돌릴 수 있습니다. (카드를 그냥 누르면 첫 빈 줄에 들어갑니다.)</li>
         <li><b>턴 종료</b>를 누르면 전투 시작 효과(회복, 힘, 보호 등)가 먼저 적용되고, 줄마다 합이 진행됩니다.</li>
         <li>턴이 끝나면 남은 손패는 모두 버리고, 다음 턴에 새로 5장을 뽑습니다.</li>
       </ol>
@@ -1671,8 +1671,122 @@
     }
   }
 
+  // ───────── 드래그로 카드 내기 ─────────
+  // 손패의 카드를 끌어서 대진의 줄에 놓는다. 대진의 카드는 다른 줄로 옮기거나(놓인 카드와 자리 바꿈) 손패 영역에 놓아 되돌린다.
+  const drag = { active: false, moved: false, uid: null, fromRow: null, src: null, ghost: null, pid: null, x0: 0, y0: 0, ox: 0, oy: 0, over: null, suppressClick: false };
+  function dragTarget(ev) {
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (!el) return null;
+    const slot = el.closest('.slot.p');
+    if (slot) return { row: Number(slot.dataset.row) };
+    if (drag.fromRow != null && el.closest('.hand-zone')) return { hand: true };
+    return null;
+  }
+  function setOver(t) {
+    const key = t ? (t.hand ? 'hand' : t.row) : null;
+    if (key === drag.over) return;
+    drag.over = key;
+    document.querySelectorAll('.row.over').forEach(r => r.classList.remove('over'));
+    const hz = document.querySelector('.hand-zone');
+    if (hz) hz.classList.toggle('over-hand', key === 'hand');
+    if (typeof key === 'number') { const r = document.querySelector(`.row[data-row="${key}"]`); if (r) r.classList.add('over'); }
+  }
+  function startGhost(ev) {
+    const src = drag.src;
+    const rect = src.getBoundingClientRect();
+    const ghost = src.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.classList.remove('playable', 'drawn');
+    ghost.style.width = rect.width + 'px';
+    ghost.style.height = rect.height + 'px';
+    ghost.removeAttribute('data-act');
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+    drag.ox = ev.clientX - rect.left;
+    drag.oy = ev.clientY - rect.top;
+    src.classList.add('drag-src');
+    document.body.classList.add('dragging');
+    document.querySelectorAll('.row').forEach(r => r.classList.add('droppable'));
+    moveGhost(ev);
+  }
+  function moveGhost(ev) {
+    if (!drag.ghost) return;
+    drag.ghost.style.setProperty('--x', `${ev.clientX - drag.ox}px`);
+    drag.ghost.style.setProperty('--y', `${ev.clientY - drag.oy}px`);
+  }
+  function cleanupDrag() {
+    if (drag.ghost) drag.ghost.remove();
+    if (drag.src) drag.src.classList.remove('drag-src');
+    document.body.classList.remove('dragging');
+    document.querySelectorAll('.row.droppable, .row.over').forEach(r => r.classList.remove('droppable', 'over'));
+    const hz = document.querySelector('.hand-zone');
+    if (hz) hz.classList.remove('over-hand');
+    Object.assign(drag, { active: false, moved: false, uid: null, fromRow: null, src: null, ghost: null, pid: null, over: null });
+  }
+  // 놓기: 손패 → 줄 / 줄 → 줄(자리 바꿈) / 줄 → 손패
+  function dropCard(t) {
+    const b = S.battle;
+    if (!t) return false;
+    if (t.hand) { if (drag.fromRow == null) return false; G.unassign(b, drag.fromRow); return true; }
+    const row = t.row;
+    if (row == null || row < 0 || row >= b.rows) return false;
+    if (drag.fromRow != null) {
+      if (row === drag.fromRow) return false;
+      const other = b.plan[row];
+      b.plan[row] = drag.uid;
+      b.plan[drag.fromRow] = other == null ? null : other;
+      return true;
+    }
+    const other = b.plan[row];
+    if (other != null) G.unassign(b, row);
+    const res = G.assignCard(b, drag.uid, row);
+    if (!res.ok) { if (other != null) b.plan[row] = other; toast(res.msg); return false; }
+    if (res.row !== row) { // 빈 줄이 아니었다면 원하는 줄로 옮긴다
+      b.plan[res.row] = null; b.plan[row] = drag.uid;
+    }
+    return true;
+  }
+  document.addEventListener('pointerdown', ev => {
+    if (S.screen !== 'battle' || S.busy || $modal.innerHTML) return;
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    const card = ev.target.closest('.hand.fan .card.playable');
+    const slot = !card && ev.target.closest('.slot.p');
+    let uid = null;
+    let fromRow = null;
+    let src = null;
+    if (card) { uid = Number(card.dataset.uid); src = card; }
+    else if (slot) {
+      fromRow = Number(slot.dataset.row);
+      uid = S.battle.plan[fromRow];
+      if (uid == null) return;
+      src = slot.querySelector('.chip') || slot;
+    } else return;
+    Object.assign(drag, { active: true, moved: false, uid, fromRow, src, pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, over: null });
+  });
+  document.addEventListener('pointermove', ev => {
+    if (!drag.active || ev.pointerId !== drag.pid) return;
+    if (!drag.moved) {
+      if (Math.hypot(ev.clientX - drag.x0, ev.clientY - drag.y0) < 8) return;
+      drag.moved = true;
+      startGhost(ev);
+    }
+    ev.preventDefault();
+    moveGhost(ev);
+    setOver(dragTarget(ev));
+  }, { passive: false });
+  document.addEventListener('pointerup', ev => {
+    if (!drag.active || ev.pointerId !== drag.pid) return;
+    if (!drag.moved) { cleanupDrag(); return; } // 그냥 누른 것: click 처리에 맡긴다
+    const ok = !S.busy && dropCard(dragTarget(ev));
+    cleanupDrag();
+    drag.suppressClick = true;
+    if (ok) { sfx('card'); S.targetRow = null; S.confirmEmpty = false; render(); }
+  });
+  document.addEventListener('pointercancel', ev => { if (drag.active && ev.pointerId === drag.pid) cleanupDrag(); });
+
   document.addEventListener('click', ev => {
     SFX.unlock();
+    if (drag.suppressClick) { drag.suppressClick = false; ev.preventDefault(); return; }
     const el = ev.target.closest('[data-act]');
     if (!el) return;
     // 모달 내부 클릭이 배경 닫기로 번지지 않도록

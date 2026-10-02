@@ -104,8 +104,8 @@
       // 화덕의 불: 저택 창마다 따뜻한 불빛
       lights.push({ name: 'hearth', p: [CX + 0.5, G + 4, DZ + 2.5], c: '#ffb860', i: 0.3, d: 26, flicker: 0.3, srcR: 30 });
       acts.push({
-        name: '화덕의 불', hint: '저택 안 화덕에 불이 지펴지며 창마다 따뜻한 불빛이 번져요', hit: [CX - 2, G + 1, DZ - 1, CX + 2, G + 5, DZ + 1],
-        run: async a => { a.flash('hearth', 6, 4); a.glow(1.4, 4); for (let k = 0; k < 10; k++) { const x = MX0 + 4 + k * 8; a.burst([x + 0.5, G + 4 + (k % 3) * FH, MZ1 + 1.5], { n: 12, colors: ['#ffb860', '#ffe0a0', '#ff7a2a'], speed: 0.8, up: 2, life: 1.2, gravity: -0.3, spread: 0.8 }); await a.wait(0.2); } },
+        name: '화덕의 불', hint: '저택 안 화덕에 불이 지펴지며 창마다 따뜻한 불빛이 번져요', hit: [CX - 2, G + 1, DZ, CX + 2, G + 5, DZ + 3],
+        run: async a => { a.flash('hearth', 6, 4); a.glow(1.4, 4); for (let k = 0; k < 10; k++) { const x = MX0 + 4 + k * 8; a.burst([x + 0.5, G + 4 + (k % 3) * FH, MZ1 + 3.5], { n: 12, colors: ['#ffb860', '#ffe0a0', '#ff7a2a'], speed: 0.8, up: 2, life: 1.2, gravity: -0.3, spread: 0.8 }); await a.wait(0.2); } },
       });
       // 파밀리아 깃발(부품): 불꽃과 종
       w.box(CX, TOPM + 6, DZ - 2, CX, TOPM + 16, DZ - 2, B.iron);
@@ -153,21 +153,21 @@
       MH.roof(w, SMX - 1, SMX + 13, SMZ - 1, SMZ + 11, G + 8, { b: B.roofB, eave: B.roofDk, ridge: B.roofDk, pitch: 1, gable: B.chStone2, axis: 'x' });
       w.box(SMX + 2, G + 1, SMZ + 2, SMX + 5, G + 3, SMZ + 4, B.stoneG); w.box(SMX + 3, G + 2, SMZ + 3, SMX + 4, G + 3, SMZ + 4, B.forge);
       for (let y = G + 4; y <= G + 16; y++) w.box(SMX + 3, y, SMZ + 2, SMX + 4, y, SMZ + 3, B.chimney);
-      w.box(SMX + 8, G + 1, SMZ + 6, SMX + 8, G + 2, SMZ + 6, B.anvil); w.box(SMX + 7, G + 3, SMZ + 6, SMX + 9, G + 3, SMZ + 6, B.anvil);
+      w.box(SMX + 8, G + 1, SMZ + 13, SMX + 8, G + 2, SMZ + 13, B.anvil); w.box(SMX + 7, G + 3, SMZ + 13, SMX + 9, G + 3, SMZ + 13, B.anvil);
       lights.push({ name: 'forge', p: [SMX + 4, G + 3, SMZ + 6], c: '#ff9a4a', i: 0.6, d: 16, flicker: 0.5, srcR: 4 });
       acts.push({
-        name: '웰프의 대장간', hint: '옆마당 대장간 화로가 달아오르고 모루 위로 불똥이 튀어요', hit: [SMX + 6, G + 1, SMZ + 5, SMX + 10, G + 4, SMZ + 8],
-        run: async a => { a.flash('forge', 5, 4); for (let k = 0; k < 10; k++) { a.burst([SMX + 8.5, G + 4, SMZ + 6.5], { n: 16, colors: ['#ffb040', '#ffe08a', '#ff6a1a'], speed: 4, up: 3, life: 0.6, gravity: 8, spread: 0.8 }); if (k % 2) a.burst([SMX + 4, G + 17, SMZ + 3], { n: 8, colors: ['#bcb8b0', '#e8e4dc'], speed: 0.5, up: 3, life: 2, gravity: -0.3, spread: 0.6 }); await a.wait(0.3); } },
+        name: '웰프의 대장간', hint: '옆마당 대장간 화로가 달아오르고 모루 위로 불똥이 튀어요', hit: [SMX + 6, G + 1, SMZ + 11, SMX + 10, G + 4, SMZ + 15],
+        run: async a => { a.flash('forge', 5, 4); for (let k = 0; k < 10; k++) { a.burst([SMX + 8.5, G + 4, SMZ + 13.5], { n: 16, colors: ['#ffb040', '#ffe08a', '#ff6a1a'], speed: 4, up: 3, life: 0.6, gravity: 8, spread: 0.8 }); if (k % 2) a.burst([SMX + 4, G + 17, SMZ + 3], { n: 8, colors: ['#bcb8b0', '#e8e4dc'], speed: 0.5, up: 3, life: 2, gravity: -0.3, spread: 0.6 }); await a.wait(0.3); } },
       });
       const BHX = 52, BHZ = 84;
       w.box(BHX, G + 1, BHZ, BHX + 16, G + 7, BHZ + 14, B.cedar); w.box(BHX + 1, G + 1, BHZ + 1, BHX + 15, G + 6, BHZ + 13, 0);
       for (let x = BHX + 2; x <= BHX + 14; x += 4) w.box(x, G + 3, BHZ + 14, x + 1, G + 5, BHZ + 14, B.win);
       MH.roof(w, BHX - 1, BHX + 17, BHZ - 1, BHZ + 15, G + 8, { b: B.roofB, eave: B.roofDk, ridge: B.cedarDk, pitch: 1, gable: B.cedar, axis: 'x' });
       for (let x = BHX + 3; x <= BHX + 13; x++) for (let z = BHZ + 3; z <= BHZ + 10; z++) { const edge = x === BHX + 3 || x === BHX + 13 || z === BHZ + 3 || z === BHZ + 10; w.set(x, G + 1, z, edge ? B.cedarDk : 0); if (edge) w.set(x, G + 2, z, B.cedarDk); else { w.set(x, G, z, B.cedar); w.liquid(x, z, G + 1); } }
-      for (const x of [BHX + 6, BHX + 10]) w.box(x, G + 9, BHZ + 7, x, G + 12, BHZ + 7, B.cedarDk);
+      for (const x of [BHX + 6, BHX + 10]) w.box(x, G + 9, BHZ + 7, x, G + 19, BHZ + 7, B.cedarDk);
       acts.push({
-        name: '큰 나무 목욕탕', hint: '고쳐 지으며 들인 나무 목욕탕에서 뜨거운 김이 뭉게뭉게 올라와요', hit: [BHX + 4, G + 9, BHZ + 5, BHX + 12, G + 13, BHZ + 9],
-        run: async a => { for (let k = 0; k < 12; k++) { for (const x of [BHX + 6, BHX + 10]) a.burst([x + 0.5, G + 13, BHZ + 7.5], { n: 12, colors: ['#ffffff', '#e8eef4', '#f4f8fc'], speed: 0.8, up: 3, life: 2.4, gravity: -0.5, spread: 1.2 }); await a.wait(0.3); } },
+        name: '큰 나무 목욕탕', hint: '고쳐 지으며 들인 나무 목욕탕에서 뜨거운 김이 뭉게뭉게 올라와요', hit: [BHX + 4, G + 15, BHZ + 5, BHX + 12, G + 20, BHZ + 9],
+        run: async a => { for (let k = 0; k < 12; k++) { for (const x of [BHX + 6, BHX + 10]) a.burst([x + 0.5, G + 20, BHZ + 7.5], { n: 12, colors: ['#ffffff', '#e8eef4', '#f4f8fc'], speed: 0.8, up: 3, life: 2.4, gravity: -0.5, spread: 1.2 }); await a.wait(0.3); } },
       });
 
       // ── 저택 앞 길가 이정표: 옛 홈(버려진 교회)과 중앙 광장(바벨)으로 ──

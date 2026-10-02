@@ -27,36 +27,27 @@
       leaf: { c: '#4a8a3a', v: 0.1 }, leaf2: { c: '#6aaa48', v: 0.1 }, leafDk: { c: '#3a6a30', v: 0.08 }, apple: { c: '#d8403a', v: 0.05 },
       hedge: { c: '#3e7a36', v: 0.1 }, flower: { c: '#e86a8a', v: 0.06 }, flower2: { c: '#f0e060', v: 0.06 }, flower3: { c: '#ffffff', v: 0.03 },
       sail: { c: '#f0ead8', v: 0.03 }, iron: { c: '#4a4a52', v: 0.03 }, rope: { c: '#b8a080', v: 0.04 }, barnR: { c: '#a83a2a', v: 0.05, pat: 'plank' }, sign: { c: '#d8a83a', v: 0.04 },
-      foam: { c: '#e4f4fc', v: 0.06 }, foam2: { c: '#a8d8f0', v: 0.06 },
+      foam2: { c: '#a8d8f0', v: 0.06 },
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base;
       const rX = z => 66 + Math.sin(z * 0.05) * 7;
-      const UPL = base + 3, DNL = base, WEIR = 60;
+      const UPL = base;
       MH.terrain(w, {
         floor: 4,
         height: (x, z) => {
           const d = Math.abs(x - rX(z));
           let hh = Math.pow(d, 1.1) * 0.1 + Math.max(0, 18 - MH.dist(x, z, 24, 56) * 0.5) + Math.max(0, 10 - MH.dist(x, z, 116, 24) * 0.4);
-          if (z < WEIR) hh += 2.5;
+          hh += 2.5 * Math.max(0, Math.min(1, (72 - z) / 24));
           return base + hh + n.fbm(x * 0.04, z * 0.04) * 3;
         },
         surface: (x, z, y, s) => s >= 3 ? B.rock : (() => { const f = n.fbm(x * 0.11 + 7, z * 0.11, 2); return f > 0.6 ? B.grass2 : f < 0.38 ? B.grass3 : B.grass; })(),
         under: (x, z, y, dep, s) => dep < 3 && s < 3 ? B.dirt : B.rock,
       });
       const lights = [], acts = [], landmarks = [];
-      const up = [], dn = [];
-      for (let z = -4; z <= WEIR; z += 4) up.push([rX(z), z]);
-      for (let z = WEIR; z <= 132; z += 4) dn.push([rX(z), z]);
-      MH.river(w, up, 5.2, UPL, B.rockDk, B.path);
-      MH.river(w, dn, 5.6, DNL, B.rockDk, B.path);
-      const wr = Math.round(rX(WEIR));
-      // 보: 물높이에 맞춘 밝은 돌 마루, 아래 면을 흰 물살이 타고 흘러내린다
-      for (let x = wr - 7; x <= wr + 7; x++) {
-        w.liquid(x, WEIR, -1); w.liquid(x, WEIR + 1, -1);
-        for (let y = base - 5; y <= UPL; y++) { w.set(x, y, WEIR, y === UPL ? B.found : B.rock); w.set(x, y, WEIR + 1, y <= DNL ? B.rock : 0); }
-        for (let y = DNL + 1; y <= UPL; y++) w.set(x, y, WEIR + 1, hash3(x, y, 7) > 0.7 ? B.foam2 : B.foam);
-      }
+      const riv = [];
+      for (let z = -4; z <= 132; z += 4) riv.push([rX(z), z]);
+      MH.river(w, riv, 5.4, UPL, B.rockDk, B.path);
       const wet = (x, z) => x >= 0 && z >= 0 && x < W && z < D && w.liq[x + W * z] >= 0;
 
       // ── 물레방앗간(동쪽 강변)과 물레방아 ──

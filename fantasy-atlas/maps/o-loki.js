@@ -1,4 +1,4 @@
-// 로키 파밀리아 홈 — 황혼의 저택: 좁은 땅에 높은 둥근 탑 여럿이 서로 기대어 선 하얀 저택, 가운데 가장 높은 탑, 계단식 박공 날개와 발코니, 앞뜰 훈련장 (오라리오 북쪽 큰길 끝)
+// 로키 파밀리아 홈 — 황혼의 저택: 아주 높은 박공 본관에 둥근 탑 여럿이 서로 기대어 붙은 하얀 저택, 본관 오른쪽에 가장 높은 탑, 계단식 박공 현관동과 발코니, 앞뜰 훈련장 (오라리오 북쪽 큰길 끝)
 (function () {
   'use strict';
   const { hash3 } = VX;
@@ -9,7 +9,7 @@
     info: { title: '장소 정보', en: 'ORARIO', rows: [['자리', '북쪽 큰길 끝 · 도시 북쪽'], ['생김새', '서로 기댄 둥근 탑들 · 가운데 탑이 가장 높음'], ['문장', '익살스럽게 웃는 광대 얼굴']] },
     sky: ['#f4dcc0', '#7a90c0', '#ffe8c8'], stars: false,
     hemi: ['#fff4e4', '#5a5040', 0.62], sun: ['#ffeed8', 0.8, [0.45, 1, 0.6]],
-    night: { sky: ['#3a2e4a', '#0a0a1a', '#e89a68'], stars: true, hemi: ['#c8b8d0', '#1c1814', 0.46], sun: ['#e0d8ff', 0.34, [0.45, 1, 0.6]], haze: '#2e2a38' },
+    night: { sky: ['#3a2e4a', '#0a0a1a', '#e89a68'], stars: true, hemi: ['#b8a4c4', '#1c1418', 0.38], sun: ['#d8c8f0', 0.28, [0.45, 1, 0.6]], haze: '#2e2a38' },
     liquid: ['#5a8aa8', '#8ac0d8', '#e8f8ff'], liqSpeed: 0.5,
     fog: { start: 0.8, floor: 12, depth: 8, haze: [40, 0.16, 8], hazeColor: '#ece0d4' },
     camY: 34, zoom: 1.0,
@@ -19,7 +19,7 @@
     ],
     blocks: Object.assign(OR.blocks(), {
       lw: { c: '#e6eae6', v: 0.04, pat: 'big' }, lw2: { c: '#d2d8d4', v: 0.04 }, lBase: { c: '#bcc2bc', v: 0.05, pat: 'stone' }, lTrim: { c: '#f6f8f4', v: 0.02 },
-      lRoof: { c: '#b88a70', v: 0.05, pat: 'tile' }, lRoofDk: { c: '#8e6a58', v: 0.04 }, lRoofW: { c: '#d8dcd8', v: 0.04, pat: 'tile' }, winD: { c: '#4e5c6a', v: 0.03 }, lFloor: { c: '#b8ae9a', top: '#cec4b0', v: 0.04, pat: 'check', alt: '#c4baa6' },
+      lRoof: { c: '#b88a70', v: 0.05, pat: 'tile' }, lRoofDk: { c: '#8e6a58', v: 0.04 }, lRoofW: { c: '#d8dcd8', v: 0.04, pat: 'tile' }, lw3: { c: '#d8ccb4', v: 0.05, pat: 'stone' }, winD: { c: '#4e5c6a', v: 0.03 }, lFloor: { c: '#b8ae9a', top: '#cec4b0', v: 0.04, pat: 'check', alt: '#c4baa6' },
       sand: { c: '#c8b088', top: '#d8c09a', v: 0.08 }, hay: { c: '#d8b860', v: 0.08 }, wood: { c: '#7a5a3a', v: 0.05, pat: 'plank' },
       beacon: { c: '#ffd890', glow: true }, torch: { c: '#ff9a3a', glow: true }, rune: { c: '#6ae8a8', glow: true }, runeD: { c: '#3a8a6a', v: 0.04 },
       flagW: { c: '#f4f2ec', v: 0.02 }, jest: { c: '#1e1a20', v: 0.02 },
@@ -42,7 +42,7 @@
         w.set(x, G, z, b);
       }
 
-      // ── 둥근 탑: 하얀 돌 원통, 층 띠와 창 기둥, 내쌓기 띠, 붉은 고깔지붕 ──
+      // ── 둥근 탑: 하얀 돌 원통, 층 띠와 창 기둥, 돌출 띠, 가늘고 뾰족한 고깔지붕 ──
       const towers = [];
       const rtower = (cx, cz, r, top, roofH, o) => {
         o = o || {};
@@ -57,83 +57,143 @@
             let b = B.lw2;
             if (shell) {
               const fy = (y - G - 1) % 7;
-              b = B.lw;
+              b = o.stone ? B.lw3 : B.lw;
               if (y <= G + 3) b = B.lBase;
               else if (fy === 0) b = B.lTrim;
-              else if (winCol && fy >= 2 && fy <= 4 && y < top - 3 && y > (o.winFrom || G + 4)) b = hash3(cx + dx, (y - G - 1) / 7 | 0, cz + dz) > 0.55 ? B.win : B.winD;
+              else if (winCol && fy >= 2 && fy <= 4 && y < top - 3 && y > (o.winFrom || G + 4)) b = hash3(cx + dx, (y - G - 1) / 7 | 0, cz + dz) > 0.72 ? B.win : B.winD;
             }
             w.set(cx + dx, y, cz + dz, b);
           }
         }
+        if (o.rings) for (const yy of o.rings) w.ring(cx, cz, yy, r - 0.5, r + 0.8, B.lTrim);
         w.ring(cx, cz, top - 1, r - 0.5, r + 1, B.lTrim);                                      // 내쌓기 띠
         w.ring(cx, cz, top, r - 0.5, r + 1, B.lw);
         let peak = top;
-        if (roofH) peak = LB.spire(w, cx, cz, top + 1, r + 1, Math.round(roofH * 1.45), o.white ? B.lRoofW : B.lRoof, { curve: 1, band: o.white ? B.lTrim : B.lRoofDk, bandGap: 6, tip: B.gold });
+        if (roofH) peak = LB.spire(w, cx, cz, top + 1, r + 1, Math.round(roofH * 1.45), o.white ? B.lRoofW : B.lRoof, { curve: 1, tip: B.gold });
         towers.push({ cx, cz, r, top, peak });
         return peak;
       };
 
-      // ── 계단식 박공 날개: 하얀 벽, 창 줄, 45° 지붕과 층층이 오르는 박공벽 ──
-      const wing = (x0, x1, z0, z1, top, axis) => {
+      // ── 박공 날개: 하얀 벽, 창 줄, 45° 지붕. stepped면 박공벽이 층층이 오른다(계단식 박공) ──
+      const wing = (x0, x1, z0, z1, top, axis, stepped) => {
         w.box(x0, G + 1, z0, x1, top, z1, B.lw2);
         for (let y = G + 1; y <= top; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
           if (x !== x0 && x !== x1 && z !== z0 && z !== z1) continue;
           const fy = (y - G - 1) % 7, u = (x === x0 || x === x1) ? z : x;
           let b = y <= G + 3 ? B.lBase : B.lw;
           if (fy === 0 && y > G + 1) b = B.lTrim;
-          else if (fy >= 2 && fy <= 4 && y < top - 1 && y > G + 3 && u % 5 >= 1 && u % 5 <= 2) b = hash3(u / 5 | 0, (y - G - 1) / 7 | 0, x + z) > 0.55 ? B.win : B.winD;
+          else if (fy >= 2 && fy <= 4 && y < top - 1 && y > G + 3 && u % 5 >= 1 && u % 5 <= 2) b = hash3(u / 5 | 0, (y - G - 1) / 7 | 0, x + z) > 0.7 ? B.win : B.winD;
           if (y === top) b = B.lTrim;
           w.set(x, y, z, b);
         }
         const alongX = axis === 'x', a0 = alongX ? z0 : x0, a1 = alongX ? z1 : x1, ends = alongX ? [x0, x1] : [z0, z1];
         OR.gable(w, x0, x1, z0, z1, top + 1, { axis, run: 1, b: B.lRoof, eave: B.lRoofDk, ridge: B.lRoofDk });
         for (let a = a0; a <= a1; a++) {
-          const d = Math.min(a - a0, a1 - a), st = top + 2 + Math.floor(d / 2) * 2;
+          const d = Math.min(a - a0, a1 - a), st = stepped ? top + 2 + Math.floor(d / 2) * 2 : top + d;
           for (const e of ends) for (let y = top + 1; y <= st; y++) {
-            const b = y === st ? B.lTrim : ((Math.abs(a - (a0 + a1) / 2) < 1.5 && y > top + 3 && y < st - 1 && y < top + 8) ? B.win : B.lw);
+            const b = stepped && y === st ? B.lTrim : ((Math.abs(a - (a0 + a1) / 2) < 1.5 && y > top + 3 && y < st - 1 && y < top + 8) ? B.win : B.lw);
             if (alongX) w.set(e, y, a, b); else w.set(a, y, e, b);
           }
         }
       };
 
-      // 뒤 날개와 양옆 날개, 앞 날개
-      wing(62, 130, 34, 50, G + 30, 'x');
-      wing(44, 60, 56, 86, G + 18, 'z');
-      wing(132, 148, 54, 86, G + 18, 'z');
-      wing(58, 134, 86, 100, G + 22, 'x');
-      // 탑들: 서로 겹쳐 기대듯 모여 선다(가운데가 가장 높다)
-      rtower(96, 42, 6, G + 80, 16);
-      rtower(60, 46, 4.5, G + 50, 12, { white: true }); rtower(132, 44, 4.5, G + 48, 12);
-      rtower(76, 60, 7, G + 70, 18, { rot: 0.3 }); rtower(116, 60, 7, G + 74, 18, { rot: 0.1 });
-      rtower(64, 74, 5, G + 44, 13, { white: true }); rtower(128, 72, 5, G + 46, 13);
-      rtower(82, 80, 6, G + 56, 15, { rot: 0.2 }); rtower(110, 80, 6, G + 52, 15);
-      rtower(56, 100, 3.5, G + 30, 9, { white: true }); rtower(136, 100, 3.5, G + 30, 9);
-      // 가운데 탑: 가장 높고, 꼭대기에 아치 전망대와 톱니 난간, 그 위 작은 탑과 고깔지붕
-      const CX = 96, CZ = 66, CT = G + 106;
-      rtower(CX, CZ, 10, CT, 0, { nw: 12 });
-      const BY = CT + 1;                                                                   // 전망대 바닥: 아래보다 조금 좁은 원통
+      // ── 본관: 아주 높은 벽과 가파른 박공지붕. 남쪽 박공벽에 가로 창 띠, 둥근 장식, 꼭대기 아치창 둘 ──
+      const HX0 = 76, HX1 = 116, HZ0 = 48, HZ1 = 82, HTOP = G + 52, HC = 96, HALF = (HX1 - HX0) / 2 + 1, RISE = 30;
+      const frontWins = [];
+      w.box(HX0, G + 1, HZ0, HX1, HTOP, HZ1, B.lw2);
+      for (let y = G + 1; y <= HTOP; y++) for (let z = HZ0; z <= HZ1; z++) for (let x = HX0; x <= HX1; x++) {
+        if (x !== HX0 && x !== HX1 && z !== HZ0 && z !== HZ1) continue;
+        const fy = (y - G - 1) % 7, u = (x === HX0 || x === HX1) ? z - HZ0 : x - HX0;
+        let b = y <= G + 3 ? B.lBase : B.lw;
+        if (fy === 0 && y > G + 1) b = B.lTrim;
+        else if (fy >= 2 && fy <= 5 && y > G + 3 && y < HTOP - 1 && u % 6 >= 2 && u % 6 <= 3) {
+          b = hash3(u / 6 | 0, (y - G - 1) / 7 | 0, x + z * 3) > 0.68 ? B.win : B.winD;
+          if (z === HZ1 && fy === 3 && u % 6 === 2 && !(x > 82 && x < 110 && y < G + 38)) frontWins.push([x + 1, y, HZ1 + 1.5]);   // 현관동에 가린 창은 뺀다
+        }
+        if (y === HTOP) b = B.lTrim;
+        w.set(x, y, z, b);
+      }
+      const rTop = x => HTOP + 1 + Math.floor(Math.min(x - (HX0 - 1), (HX1 + 1) - x) * RISE / HALF);
+      for (let x = HX0 - 1; x <= HX1 + 1; x++) {
+        const t = rTop(x), tn = Math.min(rTop(x - 1), rTop(x + 1)), ridge = Math.abs(x - HC) < 1;
+        for (let z = HZ0 - 1; z <= HZ1 + 1; z++) for (let y = HTOP + 1; y <= t; y++) {
+          if (z === HZ0 - 1 || z === HZ1 + 1) { if (y >= t - 1) w.set(x, y, z, B.lRoofDk); continue; }   // 박공 처마 테두리
+          if ((z === HZ0 || z === HZ1) && x >= HX0 && x <= HX1) {
+            const dx = x - HC, yy = y - HTOP;
+            let b = y >= t - 1 ? B.lTrim : B.lw;
+            if (y === t) b = B.lRoof;
+            else if (y < t - 1 && z === HZ1) {
+              if (yy >= 3 && yy <= 5 && Math.abs(dx) <= 7) b = Math.abs(dx) % 3 === 1 ? B.lTrim : (hash3(x, 3, 1) > 0.4 ? B.win : B.winD);
+              else if ((yy === 2 || yy === 6) && Math.abs(dx) <= 8) b = B.lTrim;
+              const rr = Math.hypot(dx, yy - 11);
+              if (rr <= 3.4) b = rr > 2.5 ? B.lTrim : (rr < 1 ? B.gold : B.lBase);
+              for (const ax of [-3, 3]) if (yy >= 16 && LB.inArch(dx - ax, yy - 16, 1, 4, 'round')) b = B.win;
+            } else if (y < t - 1 && Math.abs(dx) <= 1 && yy >= 8 && yy <= 11) b = B.winD;
+            w.set(x, y, z, b); continue;
+          }
+          w.set(x, y, z, (y > tn || y === t) ? (ridge ? B.lRoofDk : B.lRoof) : B.lw2);
+        }
+      }
+      for (const z of [HZ0, HZ1]) { const t = rTop(HC); w.box(HC, t + 1, z, HC, t + 3, z, B.lTrim); w.set(HC, t + 4, z, B.gold); }
+      // 본관 정면 발코니(현관동 박공 위): 돌 바닥과 난간, 까치발, 유리문, 술병
+      const DZ = HZ1, BAL = G + 43;
+      w.box(HC - 8, BAL, DZ + 1, HC + 8, BAL, DZ + 3, B.lTrim);
+      for (let x = HC - 8; x <= HC + 8; x++) { w.set(x, BAL + 1, DZ + 3, (x % 2 === 0 || Math.abs(x - HC) === 8) ? B.lTrim : 0); w.set(x, BAL + 2, DZ + 3, B.lTrim); }
+      for (const z of [DZ + 1, DZ + 2]) { w.box(HC - 8, BAL + 1, z, HC - 8, BAL + 2, z, B.lTrim); w.box(HC + 8, BAL + 1, z, HC + 8, BAL + 2, z, B.lTrim); }
+      for (const x of [HC - 7, HC - 1, HC + 1, HC + 7]) { w.set(x, BAL - 1, DZ + 1, B.lTrim); w.set(x, BAL - 2, DZ + 1, B.lTrim); }
+      w.box(HC - 3, BAL + 1, DZ, HC + 3, BAL + 5, DZ, B.glassL);
+      w.box(HC - 6, BAL + 1, DZ + 2, HC - 5, BAL + 1, DZ + 2, B.wood); w.box(HC + 5, BAL + 1, DZ + 2, HC + 6, BAL + 1, DZ + 2, B.wood); w.set(HC - 6, BAL + 2, DZ + 2, B.wine); w.set(HC + 6, BAL + 2, DZ + 2, B.wine);
+      w.set(HC - 7, BAL + 3, DZ + 2, B.mlamp); w.set(HC + 7, BAL + 3, DZ + 2, B.mlamp);
+      lights.push({ name: 'balcony', p: [HC + 0.5, BAL + 3, DZ + 2.5], c: '#ffc880', i: 0.5, d: 18, flicker: 0.2, srcR: 8 });
+      acts.push({
+        name: '발코니 술잔치', hint: '본관 정면 발코니에 술병이 놓이고, 술 좋아하는 여신 로키의 잔치가 시작돼요', hit: [HC - 8, BAL, DZ + 1, HC + 8, BAL + 4, DZ + 3],
+        run: async a => {
+          a.flash('balcony', 5, 4);
+          for (let k = 0; k < 10; k++) { a.burst([HC - 7 + (k * 7) % 15 + 0.5, BAL + 3, DZ + 2], { n: 14, colors: ['#ffd890', '#e8783a', '#ffffff', '#8a1e3a'], speed: 2.6, up: 4, life: 1.4, gravity: 5, spread: 1 }); await a.wait(0.3); }
+        },
+      });
+
+      // ── 둘레 건물: 계단식 박공 현관동(앞), 왼쪽 날개, 뒤 날개, 오른쪽 뒤 날개 ──
+      wing(86, 106, 82, 102, G + 24, 'z', true);
+      wing(52, 76, 60, 88, G + 32, 'z');
+      wing(72, 120, 30, 48, G + 38, 'x');
+      wing(116, 142, 34, 70, G + 42, 'x');
+      const FZ = 102;
+      LB.arch(w, { axis: 'x', c: FZ, u0: HC, y0: G + 1, a: 3, h: 7, kind: 'round', fill: B.door, frame: B.lTrim, depth: 1 });
+      for (let s = 1; s <= 2; s++) w.box(HC - 4 - s, G, FZ + s, HC + 4 + s, G, FZ + s, B.lTrim);
+
+      // ── 탑들: 본관 모서리와 날개에 붙어 서로 기대듯 솟는다. 가장 높은 탑은 본관 오른쪽 ──
+      const vPeak = rtower(96, 32, 5, G + 64, 14);                                              // 뒤 탑(풍향계)
+      rtower(70, 52, 5, G + 70, 18, { white: true, rot: 0.2 });                                 // 왼쪽 뒤 흰 탑
+      rtower(50, 58, 4, G + 46, 12, { white: true });
+      rtower(66, 74, 4.5, G + 54, 14, { rot: 0.4 });
+      rtower(144, 38, 3, G + 50, 12, { white: true });                                          // 맨 오른쪽 가는 탑
+      rtower(142, 70, 3.5, G + 48, 10);
+      rtower(126, 86, 5.5, G + 52, 14, { stone: true, rot: 0.3 });                              // 오른쪽 앞 탑
+      rtower(75, 83, 2.5, G + 58, 8, { nw: 4 }); rtower(117, 83, 2.5, G + 58, 8, { nw: 4 });   // 박공 어깨의 작은 탑
+      rtower(85, 100, 2.5, G + 30, 7, { nw: 4 }); rtower(107, 100, 2.5, G + 30, 7, { nw: 4 }); // 현관동 양옆
+      // 가장 높은 탑: 본관 오른쪽에 반쯤 묻힌 굵은 원통. 위로 한 단 좁아지고 길쭉한 아치창과 톱니 난간으로 끝난다
+      const CX = 120, CZ = 62;
+      rtower(CX, CZ, 9, G + 96, 0, { nw: 10, rings: [HTOP + 1, G + 76] });
+      rtower(CX, CZ, 8, G + 104, 0, { nw: 9, y0: G + 97, winFrom: G + 98 });
+      const BY = G + 105;
       for (let y = BY; y <= BY + 11; y++) for (let dz = -9; dz <= 9; dz++) for (let dx = -9; dx <= 9; dx++) {
         const d = Math.hypot(dx, dz);
-        if (d > 8.4 || d < 7.3) continue;
-        const f = ((Math.atan2(dz, dx) / TAU * 12) % 1 + 1) % 1, u = (f - 0.5) * (8 * TAU / 12);
+        if (d > 7.9 || d < 6.8) continue;
+        const f = ((Math.atan2(dz, dx) / TAU * 12) % 1 + 1) % 1, u = (f - 0.5) * (7.4 * TAU / 12);
         const open = LB.inArch(Math.round(u), y - BY - 1, 1.1, 7, 'round');
         w.set(CX + dx, y, CZ + dz, open ? 0 : (y === BY + 11 ? B.lTrim : B.lw));
       }
-      w.cyl(CX, CZ, BY, BY, 8.4, B.lFloor);
-      w.ring(CX, CZ, BY + 12, 7, 9.4, B.lTrim);
-      for (let dz = -10; dz <= 10; dz++) for (let dx = -10; dx <= 10; dx++) { const d = Math.hypot(dx, dz); if (d <= 9.4 && d > 8.3 && ((Math.round(Math.atan2(dz, dx) / TAU * 28) + 28) % 2 === 0)) w.box(CX + dx, BY + 13, CZ + dz, CX + dx, BY + 14, CZ + dz, B.lw); }
+      w.cyl(CX, CZ, BY, BY, 7.9, B.lFloor);
+      w.ring(CX, CZ, BY + 12, 6.4, 8.9, B.lTrim);
+      for (let dz = -10; dz <= 10; dz++) for (let dx = -10; dx <= 10; dx++) { const d = Math.hypot(dx, dz); if (d <= 8.9 && d > 7.8 && ((Math.round(Math.atan2(dz, dx) / TAU * 26) + 26) % 2 === 0)) w.box(CX + dx, BY + 13, CZ + dz, CX + dx, BY + 14, CZ + dz, B.lw); }
       w.cyl(CX, CZ, BY + 1, BY + 1, 1.6, B.lBase); w.cyl(CX, CZ, BY + 2, BY + 3, 1, B.beacon);   // 전망대 가운데 등불
       w.cyl(CX, CZ, BY + 4, BY + 12, 1.2, B.lw);
       const CTOP = BY + 13;
       lights.push({ name: 'beacon', p: [CX + 0.5, BY + 3, CZ + 0.5], c: '#ffd890', i: 0.7, d: 40, flicker: 0.15, srcR: 3 });
-      landmarks.push({ name: '황혼의 저택', note: '로키 파밀리아 홈 · 가운데 탑', p: [CX + 0.5, CTOP + 14, CZ + 0.5], boss: true });
-      // 탑과 탑을 잇는 구름다리
-      for (const [ax, az, ay] of [[76, 60, G + 52], [116, 60, G + 56], [96, 42, G + 64]]) {
-        w.line(ax, ay, az, CX, ay, CZ, B.lw, 1.2);
-        w.line(ax, ay + 2, az, CX, ay + 2, CZ, B.lTrim);
-      }
+      landmarks.push({ name: '황혼의 저택', note: '로키 파밀리아 홈 · 가장 높은 탑', p: [CX + 0.5, CTOP + 16, CZ + 0.5], boss: true });
 
-      // 깃발(부품): 가운데 탑 꼭대기, 붉은 바탕에 웃는 광대 얼굴
+      // 깃발(부품): 가장 높은 탑 꼭대기, 흰 바탕에 검은 광대
       w.box(CX, CTOP, CZ, CX, CTOP + 11, CZ, B.iron);
       const flag = w.prop({ name: 'flag', pivot: [CX + 0.5, CTOP + 11, CZ + 0.5], rock: 0.14, rockSpeed: 1.3 });
       // 광대: 방울 셋 달린 모자, 흰 얼굴에 웃는 입, 마름모 몸, 다리
@@ -145,60 +205,37 @@
         flag.set(x, y, CZ, ch === '#' ? B.jest : B.flagW);
       }
       acts.push({
-        name: '광대 깃발', hint: '가운데 탑 꼭대기에서 흰 바탕에 검은 광대가 그려진 로키 파밀리아 깃발이 펄럭여요', hit: [CX, CTOP + 2, CZ - 1, CX + 13, CTOP + 12, CZ + 1],
+        name: '광대 깃발', hint: '가장 높은 탑 꼭대기에서 흰 바탕에 검은 광대가 그려진 로키 파밀리아 깃발이 펄럭여요', hit: [CX, CTOP + 2, CZ - 1, CX + 13, CTOP + 12, CZ + 1],
         run: async a => { for (let k = 0; k < 4; k++) { await a.turn('flag', [0, 0.6, 0], 0.35); await a.turn('flag', [0, -0.5, 0], 0.4); } await a.turn('flag', [0, 0, 0], 0.4); a.burst([CX + 6.5, CTOP + 6, CZ + 0.5], { n: 24, colors: ['#ffffff', '#ffd890', '#1e1a20'], speed: 1.6, up: 2, life: 1.4, gravity: -0.3, spread: 1.6 }); },
       });
       acts.push({
-        name: '황혼의 등불', hint: '가운데 탑 아치 전망대에 등불이 켜지며 노을빛이 저택 위로 번져요', hit: [CX - 9, BY, CZ - 9, CX + 9, BY + 14, CZ + 9],
+        name: '황혼의 등불', hint: '가장 높은 탑의 아치 전망대에 등불이 켜지며 노을빛이 저택 위로 번져요', hit: [CX - 8, BY, CZ - 8, CX + 8, BY + 14, CZ + 8],
         run: async a => {
           a.flash('beacon', 6, 4); a.glow(1.6, 4);
-          for (let k = 0; k < 16; k++) { const t = k / 16 * TAU; a.burst([CX + 0.5 + Math.cos(t) * 10, BY + 5, CZ + 0.5 + Math.sin(t) * 10], { n: 10, colors: ['#ffd890', '#ff9a5a', '#fff0d0'], speed: 2.4, up: 1, life: 1.4, gravity: -0.2, spread: 0.8 }); await a.wait(0.15); }
+          for (let k = 0; k < 16; k++) { const t = k / 16 * TAU; a.burst([CX + 0.5 + Math.cos(t) * 9.5, BY + 5, CZ + 0.5 + Math.sin(t) * 9.5], { n: 10, colors: ['#ffd890', '#ff9a5a', '#fff0d0'], speed: 2.4, up: 1, life: 1.4, gravity: -0.2, spread: 0.8 }); await a.wait(0.15); }
         },
       });
       // 풍향계(부품): 뒤 탑 꼭대기
-      const vT = towers[0].peak;
-      w.box(96, vT, 42, 96, vT + 3, 42, B.iron);
-      const vane = w.prop({ name: 'vane', pivot: [96.5, vT + 4, 42.5], speed: 0.4 });
-      vane.box(93, vT + 4, 42, 99, vT + 4, 42, B.iron); vane.box(99, vT + 3, 42, 99, vT + 5, 42, B.gold); vane.set(100, vT + 4, 42, B.gold); vane.box(93, vT + 5, 42, 94, vT + 6, 42, B.iron);
+      const vT = vPeak;
+      w.box(96, vT, 32, 96, vT + 3, 32, B.iron);
+      const vane = w.prop({ name: 'vane', pivot: [96.5, vT + 4, 32.5], speed: 0.4 });
+      vane.box(93, vT + 4, 32, 99, vT + 4, 32, B.iron); vane.box(99, vT + 3, 32, 99, vT + 5, 32, B.gold); vane.set(100, vT + 4, 32, B.gold); vane.box(93, vT + 5, 32, 94, vT + 6, 32, B.iron);
       acts.push({
-        name: '뒤 탑 풍향계', hint: '뒤쪽 높은 탑의 금빛 풍향계가 바람을 받아 빙글빙글 돌아요', hit: [92, vT + 2, 40, 100, vT + 7, 44],
+        name: '뒤 탑 풍향계', hint: '뒤쪽 탑의 금빛 풍향계가 바람을 받아 빙글빙글 돌아요', hit: [92, vT + 2, 30, 100, vT + 7, 34],
         run: async a => { a.wind(2.5, 3); await a.spin('vane', 14, 3); },
       });
-      // 창마다 불빛: 탑마다 아래에서 위로 불이 번진다
-      lights.push({ name: 'halls', p: [96.5, G + 12, 101.5], c: '#ffd090', i: 0.35, d: 40, flicker: 0.1, srcR: 6 });
+      // 창마다 불빛: 본관 정면과 탑들의 창에 아래층부터 위층까지 차례로
+      lights.push({ name: 'halls', p: [96.5, G + 12, 103.5], c: '#ffd090', i: 0.35, d: 40, flicker: 0.1, srcR: 10 });
       acts.push({
-        name: '저택의 창불', hint: '해 질 녘, 탑마다 창에 아래층부터 위층까지 차례로 불이 켜져요', hit: [86, G + 1, 99, 106, G + 6, 102],
+        name: '저택의 창불', hint: '해 질 녘, 본관과 탑의 창에 아래층부터 위층까지 차례로 불이 켜져요', hit: [HC - 3, G + 1, FZ, HC + 3, G + 7, FZ + 2],
         run: async a => {
           a.flash('halls', 4, 5); a.glow(1.4, 5);
-          const ux = 0.68, uz = 0.73;
-          for (let x = 60; x <= 132; x += 6) a.burst([x + 0.5, G + 12, 101.5], { n: 6, colors: ['#ffd890', '#fff0c0'], speed: 0.6, up: 0.6, life: 0.9, gravity: 0, spread: 0.5 });
-          for (let y = G + 34; y < G + 84; y += 7) {
-            for (const t of towers) if (t.top > y + 2 && t.cz >= 60 && t.r >= 5) a.burst([t.cx + 0.5 + ux * (t.r + 0.6), y, t.cz + 0.5 + uz * (t.r + 0.6)], { n: 6, colors: ['#ffd890', '#fff0c0'], speed: 0.6, up: 0.6, life: 0.9, gravity: 0, spread: 0.5 });
-            await a.wait(0.3);
+          const ux = 0.68, uz = 0.73, o = { n: 6, colors: ['#ffd890', '#fff0c0'], speed: 0.6, up: 0.6, life: 0.9, gravity: 0, spread: 0.5 };
+          for (let y = G + 3; y < G + 104; y += 7) {
+            for (const [x, wy, z] of frontWins) if (wy >= y && wy < y + 7) a.burst([x, wy, z], o);
+            for (const t of towers) if (t.top > y + 2 && t.r >= 4.5 && (t.cx >= 115 || t.cz >= 70)) a.burst([t.cx + 0.5 + ux * (t.r + 0.6), y + 3, t.cz + 0.5 + uz * (t.r + 0.6)], o);
+            await a.wait(0.25);
           }
-        },
-      });
-
-      // ── 가운데 별관: 남쪽을 향한 계단식 박공, 큰 아치문, 2층 발코니 ──
-      wing(86, 106, 84, 106, G + 30, 'z');
-      const DZ = 106;
-      LB.arch(w, { axis: 'x', c: DZ, u0: 96, y0: G + 1, a: 3, h: 7, kind: 'round', fill: B.door, frame: B.lTrim, depth: 1 });
-      for (let s = 1; s <= 2; s++) w.box(92 - s, G, DZ + s, 100 + s, G, DZ + s, B.lTrim);
-      // 발코니(2층): 돌 바닥과 난간, 까치발, 유리문
-      const BAL = G + 15;
-      w.box(88, BAL, DZ + 1, 104, BAL, DZ + 4, B.lTrim);
-      for (let x = 88; x <= 104; x++) { w.set(x, BAL + 1, DZ + 4, (x % 2 === 0 || x === 88 || x === 104) ? B.lTrim : 0); w.set(x, BAL + 2, DZ + 4, B.lTrim); }
-      for (const z of [DZ + 1, DZ + 2, DZ + 3]) { w.box(88, BAL + 1, z, 88, BAL + 2, z, B.lTrim); w.box(104, BAL + 1, z, 104, BAL + 2, z, B.lTrim); }
-      for (const x of [89, 95, 97, 103]) { w.set(x, BAL - 1, DZ + 1, B.lTrim); w.set(x, BAL - 2, DZ + 1, B.lTrim); }
-      w.box(93, BAL + 1, DZ, 99, BAL + 5, DZ, B.glassL);
-      w.box(90, BAL + 1, DZ + 2, 91, BAL + 1, DZ + 2, B.wood); w.box(101, BAL + 1, DZ + 2, 102, BAL + 1, DZ + 2, B.wood); w.set(90, BAL + 2, DZ + 2, B.wine); w.set(102, BAL + 2, DZ + 2, B.wine);
-      w.set(89, BAL + 3, DZ + 3, B.mlamp); w.set(103, BAL + 3, DZ + 3, B.mlamp);
-      lights.push({ name: 'balcony', p: [96.5, BAL + 3, DZ + 3.5], c: '#ffc880', i: 0.5, d: 18, flicker: 0.2, srcR: 8 });
-      acts.push({
-        name: '발코니 술잔치', hint: '2층 발코니에 술병이 놓이고, 술 좋아하는 여신 로키의 잔치가 시작돼요', hit: [88, BAL, DZ + 1, 104, BAL + 4, DZ + 4],
-        run: async a => {
-          a.flash('balcony', 5, 4);
-          for (let k = 0; k < 10; k++) { a.burst([89 + (k * 7) % 15 + 0.5, BAL + 3, DZ + 2.5], { n: 14, colors: ['#ffd890', '#e8783a', '#ffffff', '#8a1e3a'], speed: 2.6, up: 4, life: 1.4, gravity: 5, spread: 1 }); await a.wait(0.3); }
         },
       });
 

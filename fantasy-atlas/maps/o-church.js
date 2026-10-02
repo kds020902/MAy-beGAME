@@ -5,7 +5,7 @@
   const W = 144, D = 144, Hh = 112;
   MAPS.push({
     id: 'hestia-church', cat: 'orario', sub: true, parent: 'hestia', name: '버려진 교회', en: 'Hestia Familia · Abandoned Church', color: '#a8b0a0', seed: 1106, base: 30, time: 'day', size: [W, D, Hh],
-    desc: '헤파이스토스가 내어 준 낡은 교회. 무너진 큰 건물들 사이에 담쟁이를 뒤집어쓰고 서 있고, 숨은 문 아래 P자 지하실이 헤스티아와 벨의 첫 보금자리였다.',
+    desc: '헤파이스토스가 내어 준 낡은 교회. 무너진 큰 건물들 사이에 담쟁이를 뒤집어쓰고 서 있고, 숨은 문 아래 P자 지하실이 헤스티아와 벨의 첫 보금자리였다. 아폴론 파밀리아의 습격으로 무너지기 전 모습이다.',
     info: { title: '장소 정보', en: 'ORARIO', rows: [['쓰임', '헤스티아 파밀리아의 처음 홈'], ['지하실', '숨은 문 아래 P자 방'], ['훗날', '아폴론 파밀리아의 습격으로 무너진다']] },
     sky: ['#d8e8f0', '#7a9ab8', '#fff4dc'], stars: false,
     hemi: ['#f4f4ec', '#4a4a40', 0.6], sun: ['#fff0d8', 0.7, [0.4, 1, 0.5]],

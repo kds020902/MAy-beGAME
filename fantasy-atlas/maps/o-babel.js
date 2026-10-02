@@ -7,7 +7,7 @@
   MAPS.push({
     id: 'babel', cat: 'orario', name: '바벨', en: 'Babel · Central Park', color: '#e8e2d0', seed: 1101, base: 30, time: 'day', size: [W, D, Hh],
     desc: '미궁도시 오라리오 한가운데, 던전을 뚜껑처럼 덮은 50층 하얀 탑. 둥근 중앙 광장에서 여덟 갈래 큰길이 뻗고, 탑 아래 큰 구멍은 던전 1층으로 이어진다.',
-    info: { title: '장소 정보', en: 'ORARIO', rows: [['층수', '지상 50층 · 아래는 던전'], ['1~20층', '길드 시설 · 환전소 · 헤파이스토스 상점'], ['꼭대기', '이름난 신들의 개인 방']] },
+    info: { title: '장소 정보', en: 'ORARIO', rows: [['층수', '지상 50층 · 아래는 던전'], ['1~20층', '파밀리아 상점 · 여러 시설 · 환전소'], ['꼭대기', '이름난 신들의 개인 방']] },
     sky: ['#cfe4f4', '#5a8ac0', '#fff6e0'], stars: false,
     hemi: ['#fff8ec', '#5a5448', 0.62], sun: ['#fff4e0', 0.78, [0.45, 1, 0.6]],
     night: { sky: ['#2a3050', '#080a18', '#e8b070'], stars: true, hemi: ['#b8c0d8', '#1a1814', 0.46], sun: ['#d8e0ff', 0.36, [0.45, 1, 0.6]], haze: '#2a2a3a' },
@@ -211,7 +211,7 @@
         run: async a => { a.spin('doves', 4, 4); for (let k = 0; k < 8; k++) { const t = k * 0.8; a.burst([BX + Math.cos(t) * 22, G + 60, BZ + Math.sin(t) * 22], { n: 12, colors: ['#ffffff', '#e8e8e4'], speed: 2, up: 0.5, life: 2.4, gravity: 0.8, spread: 2 }); await a.wait(0.45); } },
       });
 
-      // ── 길드 본부 판테온(서쪽 큰길 옆): 노란 돌, 흰 띠, 구리 지붕, 색유리 창 ──
+      // ── 길드 본부 판테온(서쪽과 북서쪽 큰길 사이): 노란 돌, 흰 띠, 구리 지붕, 색유리 창 ──
       const GX0 = 22, GZ0 = 60, GX1 = 46, GZ1 = 80;
       w.box(GX0, G + 1, GZ0, GX1, G + 21, GZ1, B.gStone); w.box(GX0 + 1, G + 1, GZ0 + 1, GX1 - 1, G + 20, GZ1 - 1, 0);
       for (const y of [G + 7, G + 14, G + 21]) w.walls(GX0, y, GZ0, GX1, y, GZ1, B.gTrim);
@@ -225,7 +225,7 @@
         name: '길드 본부 판테온', hint: '길드 본부의 색유리 창이 빛나며 의뢰서가 바람에 흩날려요', hit: [GX0 + 2, G + 1, GZ1 - 1, GX1 - 2, G + 20, GZ1 + 1],
         run: async a => { a.flash('guild', 6, 4); a.glow(1.6, 4); for (let k = 0; k < 8; k++) { a.burst([(GX0 + GX1) / 2 + 0.5, G + 4, GZ1 + 1.5], { n: 14, colors: ['#f4f0e8', '#e8e0c8', '#ffffff'], speed: 3, up: 3, life: 2.2, gravity: 1, spread: 2, flat: true }); await a.wait(0.3); } },
       });
-      landmarks.push({ name: '길드 본부', note: '판테온', p: [(GX0 + GX1) / 2, G + 42, (GZ0 + GZ1) / 2] });
+      landmarks.push({ name: '길드 본부', note: '판테온 · 도시 북서쪽', p: [(GX0 + GX1) / 2, G + 42, (GZ0 + GZ1) / 2] });
 
       // ── 광장 가장자리 감자튀김 노점 ──
       const SX = Math.round(BX + Math.cos(Math.PI * 0.75) * 44), SZ = Math.round(BZ + Math.sin(Math.PI * 0.75) * 44);
@@ -242,8 +242,8 @@
       // ── 이정표: 큰길마다 다른 장소로 이동 ──
       const go = [
         [Math.PI, 'mistress', '서쪽 큰길 · 풍요의 여주인', '서쪽 큰길을 따라 술집 「풍요의 여주인」으로 가요'],
-        [-Math.PI / 2, 'loki', '북쪽 큰길 · 황혼의 저택', '북쪽 큰길 끝 로키 파밀리아의 홈 「황혼의 저택」으로 가요'],
-        [Math.PI / 2, 'freya', '남쪽 · 전쟁의 들판', '상업 지구 한가운데쯤 있는 프레이야 파밀리아의 홈 「전쟁의 들판」으로 가요'],
+        [-Math.PI / 4, 'loki', '북동쪽 · 황혼의 저택', '북동쪽 구역에 있는 로키 파밀리아의 홈 「황혼의 저택」으로 가요'],
+        [Math.PI * 0.75, 'freya', '남서쪽 · 전쟁의 들판', '로키 홈과 도시 반대편, 상업 지구 한가운데쯤 있는 프레이야 파밀리아의 홈 「전쟁의 들판」으로 가요'],
         [Math.PI / 4, 'hestia', '화덕의 저택', '헤스티아 파밀리아의 홈 「화덕의 저택」으로 가요'],
       ];
       for (const [a, id, name, hint] of go) {

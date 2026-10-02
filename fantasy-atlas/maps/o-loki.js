@@ -1,12 +1,12 @@
-// 로키 파밀리아 홈 — 황혼의 저택: 좁은 땅에 높은 둥근 탑 여럿이 서로 기대어 선 하얀 저택, 가운데 가장 높은 탑, 계단식 박공 날개와 발코니, 앞뜰 훈련장 (오라리오 북쪽 큰길)
+// 로키 파밀리아 홈 — 황혼의 저택: 좁은 땅에 높은 둥근 탑 여럿이 서로 기대어 선 하얀 저택, 가운데 가장 높은 탑, 계단식 박공 날개와 발코니, 앞뜰 훈련장 (오라리오 북동쪽 구역)
 (function () {
   'use strict';
   const { hash3 } = VX;
   const W = 192, D = 192, Hh = 176, TAU = Math.PI * 2;
   MAPS.push({
     id: 'loki', cat: 'orario', name: '로키 파밀리아 홈', en: 'Loki Familia · Twilight Manor', color: '#c86a4a', seed: 1104, base: 30, time: 'day', size: [W, D, Hh],
-    desc: '북쪽 큰길가에 선 「황혼의 저택」. 좁은 땅에 높은 탑 여러 개가 서로 기대어 받치듯 솟아 있고, 가운데 탑이 가장 높다. 하얀 돌벽에 붉은 고깔지붕, 앞뜰에는 단원들이 땀 흘리는 훈련장이 있다.',
-    info: { title: '장소 정보', en: 'ORARIO', rows: [['자리', '북쪽 큰길(북쪽 메인 스트리트)'], ['생김새', '서로 기댄 둥근 탑들 · 가운데 탑이 가장 높음'], ['문장', '익살스럽게 웃는 광대 얼굴']] },
+    desc: '오라리오 북동쪽 구역, 프레이야 파밀리아 홈과 도시 반대편에 선 「황혼의 저택」. 좁은 땅에 높은 탑 여러 개가 서로 기대어 받치듯 솟아 있고, 가운데 탑이 가장 높다. 하얀 돌벽에 붉은 고깔지붕, 앞뜰에는 단원들이 땀 흘리는 훈련장이 있다.',
+    info: { title: '장소 정보', en: 'ORARIO', rows: [['자리', '도시 북동쪽 구역'], ['생김새', '서로 기댄 둥근 탑들 · 가운데 탑이 가장 높음'], ['문장', '익살스럽게 웃는 광대 얼굴']] },
     sky: ['#f4dcc0', '#7a90c0', '#ffe8c8'], stars: false,
     hemi: ['#fff4e4', '#5a5040', 0.62], sun: ['#ffeed8', 0.8, [0.45, 1, 0.6]],
     night: { sky: ['#3a2e4a', '#0a0a1a', '#e89a68'], stars: true, hemi: ['#c8b8d0', '#1c1814', 0.46], sun: ['#e0d8ff', 0.34, [0.45, 1, 0.6]], haze: '#2e2a38' },
@@ -267,7 +267,7 @@
         name: '저택 정문', hint: '둥근 문탑 사이 검은 철문이 양쪽으로 열려요', hit: [91, G + 1, EZ1 - 1, 101, G + 9, EZ1 + 1],
         run: async a => { await Promise.all([a.turn('gateL', [0, 1.5, 0], 1.6), a.turn('gateR', [0, -1.5, 0], 1.6)]); await a.wait(1.6); await Promise.all([a.turn('gateL', [0, 0, 0], 1.4), a.turn('gateR', [0, 0, 0], 1.4)]); },
       });
-      // 원정 마차(부품): 앞뜰에서 정문을 지나 골목으로, 북쪽 큰길로 떠난다
+      // 원정 마차(부품): 앞뜰에서 정문을 지나 골목으로, 큰길로 떠난다
       const WX = 96, WZ0 = 110, WZ1 = 118;
       const wag = w.prop({ name: 'wagon', pivot: [WX + 0.5, G + 1, (WZ0 + WZ1 + 1) / 2] });
       wag.box(WX - 2, G + 2, WZ0, WX + 2, G + 3, WZ1, B.crate);
@@ -275,7 +275,7 @@
       for (const z of [WZ0 + 1, WZ1 - 1]) for (const x of [WX - 3, WX + 3]) wag.box(x, G + 1, z - 1, x, G + 3, z + 1, B.wheel);
       wag.box(WX, G + 2, WZ1 + 1, WX, G + 2, WZ1 + 4, B.wood); wag.box(WX - 1, G + 3, WZ0 + 1, WX + 1, G + 4, WZ0 + 2, B.crate);
       acts.push({
-        name: '원정 출발', hint: '짐을 실은 원정 마차가 정문을 지나 북쪽 큰길로 떠나요. 던전 깊은 층으로 가는 원정이에요', hit: [WX - 3, G + 1, WZ0, WX + 3, G + 8, WZ1 + 3],
+        name: '원정 출발', hint: '짐을 실은 원정 마차가 정문을 지나 큰길로 떠나요. 던전 깊은 층으로 가는 원정이에요', hit: [WX - 3, G + 1, WZ0, WX + 3, G + 8, WZ1 + 3],
         run: async a => {
           await Promise.all([a.turn('gateL', [0, 1.5, 0], 1.2), a.turn('gateR', [0, -1.5, 0], 1.2)]);
           await a.path('wagon', [[0, 0, 22], [8, 0, 22, Math.PI / 2], [60, 0, 22, Math.PI / 2]], 4.2);
@@ -286,7 +286,7 @@
       });
       // 이정표: 골목가에서 남쪽 중앙 광장(바벨)으로
       const sp = OR.signpost(w, B, 114, EZ1 + 3, { dir: [1, 0], boards: 1 });
-      acts.push(OR.goAct({ at: sp, name: '중앙 광장 · 바벨로', goto: 'babel', hint: '북쪽 큰길을 따라 남쪽으로 내려가면 오라리오 한가운데 중앙 광장과 바벨이 나와요' }));
+      acts.push(OR.goAct({ at: sp, name: '중앙 광장 · 바벨로', goto: 'babel', hint: '북동쪽 큰길을 따라 남서쪽으로 내려가면 오라리오 한가운데 중앙 광장과 바벨이 나와요' }));
 
       // ── 담장 밖 시가지와 가로등 ──
       const placed = [[EX0 - 2, EZ0 - 2, EX1 + 2, EZ1 + 3]];

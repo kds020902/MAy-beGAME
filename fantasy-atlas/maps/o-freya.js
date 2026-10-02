@@ -1,12 +1,12 @@
-// 프레이야 파밀리아 홈 — 전쟁의 들판(폴크방): 네 겹 큰 성벽 안 신전 같은 저택 세스룸니르, 코린트식 기둥과 큰 계단, 꽃병과 장미, 날마다 난전이 벌어지는 넓은 정원 (오라리오)
+// 프레이야 파밀리아 홈 — 전쟁의 들판(폴크방): 네 겹 큰 성벽 안 신전처럼 엄숙한 큰 저택, 코린트식 기둥과 큰 계단, 꽃병과 장미, 날마다 난전이 벌어지는 넓은 정원 (오라리오)
 (function () {
   'use strict';
   const { hash3 } = VX;
   const W = 192, D = 192, Hh = 128, TAU = Math.PI * 2;
   MAPS.push({
     id: 'freya', cat: 'orario', name: '프레이야 파밀리아 홈', en: 'Freya Familia · Folkvangr', color: '#e88aa8', seed: 1105, base: 30, time: 'day', size: [W, D, Hh],
-    desc: '오라리오 상업 지구 한가운데쯤 자리한 「전쟁의 들판(폴크방)」. 네 면의 큰 성벽 안에 신전 같은 저택 「세스룸니르」가 서 있고, 단원 모두가 들어갈 만큼 넓은 정원에서는 날마다 서로 겨루는 난전이 벌어진다.',
-    info: { title: '장소 정보', en: 'ORARIO', rows: [['이름', '폴크방(전쟁의 들판)'], ['큰 저택', '세스룸니르 · 연회의 큰 홀'], ['정원', '날마다 벌어지는 단원끼리의 난전']] },
+    desc: '로키 파밀리아 홈과 도시 반대편, 상업 지구 한가운데쯤 자리한 「전쟁의 들판(폴크방)」. 네 면의 큰 성벽 안에 신전처럼 엄숙한 큰 저택이 서 있고, 단원 모두가 모일 만큼 넓은 정원에서는 해 뜰 때부터 해 질 때까지 단원끼리 겨루는 난전 「세례」가 벌어진다.',
+    info: { title: '장소 정보', en: 'ORARIO', rows: [['이름', '폴크방(전쟁의 들판)'], ['큰 저택', '신전 같은 엄숙한 저택 · 연회의 큰 홀'], ['정원', '해 뜰 때부터 해 질 때까지 벌이는 난전 「세례」']] },
     sky: ['#f8e0e4', '#8a9ad0', '#fff0e8'], stars: false,
     hemi: ['#fff6f0', '#5a5048', 0.62], sun: ['#fff2e8', 0.8, [0.45, 1, 0.6]],
     night: { sky: ['#3a2a48', '#0a0818', '#e890a8'], stars: true, hemi: ['#d0c0d8', '#1c1618', 0.46], sun: ['#e8e0ff', 0.36, [0.45, 1, 0.6]], haze: '#302838' },
@@ -64,7 +64,7 @@
       urn(75, 71, P + 2); urn(117, 71, P + 2); urn(75, 81, G + 2); urn(117, 81, G + 2);
       for (let x = 28; x <= 164; x += 8) if (x < 72 || x > 120) urn(x, 68, P + 1);
 
-      // ── 세스룸니르: 큰 홀(내부), 이중 줄 기둥 현관, 옆 기둥, 박공 페디먼트와 돔(부품: 연회 때 들어 올린다) ──
+      // ── 큰 저택: 큰 홀(내부), 이중 줄 기둥 현관, 옆 기둥, 박공 페디먼트와 돔(부품: 연회 때 들어 올린다) ──
       const CX0 = 62, CX1 = 130, CZ0 = 26, CZ1 = 58, TOPC = G + 29, CX = 96;
       for (let y = P + 1; y <= TOPC; y++) for (let z = CZ0; z <= CZ1; z++) for (let x = CX0; x <= CX1; x++) {
         const edge = x <= CX0 + 1 || x >= CX1 - 1 || z <= CZ0 + 1 || z >= CZ1 - 1;
@@ -118,9 +118,9 @@
       const dTop = (() => { const tmp = { set: (x, y, z, b) => roof.set(x, y, z, b) }; for (let y = 0; y <= 10; y++) for (let dz = -10; dz <= 10; dz++) for (let dx = -10; dx <= 10; dx++) { const dd = Math.hypot(dx, y, dz); if (dd > 10.3 || dd < 8.5) continue; tmp.set(CX + dx, RTOP + 6 + y, DZc + dz, (Math.round(Math.atan2(dz, dx) / TAU * 16) + 16) % 2 === 0 && Math.abs(Math.atan2(dz, dx) * 16 / TAU - Math.round(Math.atan2(dz, dx) * 16 / TAU)) < 0.12 ? B.gold : B.domeC); } return RTOP + 16; })();
       roof.cyl(CX, DZc, dTop + 1, dTop + 3, 1.6, B.mTrim); roof.cyl(CX, DZc, dTop + 2, dTop + 3, 1, B.divine); roof.box(CX, dTop + 4, DZc, CX, dTop + 6, DZc, B.gold);
       lights.push({ name: 'dome', p: [CX + 0.5, dTop + 3, DZc + 0.5], c: '#f4e0ff', i: 0.6, d: 40, flicker: 0.1, srcR: 3 });
-      landmarks.push({ name: '세스룸니르', note: '폴크방의 큰 저택 · 연회의 홀', p: [CX + 0.5, dTop + 10, DZc + 0.5], boss: true });
+      landmarks.push({ name: '폴크방 큰 저택', note: '신전 같은 엄숙한 저택 · 연회의 홀', p: [CX + 0.5, dTop + 10, DZc + 0.5], boss: true });
       acts.push({
-        name: '세스룸니르의 만찬', hint: '지붕과 돔이 들어 올려지고, 큰 홀 긴 식탁에 촛불이 켜지며 만찬이 시작돼요', hit: [62, TOPC + 1, 22, 130, RY + 12, 69],
+        name: '큰 홀의 만찬', hint: '지붕과 돔이 들어 올려지고, 큰 홀 긴 식탁에 촛불이 켜지며 만찬이 시작돼요', hit: [62, TOPC + 1, 22, 130, RY + 12, 69],
         run: async a => {
           await a.tween('roof', { off: [-6, 40, -30], rot: [-0.08, 0, 0.04] }, 2.4);
           a.flash('hall', 6, 5);
@@ -193,7 +193,7 @@
       for (let z = 102; z <= 162; z += 20) for (const x of [26, 166]) OR.tree(w, B, x, z, { h: 7, r: 3 });
       for (let x = 36; x <= 160; x += 20) if (Math.abs(x - CX) > 24) OR.tree(w, B, x, 166, { h: 7, r: 3 });
       acts.push({
-        name: '정원의 난전', hint: '넓은 정원 곳곳에서 단원들이 서로 겨루는 난전이 벌어져 칼날과 마법 불꽃이 튀어요', hit: [24, G, 92, 82, G + 3, 168],
+        name: '정원의 난전', hint: '해 뜰 때부터 해 질 때까지, 넓은 정원 곳곳에서 단원끼리 겨루는 「세례」가 벌어져 칼날과 마법 불꽃이 튀어요', hit: [24, G, 92, 82, G + 3, 168],
         run: async a => {
           for (let k = 0; k < 16; k++) {
             const [x, z] = scars[(k * 5) % scars.length];
@@ -206,7 +206,7 @@
         },
       });
       acts.push({
-        name: '치유의 빛', hint: '난전이 끝나자 치료사들의 치유의 빛이 기둥처럼 솟아 다친 자리를 감싸요', hit: [110, G, 92, 168, G + 3, 168],
+        name: '치유의 빛', hint: '난전이 끝나자 치료 부대 「안드림니르」의 치유의 빛이 기둥처럼 솟아 다친 자리를 감싸요', hit: [110, G, 92, 168, G + 3, 168],
         run: async a => {
           a.flash('field', 3, 4); a.glow(1.6, 4);
           for (let k = 0; k < 8; k++) { const [x, z] = scars[(k * 3 + 1) % scars.length]; a.burst([x + 0.5, G + 1, z + 0.5], { n: 34, colors: ['#c8ffb0', '#ffe9a0', '#ffffff'], speed: 0.5, up: 9, life: 1.6, gravity: -1.5, spread: 0.5 }); await a.wait(0.35); }

@@ -9,7 +9,7 @@ Three.js r128로 그린 3D 도트(복셀) 판타지 지도 모음이에요. 탭�
 - 틈새의 땅: 엘든 링 보스방
 - 오라리오: 던전에서 만남을 추구하면 안 되는 걸까
 
-공유 링크: https://claude.ai/artifact/ScsUQVYzktwZZFh2m5UDN5 (v18까지 게시)
+공유 링크: https://claude.ai/artifact/ScsUQVYzktwZZFh2m5UDN5 (v20까지 게시)
 
 ## 구조
 

@@ -1,6 +1,6 @@
-// 도읍 로데일 · 엘데의 왕좌 — 여왕의 규방에서 큰 계단을 오르면 황금 나무 밑동에 붙은 둥근 돌 테라스(보스방)가 나온다. (메인 보스: 축복왕 모르고트)
+// 도읍 로데일 · 엘데의 왕좌 — 여왕의 규방(하위 지도)에서 큰 계단을 오르면 황금 나무 밑동에 붙은 둥근 돌 테라스(보스방)가 나온다. (메인 보스: 축복왕 모르고트)
 // 나무 밑동(북쪽)은 하얀 기둥과 엇갈린 뿌리 갈비로 대성당 정면처럼 깎였고, 가운데 좁은 틈의 계단 끝을 가시덤불이 막았다. 계단 발치의 낡은 나무 의자가 엘데의 왕좌.
-// 좌표: +x 동쪽, +z 남쪽. 기본 시점(남동쪽)에서 보면 뒤(북)가 나무 밑동, 앞(남)이 큰 계단과 규방 돔, 왼쪽 아래(남서) 도시에 황금 나무 대성당(하위 지도).
+// 좌표: +x 동쪽, +z 남쪽. 기본 시점(남동쪽)에서 보면 뒤(북)가 나무 밑동, 앞(남)이 큰 계단과 여왕의 규방 돔(하위 지도), 왼쪽 아래(남서) 도시에 황금 나무 대성당.
 (function () {
   'use strict';
   const { hash3 } = VX;
@@ -387,7 +387,7 @@
         name: '여왕의 규방', hint: '마리카 여왕의 둥근 규방 문이 열리며 촛불 빛이 새어 나와요. 큰 계단을 오르면 왕좌예요', hit: [QX - 3, QL + 1, QZ - QR - 2, QX + 3, QL + 7, QZ - QR],
         run: async a => { a.flash('bed', 6, 3.6); await Promise.all([a.turn('qdoorL', [0, -1.5, 0], 1.6), a.turn('qdoorR', [0, 1.5, 0], 1.6)]); a.burst([QX + 0.5, QL + 4, QZ - QR - 1], { n: 30, colors: ['#ffe9a0', '#fff6d0'], speed: 2, up: 2, life: 1.6, gravity: -0.3, spread: 3 }); await a.wait(1.6); await Promise.all([a.turn('qdoorL', [0, 0, 0], 1.4), a.turn('qdoorR', [0, 0, 0], 1.4)]); },
       });
-      landmarks.push({ name: '여왕의 규방', note: '큰 계단 아래 돔 · 왕좌 앞 마지막 축복', p: [QX + 0.5, qTop + 6, QZ + 0.5] });
+      landmarks.push({ name: '여왕의 규방', note: '하위 지도 · 큰 계단 아래 돔, 왕좌 앞 마지막 축복', p: [QX + 0.5, qTop + 6, QZ + 0.5] });
       // 규방 돔을 넘어가는 거대한 뿌리
       LB.tube(w, [[156, LOW, 152], [134, QL + 30, 166], [104, QL + 40, 180], [72, QL + 30, 186], [44, LOW + 2, 190]], t => 3.6 - Math.sin(t * Math.PI) * 0.8, (x, y, z, t, dy) => dy > 0 ? B.barkP : B.barkM);
 
@@ -396,10 +396,10 @@
       lights.push({ name: 'grace', p: gp, c: '#ffe08a', i: 0.9, d: 10, flicker: 0.1 });
       acts.push(LB.graceAct({ name: '엘데의 왕좌 축복', at: gp, to: [CX + 0.5, FL + 20, LZ + 2], arc: 14, steps: 22, hint: '테라스 한가운데 축복이 가시로 막힌 계단 끝을 가리켜요. 거인의 불로만 태울 수 있어요' }));
 
-      // ══ 이정표: 남서쪽 아랫도시의 황금 나무 대성당(하위 지도) ══
+      // ══ 이정표: 큰 계단 아래 여왕의 규방(하위 지도) ══
       {
-        const sx = CX - 14, sz = GZ - 5, sp = OR.signpost(w, B, sx, sz, { dir: [-1, 1], boards: 1, h: 6 });
-        acts.push(OR.goAct({ at: sp, name: '황금 나무 대성당으로', goto: 'leyndell-sub', hint: '규방을 지나 가지 다리를 건너면, 첫 왕 고드프리의 망령이 기다리는 황금 나무 대성당이에요' }));
+        const sx = CX - 12, sz = GZ - 3, sp = OR.signpost(w, B, sx, sz, { dir: [0, 1], boards: 1, h: 6 });
+        acts.push(OR.goAct({ at: sp, name: '여왕의 규방으로', goto: 'leyndell-sub', hint: '큰 계단을 내려가 돔 아래 마리카 여왕의 둥근 방으로 가요. 천개 휘장과 침상, 왕좌 앞 마지막 축복이 있어요' }));
       }
 
       // ══ 아랫도시: 지붕들, 황금 나무 대성당, 금빛 나무 ══
@@ -411,7 +411,7 @@
       w.cyl(SAN.ax, SAN.az, LOW + 1, LOW + 20, SAN.ar, B.lime);
       for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5, x = Math.round(SAN.ax + Math.cos(a) * SAN.ar), z = Math.round(SAN.az + Math.sin(a) * SAN.ar); w.box(x, LOW + 10, z, x, LOW + 17, z, B.glassG); }
       const sdTop = LB.dome(w, SAN.ax, LOW + 21, SAN.az, SAN.ar, B.domeG, { ribs: 12, rib: B.goldS, sy: 1.0, lantern: B.limeLt, tip: B.goldS });
-      landmarks.push({ name: '황금 나무 대성당', note: '하위 지도 · 첫 왕 고드프리의 망령', p: [SAN.ax - 8.5, sdTop + 8, SAN.az + 0.5] });
+      landmarks.push({ name: '황금 나무 대성당', note: '첫 왕 고드프리의 망령 · 가지 다리로 규방과 이어진다', p: [SAN.ax - 8.5, sdTop + 8, SAN.az + 0.5] });
       // 대성당에서 규방으로 오르는 거대한 가지 다리
       LB.tube(w, [[SAN.ax + 6, LOW + 18, SAN.az - 4], [70, QL + 4, 172], [82, QL + 6, 178]], t => 2.4 - t * 0.6, (x, y, z, t, dy) => dy > 0 ? B.barkP : B.barkM);
       const hm = { found: B.wallSd, wall: B.lime, frame: B.limeDk, win: B.win, sill: B.trim, door: B.door, roof: B.slate, eave: B.slateDk, ridge: B.goldS, chimney: B.limeDk, quoin: B.limeLt };

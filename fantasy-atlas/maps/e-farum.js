@@ -232,7 +232,7 @@
         const x = Math.round(RX + ca * al - sa * s * 4.5), z = Math.round(RZ + sa * al + ca * s * 4.5);
         w.set(x, AF + 7, z, B.iron); w.set(x, AF + 8, z, B.torch);
       }
-      lights.push({ name: 'torch', p: [RX + ca * 56, AF + 8, RZ + sa * 56], c: '#ffa040', i: 0.5, d: 16, flicker: 0.5 });
+      lights.push({ name: 'torch', p: [RX + ca * 56, AF + 8, RZ + sa * 56], c: '#ffa040', i: 0.5, d: 16, flicker: 0.5, srcR: 8 });
       const grx = Math.round(RX + ca * 58), grz = Math.round(RZ + sa * 58), gp = LB.grace(w, grx, AF, grz, B.grace);
       lights.push({ name: 'grace', p: gp, c: '#ffe08a', i: 0.9, d: 12, flicker: 0.1 });
       acts.push(LB.graceAct({ name: '대교 옆 축복', at: gp, to: [RX + 0.5, AF + 3, RZ + 0.5], arc: 18, steps: 28, hint: '통로 한가운데 대교 옆 축복이 안개문 너머 대전을 가리켜요' }));
@@ -355,6 +355,7 @@
       for (let k = 0; k < 6; k++) {
         const a = k * 1.05 + 0.4, r = 58 + (k % 3) * 6, x = Math.round(RX + Math.cos(a) * r), z = Math.round(RZ + Math.sin(a) * r), y = base + 6 + (k % 4) * 8;
         if (x < 8 || z < 8 || x > W - 9 || z > D - 9) continue;
+        { let hit = false; for (let yy = y - 3; yy <= y + 6 && !hit; yy++) for (let zz = z - 4; zz <= z + 4 && !hit; zz++) for (let xx = x - 4; xx <= x + 4; xx++) if (w.get(xx, yy, zz)) { hit = true; break; } if (hit) continue; }
         const pr = w.prop({ name: 'float' + k, pivot: [x + 0.5, y, z + 0.5], bob: 1.6, bobSpeed: 0.4 + k * 0.07, rock: 0.05, rockSpeed: 0.3, phase: k, axis: 'y' });
         pr.ellipsoid(x, y, z, 2.6, 1.8, 2.2, B.rock); pr.box(x - 1, y + 1, z - 1, x + 1, y + 2, z + 1, B.stone);
       }
@@ -373,6 +374,7 @@
           if (bones) for (let k = 0; k < 8; k++) w.set(cx - 3 + (k % 7), AY + 1, cz - 1 + (k % 3), B.bone);
         };
         arch(AX - 9, AZ - 4, true); arch(AX + 8, AZ + 6, true); arch(AX, AZ - 6, false);
+        w.set(AX, AY + 1, AZ - 6, B.candle); w.set(AX - 2, AY + 1, AZ - 6, B.candle); w.set(AX + 2, AY + 1, AZ - 6, B.candle);
         lights.push({ name: 'nest', p: [AX + 0.5, AY + 3, AZ - 5.5], c: '#ffe0a0', i: 0.3, d: 12, flicker: 0.1 });
         const sp = OR.signpost(w, B, AX + 6, AZ - 9, { dir: [-1, 1], boards: 1, h: 6 });
         acts.push(OR.goAct({ at: sp, name: '용왕의 결투장으로', goto: 'farum-sub', hint: '뼈가 없는 돌 아치에 누우면 시간 너머 폐허, 용왕 플라키도사크스가 기다리는 결투장으로 가요', hit: [AX - 5, AY, AZ - 11, AX + 8, AY + 8, AZ - 3] }));

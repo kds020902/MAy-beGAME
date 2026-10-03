@@ -140,6 +140,8 @@
         w.set(Math.round(e[0]), Math.round(e[1]) + 1, Math.round(e[2]), B.ember);
         stumps.push(e);
       }
+      // 머리 부품과 겹치는 월드 칸은 비운다(겹치는 부분은 부품에만 남긴다)
+      for (const [i] of w.props.find(q => q.o.name === 'heads').w.data) { const x = i % W, z = Math.floor(i / W) % D, y = Math.floor(i / (W * D)); if (w.get(x, y, z)) w.set(x, y, z, 0); }
       lights.push({ name: 'dragon', p: [CH[0] + 0.5, CH[1] + 12, CH[2] + 0.5], c: '#ff5a3a', i: 0.15, d: 50, flicker: 0.3, srcR: 20 });
       acts.push({
         name: '용왕의 포효', hint: '똬리를 튼 용왕이 남은 두 머리를 쳐들고 눈을 번뜩이며 붉은 번개를 토해요', hit: [Math.round(CH[0]) - 7, CH[1] - 5, Math.round(CH[2]) - 7, Math.round(CH[0]) + 7, CH[1] + 7, Math.round(CH[2]) + 7],

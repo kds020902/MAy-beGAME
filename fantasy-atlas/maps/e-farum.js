@@ -1,7 +1,8 @@
-// 무너지는 파름 아즈라 · 말리케스의 결투장 — 대교 옆 축복(남동쪽 통로)에서 안개문을 지나면 지붕이 날아간 둥근 대전이 나온다.
+// 무너지는 파름 아즈라 · 말리케스의 결투장 — 대교를 끝까지 올라 안개문을 지나면 지붕이 날아간 둥근 대전이 나온다.
 // 맞은편(북서쪽) 큰 벽감에는 황금 룬 문장 창이 빛나고, 그 앞에 짐승 사제가 죽음의 룬을 지키고 앉아 있다. 벽은 군데군데 무너져 폭풍과 회오리가 보인다.
-// 남서쪽 아래 떠 있는 폐허 덩어리의 '뼈 없는 아치'에 누우면 용왕 플라키도사크스의 결투장(하위 지도)으로 간다. (메인 보스: 흑검 말리케스)
-// 좌표: +x 동쪽, +z 남쪽. 기본 시점(남동쪽)에서 보면 입구와 축복이 앞, 룬 벽감이 뒤, 대교는 오른쪽 아래로 휘어 나간다.
+// 바닥은 어두운 돌에 넓은 문양 띠가 동심원으로 새겨져 있고, 바깥벽은 바깥 면에도 두 단 아치가 둘린 원형 투기장 모양이다. (메인 보스: 흑검 말리케스)
+// 남동쪽 문 앞에서 대교가 얕은 계단을 이루며 폭풍 속으로 내려가고, 그 길 위의 이정표가 대교 옆 노대(하위 지도)로 이어진다.
+// 좌표: +x 동쪽, +z 남쪽. 기본 시점(남동쪽)에서 보면 대교와 안개문이 앞, 룬 벽감이 뒤.
 (function () {
   'use strict';
   const { hash3 } = VX;
@@ -9,8 +10,8 @@
   const RX = 84, RZ = 80;                                   // 둥근 대전 한가운데
   MAPS.push({
     id: 'farum', cat: 'lands', name: '무너지는 파름 아즈라', en: 'Crumbling Farum Azula · Maliketh', color: '#c8a870', seed: 947, base: 64, time: 'day', size: [W, D, Hh],
-    desc: '시간 너머의 폭풍 속을 떠도는 파름 아즈라 꼭대기. 대교 옆 축복의 통로에서 안개문을 지나면 지붕이 날아간 둥근 대전이 나온다. 조각 기둥 발치마다 촛불이 타고, 맞은편 큰 벽감의 황금 룬 문장 앞에서 짐승 사제가 죽음의 룬을 지킨다. 그가 흑검 말리케스다.',
-    info: { title: '장소 정보', en: 'BESIDE THE GREAT BRIDGE', rows: [['축복', '대교 옆 · 남동쪽 통로'], ['결투장', '지붕 없는 둥근 대전 · 조각 기둥과 촛불'], ['벽감', '북서쪽 · 황금 룬 문장과 죽음의 룬'], ['용왕의 결투장', '남서쪽 폐허의 뼈 없는 아치']] },
+    desc: '시간 너머의 폭풍 속을 떠도는 파름 아즈라 꼭대기. 난간 두른 대교를 끝까지 올라 안개문을 지나면 지붕이 날아간 둥근 대전이 나온다. 넓은 문양 띠가 동심원으로 새겨진 바닥, 조각 기둥 발치마다 타는 촛불, 맞은편 큰 벽감의 황금 룬 문장 앞에서 짐승 사제가 죽음의 룬을 지킨다. 그가 흑검 말리케스다.',
+    info: { title: '장소 정보', en: "MALIKETH'S ARENA", rows: [['가는 길', '남동쪽 대교 끝 · 안개문'], ['결투장', '지붕 없는 둥근 대전 · 조각 기둥과 촛불'], ['벽감', '북서쪽 · 황금 룬 문장과 죽음의 룬'], ['대교 옆 노대', '대교 위 이정표 · 하위 지도']] },
     monsters: { normal: ['파름 아즈라의 수인', '땅 잃은 기사', '파름 아즈라의 용'], mid: '용나무 파수병', boss: '흑검 말리케스' },
     sky: ['#d8c098', '#4e4e5a', '#ffe6b0'], stars: false,
     hemi: ['#fff0d8', '#4a4236', 0.64], sun: ['#fff0d0', 0.74, [0.4, 1, 0.55]],
@@ -58,7 +59,15 @@
       const floorB = (r, th) => {
         if (r < 2.2) return B.gold;
         if (r < 3.4) return B.dark;
-        for (const rr of [8, 16, 24, 33]) if (Math.abs(r - rr) < 0.55) return B.gold;
+        // 넓은 문양 띠: 가장자리는 금빛 홈, 안쪽은 새긴 무늬(엇갈린 마름모)
+        for (const rr of [8, 16, 24, 33]) {
+          const d = Math.abs(r - rr);
+          if (d < 1.9) {
+            if (d > 1.35) return B.gold;
+            const u = th * rr * 0.9, m = Math.abs(((u % 3) + 3) % 3 - 1.5) + d;
+            return m < 1.1 ? B.floorL : B.dark;
+          }
+        }
         if (r > RF - 2) return B.floorL;
         if (r > 4 && r < 33 && Math.abs(Math.sin(th * 8)) < 0.045 * (14 / r)) return B.gold;
         return ((Math.floor((th + Math.PI) / (TAU / 32)) + Math.floor(r / 4)) & 1) ? B.floorA : B.floorB;
@@ -95,6 +104,10 @@
             else if (LB.inArch(du, v - 17, 2.2, 9, 'round')) b = B.win;
             else if (v >= 13 && v <= 15) b = ((Math.round(du) + v) & 1) ? B.relief : B.reliefL;     // 조각 띠
             else if (v > 26) b = (hash3(x, y >> 1, z) > 0.5) ? B.relief : B.stone;
+          }
+          if (!pil && r > 45.2) {                                                     // 바깥 면: 두 단 막힌 아치(원형 투기장의 겉모습)
+            if (LB.inArch(du, v - 1, 3.6, 12, 'round')) b = B.stoneDk;
+            else if (LB.inArch(du, v - 16, 2.6, 9, 'round')) b = B.relief;
           }
           if (dth < 0.1 && v <= 15) b = 0;                                          // 입구
           if (angD(th, bth) < 0.16 && v <= 26 && r < 45) b = 0;                     // 룬 벽감 자리
@@ -207,57 +220,57 @@
       });
       landmarks.push({ name: '흑검 말리케스', note: '보스 · 짐승 사제의 정체, 죽음의 룬을 지키는 마리카의 그림자', p: [RX + 0.5, AF + 30, RZ + 0.5], boss: true });
 
-      // ══ 입구: 안개문, 횃불 통로, 대교 옆 축복 ══
+      // ══ 입구: 문틀과 안개문, 승리 뒤 켜지는 말리케스 축복 ══
       const gx0 = RX + ca * 44, gz0 = RZ + sa * 44;
       for (let s = -3; s <= 3; s++) for (let y = AF + 1; y <= AF + 13; y++) { const x = Math.round(gx0 - sa * s), z = Math.round(gz0 + ca * s); if (hash3(x, y, z) > 0.55) w.set(x, y, z, B.fogG); }
       lights.push({ name: 'fog', p: [gx0 + ca * 3, AF + 6, gz0 + sa * 3], c: '#fff0c8', i: 0.6, d: 14, flicker: 0.2 });
       acts.push({
-        name: '안개문', hint: '대전 입구를 막은 금빛 안개가 일렁이며 흩날려요', hit: [Math.round(gx0) - 3, AF + 1, Math.round(gz0) - 3, Math.round(gx0) + 3, AF + 12, Math.round(gz0) + 3],
+        name: '안개문', hint: '대교 끝에서 대전 입구를 막은 금빛 안개가 일렁이며 흩날려요', hit: [Math.round(gx0) - 3, AF + 1, Math.round(gz0) - 3, Math.round(gx0) + 3, AF + 12, Math.round(gz0) + 3],
         run: async a => { a.flash('fog', 4, 3); for (let k = 0; k < 8; k++) { a.burst([gx0 + 0.5, AF + 2 + k * 1.3, gz0 + 0.5], { n: 22, colors: ['#fff0c8', '#ffffff', '#ffd060'], speed: 3, up: 1, life: 1.4, gravity: -0.4, spread: 4, flat: true }); await a.wait(0.18); } },
       });
-      // 통로: 양쪽 벽에 기둥과 횃불, 끝에 축복(지붕은 무너졌다)
-      const CL = 66, TPX = Math.round(RX + ca * CL), TPZ = Math.round(RZ + sa * CL);
-      for (let z = RZ; z <= TPZ + 12; z++) for (let x = RX; x <= TPX + 12; x++) {
-        const dx = x - RX, dz = z - RZ, al = dx * ca + dz * sa, ac = -dx * sa + dz * ca;
-        if (!(al > RW1 - 1 && al < CL + 6 && Math.abs(ac) <= 6.5)) continue;
-        if (Math.hypot(dx, dz) <= RW1 + 1) continue;
-        col(x, z, AF, Math.round(AF - 16 + n.fbm(x * 0.1, z * 0.1, 2) * 4), Math.abs(ac) < 5 ? (((al | 0) + (ac | 0)) & 1 ? B.pave : B.floorL) : B.stoneDk);
-        if (Math.abs(ac) > 5.4) {
-          const pil = Math.round(al) % 6 === 0, h = pil ? 15 : 9 + (hash3(x, 3, z) * 4 | 0);
-          for (let y = AF + 1; y <= AF + h; y++) w.set(x, y, z, pil ? B.reliefL : ((y - AF) % 5 === 0 ? B.trim : B.stone));
-        }
+      {
+        const grx = Math.round(RX + ca * 22 + sa * 7), grz = Math.round(RZ + sa * 22 - ca * 7), gp = LB.grace(w, grx, AF, grz, B.grace);
+        lights.push({ name: 'grace', p: gp, c: '#ffe08a', i: 0.9, d: 12, flicker: 0.1 });
+        acts.push(LB.graceAct({ name: '흑검 말리케스 축복', at: gp, to: [rnx + 0.5, EY, rnz + 0.5], arc: 16, steps: 26, hint: '말리케스가 쓰러진 뒤 대전에 켜지는 축복이 맞은편 룬 벽감을 가리켜요' }));
       }
-      LB.crumble(w, RX + 30, AF + 6, RZ + 30, TPX + 8, AF + 16, TPZ + 8, 0.25, 2, 11);
-      for (const s of [-1, 1]) for (const al of [52, 60]) {
-        const x = Math.round(RX + ca * al - sa * s * 4.5), z = Math.round(RZ + sa * al + ca * s * 4.5);
-        w.set(x, AF + 7, z, B.iron); w.set(x, AF + 8, z, B.torch);
-      }
-      lights.push({ name: 'torch', p: [RX + ca * 56, AF + 8, RZ + sa * 56], c: '#ffa040', i: 0.5, d: 16, flicker: 0.5, srcR: 8 });
-      const grx = Math.round(RX + ca * 58), grz = Math.round(RZ + sa * 58), gp = LB.grace(w, grx, AF, grz, B.grace);
-      lights.push({ name: 'grace', p: gp, c: '#ffe08a', i: 0.9, d: 12, flicker: 0.1 });
-      acts.push(LB.graceAct({ name: '대교 옆 축복', at: gp, to: [RX + 0.5, AF + 3, RZ + 0.5], arc: 18, steps: 28, hint: '통로 한가운데 대교 옆 축복이 안개문 너머 대전을 가리켜요' }));
-      landmarks.push({ name: '대교 옆', note: '대전으로 이어지는 통로의 축복', p: [gp[0], gp[1] + 16, gp[2]] });
-      // 대교: 통로 끝에서 계단을 내려가 폭풍 속으로 휘어 나간다(난간, 아치 교각)
-      const BY = AF - 8, S0 = TPZ + 6;
-      for (let k = 0; k <= 8; k++) { const z = S0 + k, y = AF - k; for (let x = TPX - 5; x <= TPX + 5; x++) col(x, z, y, y - 4, Math.abs(x - TPX) === 5 ? B.trim : B.pave); for (const x of [TPX - 5, TPX + 5]) w.set(x, y + 1, z, B.stone); }
-      const bpts = [[TPX, S0 + 8], [TPX + 3, S0 + 22], [TPX + 10, S0 + 36], [TPX + 22, D + 6]];
+
+      // ══ 대교의 윗끝: 안개문 앞에서 얕은 계단을 이루며 남동쪽 폭풍 속으로 내려간다(난간, 아치 교각) ══
+      const bpts = [[gx0 + ca * 1, gz0 + sa * 1], [gx0 + ca * 30, gz0 + sa * 30 + 2], [gx0 + ca * 62 + 4, gz0 + sa * 62 + 8], [gx0 + ca * 110 + 10, gz0 + sa * 110 + 14]];
       const BC = LB.curve(bpts.map(p => [p[0], 0, p[1]]), 0.5); let acc = 0;
-      const bcell = new Map();
+      const bcell = new Map(), BH = s => AF - Math.floor(s / 6);
       BC.forEach((p, i) => {
         if (i) acc += Math.hypot(p[0] - BC[i - 1][0], p[2] - BC[i - 1][2]);
-        for (let dz = -7; dz <= 7; dz++) for (let dx = -7; dx <= 7; dx++) {
-          const x = Math.round(p[0] + dx), z = Math.round(p[2] + dz), d = Math.hypot(x - p[0], z - p[2]); if (d > 6.2) continue;
+        p.push(acc);
+        for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) {
+          const x = Math.round(p[0] + dx), z = Math.round(p[2] + dz), d = Math.hypot(x - p[0], z - p[2]); if (d > 7.2) continue;
           const k = x + 1000 * z, o = bcell.get(k); if (!o || d < o[0]) bcell.set(k, [d, acc]);
         }
       });
       for (const [k, [d, s]] of bcell) {
-        const x = k % 1000, z = (k / 1000) | 0; if (x < 0 || z < 0 || x >= W || z >= D || MH.g(w, x, z) >= BY) continue;
-        const fr = (s % 18) / 18, bot = BY - 3 - Math.round((1 - Math.sin(fr * Math.PI)) * 7);
-        col(x, z, BY, bot, d > 5.2 ? B.trim : B.pave);
-        if (d > 5.2) { w.set(x, BY + 1, z, B.stone); if (Math.round(s) % 6 === 0) { w.box(x, BY + 1, z, x, BY + 3, z, B.stoneDk); w.set(x, BY + 4, z, B.trim); } }
-        if (fr < 0.08 || fr > 0.92) for (let y = BY - 40; y < bot; y++) w.set(x, y, z, (y % 6 === 0) ? B.trim : B.stoneDk);    // 교각
+        const x = k % 1000, z = (k / 1000) | 0; if (x < 0 || z < 0 || x >= W || z >= D || Math.hypot(x - RX, z - RZ) < RW1 + 0.5) continue;
+        const y = BH(s), fr = (s % 22) / 22, bot = y - 3 - Math.round((1 - Math.sin(fr * Math.PI)) * 8);
+        col(x, z, y, bot, d > 6.2 ? B.trim : (Math.floor(s) % 6 === 5 ? B.floorL : B.pave));
+        if (d > 6.2) {                                                              // 난간: 동자 기둥 줄과 갓돌, 몇 칸마다 굵은 기둥
+          const post = Math.round(s) % 8 === 0;
+          w.set(x, y + 1, z, post ? B.stoneDk : ((Math.round(s) & 1) ? B.stone : B.trim)); w.set(x, y + 2, z, B.trim);
+          if (post) { w.set(x, y + 2, z, B.stoneDk); w.set(x, y + 3, z, B.trim); }
+        }
+        if (fr < 0.07 || fr > 0.93) for (let yy = y - 46; yy < bot; yy++) w.set(x, yy, z, (yy % 6 === 0) ? B.trim : B.stoneDk);    // 교각
       }
-      landmarks.push({ name: '대교', note: '폭풍 속으로 휘어 가는 큰 다리', p: [TPX + 6, BY + 14, S0 + 30] });
+      // 문 양옆 문루: 대교가 닿는 자리의 둥근 탑 두 개(위는 무너졌다)
+      for (const sg of [-1, 1]) {
+        const tx = Math.round(gx0 + ca * 3 - sa * sg * 10), tz = Math.round(gz0 + sa * 3 + ca * sg * 10);
+        for (let z = tz - 4; z <= tz + 4; z++) for (let x = tx - 4; x <= tx + 4; x++) if (Math.hypot(x - tx, z - tz) <= 4) col(x, z, AF, AF - 20, B.stoneDk);
+        for (let y = AF + 1; y <= AF + 30; y++) w.cyl(tx, tz, y, y, 3.4, (y - AF) % 8 === 0 ? B.trim : ((y - AF) % 8 > 5 ? B.reliefL : B.stone));
+        LB.crumble(w, tx - 4, AF + 22, tz - 4, tx + 4, AF + 31, tz + 4, 0.35, 2, 40 + sg);
+      }
+      { const q = BC[Math.round(BC.length * 0.45)]; landmarks.push({ name: '대교', note: '안개문 앞에서 폭풍 속으로 내려가는 큰 다리', p: [q[0], BH(q[3]) + 16, q[2]] }); }
+      {
+        const q = BC.find(p => p[3] >= 34), sx = Math.round(q[0] - sa * 4.5), sz = Math.round(q[2] + ca * 4.5);
+        const sp = OR.signpost(w, B, sx, sz, { dir: [1, 1], boards: 1, h: 6 });
+        acts.push(OR.goAct({ at: sp, name: '대교 옆 노대로', goto: 'farum-sub', hint: '대교를 따라 내려가 대교 옆 축복이 있는 노대와 용의 나무 파수병이 지키는 대교 한복판으로 가요' }));
+        landmarks.push({ name: '대교 옆 노대로', note: '하위 지도 · 대교 옆 축복과 대교', p: [sx + 0.5, sp[1] + 14, sz + 0.5] });
+      }
 
       // ══ 시간 너머의 폭풍: 맞은편 절반의 구름띠(부품)와 무너진 틈 너머 흰 회오리(부품) ══
       const vortex = (name, r0, r1, y0, y1, salt) => {
@@ -360,28 +373,6 @@
         pr.ellipsoid(x, y, z, 2.6, 1.8, 2.2, B.rock); pr.box(x - 1, y + 1, z - 1, x + 1, y + 2, z + 1, B.stone);
       }
 
-      // ══ 남서쪽 아래 폐허 덩어리: 뼈 없는 아치와 용왕의 결투장으로 가는 이정표 ══
-      {
-        const AX = 46, AZ = 150, AY = AF - 14;
-        for (let z = AZ - 16; z <= AZ + 16; z++) for (let x = AX - 18; x <= AX + 18; x++) {
-          const e = Math.hypot((x - AX) / 16, (z - AZ) / 13) + (n.fbm(x * 0.09, z * 0.09, 2) - 0.5) * 0.3; if (e > 1) continue;
-          col(x, z, AY, Math.round(AY - 16 * Math.pow(1 - e, 0.6) - 3), ((x + z) & 3) ? B.pave : B.floorL);
-        }
-        // 흩어진 뼈 아치들과, 하나만 뼈가 없는 돌 아치(누울 자리)
-        const arch = (cx, cz, bones) => {
-          for (let k = 0; k <= 24; k++) { const t = k / 24 * Math.PI, x = Math.round(cx + Math.cos(t) * 4.5), y = AY + 1 + Math.round(Math.sin(t) * 4); w.box(x, y, cz - 1, x, y, cz + 1, B.stoneDk); w.set(x, y + 1, cz, B.trim); }
-          w.box(cx - 3, AY, cz - 2, cx + 3, AY, cz + 2, B.floorA);
-          if (bones) for (let k = 0; k < 8; k++) w.set(cx - 3 + (k % 7), AY + 1, cz - 1 + (k % 3), B.bone);
-        };
-        arch(AX - 9, AZ - 4, true); arch(AX + 8, AZ + 6, true); arch(AX, AZ - 6, false);
-        w.set(AX, AY + 1, AZ - 6, B.candle); w.set(AX - 2, AY + 1, AZ - 6, B.candle); w.set(AX + 2, AY + 1, AZ - 6, B.candle);
-        lights.push({ name: 'nest', p: [AX + 0.5, AY + 3, AZ - 5.5], c: '#ffe0a0', i: 0.3, d: 12, flicker: 0.1 });
-        const sp = OR.signpost(w, B, AX + 6, AZ - 9, { dir: [-1, 1], boards: 1, h: 6 });
-        acts.push(OR.goAct({ at: sp, name: '용왕의 결투장으로', goto: 'farum-sub', hint: '뼈가 없는 돌 아치에 누우면 시간 너머 폐허, 용왕 플라키도사크스가 기다리는 결투장으로 가요', hit: [AX - 5, AY, AZ - 11, AX + 8, AY + 8, AZ - 3] }));
-        landmarks.push({ name: '뼈 없는 아치', note: '용왕 플라키도사크스의 결투장으로', p: [AX + 0.5, AY + 18, AZ - 5.5] });
-        // 대교 계단 쪽에서 이어지는 떠 있는 디딤돌
-        for (let k = 0; k < 5; k++) { const t = (k + 1) / 6, x = Math.round(TPX - 8 + (AX + 14 - TPX + 8) * t), z = Math.round(TPZ + 4 + (AZ - 8 - TPZ - 4) * t), y = Math.round(AF - 4 + (AY + 2 - AF + 4) * t); isl(x, y, z, 2.6, 2.2, 4, 30 + k); }
-      }
       return { lights, landmarks, acts };
     },
   });

@@ -99,6 +99,7 @@
       for (const bx of [TX - 3, TX + 3]) w.box(bx, g, TZ + 9, bx, g + 6, TZ + 9, B.trim);
       for (let s = 0; s < 3; s++) w.box(TX - 4 - s, g + 2 - s, TZ + 10 + s, TX + 4 + s, g + 2 - s, TZ + 10 + s, s % 2 ? B.trim : B.paleDk);
       for (const bx of [TX - 6, TX + 6]) { w.box(bx, g + 1, TZ + 10, bx, g + 7, TZ + 10, B.paleDk); w.box(bx, g + 3, TZ + 11, bx, g + 6, TZ + 11, B.rune); w.set(bx, g + 8, TZ + 10, B.lamp); }
+      acts.push(OR.goAct({ at: [TX, g, TZ + 9], name: '대마법사의 탑 안으로', goto: 'academy-tower', hint: '금테 아치 정문을 열고 룬 원이 빛나는 탑 안 현관 홀로 들어가요', hit: [TX - 2, g, TZ + 8, TX + 2, g + 6, TZ + 10] }));
       // 지붕: 처마 띠, 원뿔, 네 귀퉁이 작은 첨탑, 금 꼭지
       const yTop = g + TH, rT = tr(yTop);
       w.ring(TX, TZ, yTop + 1, rT - 1, rT + 1.8, B.paleDk); w.ring(TX, TZ, yTop + 2, rT + 0.8, rT + 1.8, B.trim);
@@ -143,6 +144,7 @@
       for (let a = 0; a < 8; a++) for (let t = 0; t < 1.5; t += 0.06) { const r = Math.cos(t) * 9.8, y = Math.round(lib.top + 5 + Math.sin(t) * 9.8); w.set(Math.round(DX + Math.cos(a * 0.785) * r), y, Math.round(DZ + Math.sin(a * 0.785) * r), B.gold); }
       w.cyl(DX, DZ, dTop, dTop + 2, 1.6, B.trim); w.box(DX, dTop + 3, DZ, DX, dTop + 5, DZ, B.gold);
       lights.push({ p: [lib.door[0] + 1.5, lib.door[1] + 3, lib.door[2] + 0.5], c: '#d8c8ff', i: 1, d: 13, flicker: 0.05, night: true });
+      acts.push(OR.goAct({ at: [lib.door[0] + 1, lib.door[1], lib.door[2]], h: 4, name: '대도서관 안으로', goto: 'academy-library', hint: '동쪽 열주 현관의 문을 열고 푸른 돔 아래 열람실로 들어가요', hit: [lib.door[0], lib.door[1], lib.door[2], lib.door[0] + 1, lib.door[1] + 4, lib.door[2] + 1] }));
       landmarks.push({ name: '대도서관', note: '푸른 돔 아래 금서 서가', p: [DX + 0.5, dTop + 8, DZ + 0.5] });
       // ── 강의동(종탑)과 기숙사 ──
       const hm = { found: B.paleDk, wall: B.pale, frame: B.paleDk, quoin: B.trim, win: B.win, sill: B.trim, door: B.door, roof: B.roofP, eave: B.eave, ridge: B.gold, chimney: B.paleDk, lamp: B.lamp, rail: B.trim, flower: B.petal };

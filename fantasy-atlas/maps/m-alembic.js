@@ -63,6 +63,11 @@
           w.box(wallX, F + 1, z + 10, wallX, F + 14, z + 10, B.copperDk); w.set(wallX, F + 5, z + 10, B.patina); w.set(wallX, F + 11, z + 10, B.patina);
           if (k % 3 === 0) lights.push({ p: [fx + 0.5, F + 3, z + 2.5], c: k % 2 ? '#d080ff' : '#90ff70', i: 0.9, d: 11, flicker: 0.2 });
           if (h.chimney) chims.push(h.chimney);
+          if (z === 34 && side > 0) {                          // 물약 상점 정문: 문 앞에서 금빛이 골목 위로 피어오른 뒤 안으로 들어간다
+            const [dx, dy, dz] = h.door;
+            acts.push({ name: '물약 상점 안으로', goto: 'alembic-potionshop', hint: '병 간판이 걸린 문을 열고 빛나는 병이 가득한 물약 상점으로 들어가요', hit: [dx - 1, dy, dz, dx, dy + 3, dz + 1],
+              run: async a => { for (let k = 0; k < 6; k++) { a.burst([dx - 1.5, dy + 3 + k * 8, dz + 1], { n: 26, colors: ['#ffe9a0', '#ffffff', '#b8ff9a'], speed: 2, up: 3, life: 1, gravity: -0.6, spread: 1.4 }); await a.wait(0.1); } await a.wait(0.4); } });
+          }
           if (h.chimney && smoke.length < 6) smoke.push({ n: 28, colors: smokeCol[k % 4], mode: 'rise', speed: 0.7, area: [h.chimney[0], h.chimney[2], 0.7], y0: h.chimney[1], y1: h.chimney[1] + 20, glow: true });
           k++;
         }
@@ -217,6 +222,7 @@
       MH.flatten(w, GWX - 13, GWZ - 10, GWX + 13, GWZ + 10, gwy - 1, B.cob, B.rock);
       const shop = MH.houseX(w, { x: GWX - 12, z: GWZ - 9, sx: 12, sz: 10, floors: 2, fh: 6, face: 'e', pitch: 1, studs: true, axis: 'x', y: gwy - 1,
         m: { found: B.found, wall: B.wallC, frame: B.frame, win: B.winG, sill: B.frame, door: B.door, roof: B.roofT, eave: B.eave, ridge: B.frame, chimney: B.brick, lamp: B.lamp } });
+      acts.push(OR.goAct({ at: [shop.door[0] + 1, shop.door[1], shop.door[2]], h: 4, name: '유리 공방 안으로', goto: 'alembic-glassworks', hint: '문을 열고 녹임 가마가 타오르는 유리 공방 작업장으로 들어가요', hit: [shop.door[0], shop.door[1], shop.door[2], shop.door[0] + 1, shop.door[1] + 3, shop.door[2] + 1] }));
       if (shop.chimney) smoke.push({ n: 24, colors: ['#ffb070', '#f0e0c0'], mode: 'rise', speed: 0.6, area: [shop.chimney[0], shop.chimney[2], 0.7], y0: shop.chimney[1], y1: shop.chimney[1] + 16, glow: true });
       // 벌집 모양 벽돌 가마
       const KLX = GWX + 6, KLZ = GWZ + 4;

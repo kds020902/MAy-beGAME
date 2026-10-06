@@ -256,7 +256,7 @@
           await a.tween('slabChunk', { off: [-6, -4, 2], rot: [0.3, 0, 1.2] }, 0.5);
           for (let k = 0; k < 6; k++) { a.burst([HX + 0.5, G - 1, HZ + 0.5], { n: 26, colors: ['#c8c0b0', '#a8a094', '#e8e0d0'], speed: 2.5, up: 3, life: 1.6, gravity: 0.6, spread: 3 }); await a.wait(0.25); }
           await a.wait(0.8);
-          await a.tween('slabChunk', { off: [0, 0, 0], rot: [0, 0, 0] }, 1.2);
+          await a.respawn('slabChunk', 1.0);
         },
       });
       landmarks.push({ name: '무너진 바닥', note: '천막 벽 안쪽의 구멍 · 아래는 지하 주차장', p: [HX, G + 10, HZ] });

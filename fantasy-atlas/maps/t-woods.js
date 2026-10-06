@@ -329,7 +329,7 @@
           }
           await a.move('ural', [4, 0, 0], 1.4);
           await a.wait(1);
-          await a.move('ural', [0, 0, 0], 1.8);
+          await a.respawn('ural', 1.0);
         },
       });
 
@@ -348,9 +348,7 @@
           a.burst([107.5, G + 1, tp[2] + 12], { n: 50, colors: ['#8a7a5a', '#aca290', '#6a5a40'], speed: 7, up: 1.5, life: 1.4, gravity: 3, spread: 10, flat: true });
           await a.tween('roll', { off: [0, dy, 14], rot: [6.6, 0, 0] }, 0.8);
           await a.wait(1.6);
-          await a.tween('roll', { scl: [0, 0, 0] }, 0.3);
-          await a.tween('roll', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.05);
-          await a.tween('roll', { scl: [1, 1, 1] }, 0.5);
+          await a.respawn('roll', 1.0);
         },
       });
       // 판재 더미·통나무 더미 여러 곳(지도의 비스듬한 더미 자리)

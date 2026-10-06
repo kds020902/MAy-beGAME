@@ -128,9 +128,7 @@
           await a.tween('deckLog', { off: [-7, -1, 0], rot: [0, 0, 3.6] }, 0.8);
           a.burst([82.5, G + 2, 34.5], { n: 26, colors: ['#a89a78', '#d8c8a0'], speed: 3, up: 1, life: 1, gravity: 2, spread: 4, flat: true });
           await a.wait(1.2);
-          await a.tween('deckLog', { scl: [0, 0, 0] }, 0.25);
-          await a.tween('deckLog', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.05);
-          await a.tween('deckLog', { scl: [1, 1, 1] }, 0.5);
+          await a.respawn('deckLog', 1.0);
         },
       });
 
@@ -186,9 +184,7 @@
           await a.move('plank', [-24, 0.4, -9], 0.3);
           a.burst([17.5, G + 7, 28], { n: 22, colors: ['#e0c48a', '#c8a870'], speed: 2.4, up: 1.5, life: 1, gravity: 3, spread: 2 });
           await a.wait(1);
-          await a.tween('plank', { scl: [0, 0, 0] }, 0.25);
-          await a.tween('plank', { off: [0, 0, 0] }, 0.05);
-          await a.tween('plank', { scl: [1, 1, 1] }, 0.4);
+          await a.respawn('plank', 1.0);
         },
       });
 

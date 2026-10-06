@@ -258,7 +258,7 @@
           await a.tween('cover', { off: [2, 7, -1], rot: [0.3, 0, 0.25] }, 1.2);
           for (let k = 0; k < 4; k++) { a.burst([CVX + 1 + k * 2.4, G + 4, CVZ + 2], { n: 10, colors: ['#ffffff', '#e8f4ff'], speed: 1, up: 0.6, life: 0.6, gravity: 0, spread: 0.5 }); await a.wait(0.25); }
           await a.wait(2.4);
-          await a.tween('cover', { off: [0, 0, 0], rot: [0, 0, 0] }, 1.4);
+          await a.respawn('cover', 1.0);
         },
       });
       acts.push({

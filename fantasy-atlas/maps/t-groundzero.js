@@ -240,9 +240,7 @@
           await a.tween('debris', { off: [1, -(MTOP - FH - G - 1), 10], rot: [1.2, 0.3, 0.4] }, 1, t => t * t);
           a.burst([65, G + 2, 52], { n: 60, colors: ['#c8c8c4', '#9a9a98', '#e2e2dc'], speed: 6, up: 3, life: 1.2, gravity: 6, spread: 3, flat: true });
           await a.wait(1.5);
-          await a.tween('debris', { scl: [0, 0, 0] }, 0.3);
-          await a.tween('debris', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.05);
-          await a.tween('debris', { scl: [1, 1, 1] }, 0.6);
+          await a.respawn('debris', 1.0);
         },
       });
 
@@ -362,10 +360,7 @@
           await a.turn('boom', [0, 0, -1.4], 1);
           await a.path('police', [[0, 0, -6, 0], [-1, 0, -20, 0], [-1, 0, -36, 0]], 3);
           a.burst([118, G + 2, 54], { n: 20, colors: ['#9a9a98', '#c8c8c4'], speed: 2, up: 1, life: 1, gravity: 0, spread: 3 });
-          await a.tween('police', { scl: [0, 0, 0] }, 0.3);
-          await a.tween('police', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.05);
-          await a.tween('police', { scl: [1, 1, 1] }, 0.6);
-          await a.turn('boom', [0, 0, 0], 1);
+          await Promise.all([a.respawn('police', 1.0), a.turn('boom', [0, 0, 0], 1)]);
         },
       });
       // 불타는 차(저지선 안쪽 도로)
@@ -386,7 +381,7 @@
           await a.tween('hood', { off: [-4, 0, 3], rot: [0, 1.4, 3.1] }, 0.6, t => t * t);
           for (let k = 0; k < 6; k++) { a.burst([FXc + 4, G + 4, FZc + 2], { n: 26, colors: ['#ffd06a', '#ff8a2a', '#ff4a1a'], speed: 2, up: 5, life: 0.9, gravity: -1, spread: 1.5 }); await a.wait(0.35); }
           await a.wait(0.8);
-          await a.tween('hood', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.8);
+          await a.respawn('hood', 1.0);
         },
       });
 

@@ -163,9 +163,8 @@
           await a.tween('chair', { off: [1, 4, 8], rot: [1.6, 0, 0.4] }, 0.4); await a.tween('chair', { off: [2, -1, 14], rot: [3.2, 0, 0.8] }, 0.35);
           a.burst([DX0 + 4.5, G + 1, Z1 + 12], { n: 20, colors: ['#c8bea8', '#a89c88'], speed: 2.4, up: 1, life: 0.8, gravity: 4, spread: 1, flat: true });
           await a.tween('chair', { off: [3, -1, 20], rot: [5.6, 0, 1.2] }, 0.5);
-          await a.wait(1); await a.tween('chair', { scl: [0, 0, 0] }, 0.3);
-          await a.move('chair', [0, 0, 0], 0.05); a.unwind('chair'); await a.turn('chair', [0, 0, 0], 0.05);
-          await Promise.all([a.tween('chair', { scl: [1, 1, 1] }, 0.4), a.turn('doorL', [0, 0, 0], 0.6), a.turn('doorR', [0, 0, 0], 0.6)]);
+          await a.wait(1);
+          await Promise.all([a.respawn('chair', 1.0), a.turn('doorL', [0, 0, 0], 0.6), a.turn('doorR', [0, 0, 0], 0.6)]);
         },
       });
       landmarks.push({ name: '풍요의 여주인', note: '서쪽 큰길의 술집', p: [CXm + 0.5, peak + 10, (Z0 + Z1) / 2], boss: true });

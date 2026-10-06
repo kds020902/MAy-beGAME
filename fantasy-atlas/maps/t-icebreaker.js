@@ -371,11 +371,11 @@
         name: '호버크래프트 도착', hint: '덕트 프로펠러 둘이 웅웅 돌며 호버크래프트가 눈보라를 일으키며 뱃머리 옆으로 미끄러져 와요', hit: [HX0, G + 1, HZ0, HX1, G + 10, HZ1],
         run: async a => {
           a.flash('hover', 5, 9); a.spin('fan0', 1200, 9); a.spin('fan1', 1200, 9);
-          const pts = [[4, 0, 12], [-4, 0, 26]], back = [[4, 0, 12], [0, 0, 0]];
+          const pts = [[4, 0, 12], [-4, 0, 26]];
           const spray = async () => { for (let k = 0; k < 8; k++) { a.burst([HCX + 0.5, G + 1.5, HZ1 + 1 + 3 * k], { n: 20, colors: ['#ffffff', '#dfe9f2'], speed: 3, up: 1.5, life: 1, gravity: 2, spread: 3, flat: true }); await a.wait(0.4); } };
           await Promise.all([a.path('hover', pts, 3.2), a.path('fan0', pts, 3.2), a.path('fan1', pts, 3.2), spray()]);
           await a.wait(1.2);
-          await Promise.all([a.path('hover', back, 3.4), a.path('fan0', back, 3.4), a.path('fan1', back, 3.4)]);
+          await Promise.all([a.respawn('hover', 1.0), a.respawn('fan0', 1.0), a.respawn('fan1', 1.0)]);
         },
       });
       return { lights, landmarks, acts };

@@ -108,9 +108,7 @@
           a.burst([69, G + 2, Z0 + 14], { n: 80, colors: ['#d8d4c8', '#b8b4a8', '#8a8680'], speed: 7, up: 3, life: 1.6, gravity: 2, spread: 5, flat: true });
           a.burst([69, G + 3, Z0 + 14], { n: 40, colors: ['#c8c4b8', '#e8e4d8'], speed: 2, up: 4, life: 3, gravity: -0.3, spread: 4 });
           await a.wait(2);
-          await a.tween('cslab', { scl: [0, 0, 0] }, 0.3);
-          await a.tween('cslab', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.05);
-          await a.tween('cslab', { scl: [1, 1, 1] }, 0.8);
+          await a.respawn('cslab', 1.0);
         },
       });
       // 아트리움 기둥

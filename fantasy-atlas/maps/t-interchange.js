@@ -320,7 +320,7 @@
           for (let k = 0; k < 4; k++) a.burst([TRX - 0.5 + k * 2, G + 2, TRZ + 0.5], { n: 12, colors: ['#3a3634', '#5a5654'], speed: 1, up: 2, life: 1.8, gravity: -0.5, spread: 0.8 });
           await a.tween('truck', { off: [8, 0, 0] }, 1.6);
           await a.wait(0.6);
-          await a.tween('truck', { off: [0, 0, 0] }, 1.8);
+          await a.respawn('truck', 1.0);
         },
       });
       const tent = (x0, z0, len, col) => {

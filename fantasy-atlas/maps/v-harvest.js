@@ -164,6 +164,8 @@
       // 헛간 앞 울타리 마당
       MH.fence(w, [[119, 104], [119, 112], [146, 112], [146, 104]], B.log, B.cart);
       landmarks.push({ name: '붉은 헛간', note: '겨울 곡식을 쌓아 두는 곳', p: [134, barn.peak + 6, 95] });
+      // 헛간 안으로: 서쪽 두 쪽 큰 문(x122, z92..97)
+      acts.push(OR.goAct({ at: [121, barn.y + 1, 94], h: 3, name: '붉은 헛간 안으로', goto: 'harvest-barn', hint: '두 쪽 큰 문을 밀고 들어가 탈곡 마당과 건초 다락이 있는 헛간 안을 구경해요', hit: [122, barn.y + 1, 92, 122, barn.y + 8, 97] }));
       // ── 허수아비(호박밭) ──
       const scx = 131, scz = 139, scg = MH.g(w, scx, scz);
       // 기둥 아랫부분만 땅에 박히고, 윗몸(부품)은 바람에 빙글 돈다
@@ -215,6 +217,9 @@
       const wg = MH.g(w, 18, 112); MH.tree(w, 18, wg + 1, 112, { kind: 'willow', h: 13, bark: B.bark, leaves: [B.leafY, B.leafG, B.leafO], r: 6, trunkR: 1.4 });
       for (let k = 0; k < 14; k++) { const a = k * 0.9, x = Math.round(PX + Math.cos(a) * (6 + (k % 4) * 2.5)), z = Math.round(PZ + Math.sin(a) * (6 + (k % 4) * 2.5)); if (wet(x, z) && MH.dist(x, z, CHX, WZ) > 9 && MH.polyDist(x, z, dr) > 3.5) w.set(x, lvl, z, B.lily); }
       landmarks.push({ name: '물레방앗간', note: '연못 물길로 물레를 돌려 햇밀을 빻는 곳', p: [MX0 + 5, mill.peak + 8, MZ0 + 4.5], tag: 'MILL' });
+      // 방앗간 안으로: 남쪽 문(x38..39, z103). 문 바로 안쪽 한 줄은 막아 돌아올 때 문 밖에 선다
+      w.box(mill.door[0] - 1, my + 1, mill.door[2] - 1, mill.door[0] + 2, my + 8, mill.door[2] - 1, B.millS);
+      acts.push(OR.goAct({ at: [mill.door[0], my + 1, mill.door[2] + 2], h: 3, name: '물레방앗간 안으로', goto: 'harvest-mill', hint: '문을 열고 들어가 맷돌방과 빵 굽는 부엌, 곡물 다락을 구경해요', hit: [mill.door[0], my + 1, mill.door[2], mill.door[0] + 1, my + 4, mill.door[2]] }));
       acts.push({
         name: '물레방아', hint: '수문을 열면 물살에 물레가 힘차게 돌고 방앗간에서 밀가루가 폴폴 날려요', hit: [CHX - 1, WY - WR, WZ - WR, CHX + 1, WY + WR, WZ + WR],
         run: async a => {

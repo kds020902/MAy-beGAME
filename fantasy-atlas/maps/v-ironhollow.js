@@ -208,6 +208,9 @@
         },
       });
       landmarks.push({ name: '대장간', note: '밤낮으로 달아오른 화덕', p: [FX + 9.5, forge.peak + 20, FZ + 7], tag: 'FORGE' });
+      // 대장간 안으로: 서쪽 청동 문(x102, z75..76). 문 바로 안쪽 한 줄은 막아 돌아올 때 문 밖에 선다
+      w.box(FX + 1, L + 1, forge.door[2] - 1, FX + 1, L + 8, forge.door[2] + 2, B.granite);
+      acts.push(OR.goAct({ at: [FX - 1, L + 1, forge.door[2]], h: 5, name: '대장간 안으로', goto: 'ironhollow-forge', hint: '청동 문을 밀고 들어가 큰 화덕과 모루, 무기 진열실을 구경해요', hit: [FX, L + 1, forge.door[2], FX, L + 4, forge.door[2] + 1] }));
       // 절벽에서 흘러 협곡으로 떨어지는 용암 수로
       const lavaPath = [[134, 39], [136, 60], [135, 87], [136, 110]];
       for (let z = 0; z < D; z++) for (let x = 118; x < 152; x++) {
@@ -234,6 +237,9 @@
       for (const z of [76, 79]) { w.box(42, L + 2, z, 48, L + 2, z, B.plank); w.set(42, L + 1, z, B.timber); w.set(48, L + 1, z, B.timber); w.box(42, L + 1, z - 1, 48, L + 1, z - 1, B.timber); }
       lights.push({ p: [tav.door[0] + 0.5, tav.door[1] + 3, tav.door[2] + 1.5], c: '#ffb050', i: 1, d: 12, flicker: 0.15, night: true });
       landmarks.push({ name: '돌망치 주점', note: '흑맥주가 끊이지 않는 곳', p: [45.5, tav.peak + 6, 66] });
+      // 주점 안으로: 남쪽 청동 문(x44..45, z70). 문 바로 안쪽 한 줄은 막아 돌아올 때 문 밖에 선다
+      w.box(tav.door[0] - 1, tav.y + 1, tav.door[2] - 1, tav.door[0] + 2, tav.y + 8, tav.door[2] - 1, B.granite);
+      acts.push(OR.goAct({ at: [tav.door[0], tav.y + 1, tav.door[2] + 1], h: 5, name: '돌망치 주점 안으로', goto: 'ironhollow-tavern', hint: '청동 문을 열고 들어가 긴 돌탁자와 흑맥주 바, 벽난로 곁에 앉아 봐요', hit: [tav.door[0], tav.y + 1, tav.door[2], tav.door[0] + 1, tav.y + 4, tav.door[2]] }));
       for (const [bx, bz2] of [[58, 100], [89, 103], [24, 102], [123, 100], [62, 150], [80, 150]]) { w.box(bx, L + 1, bz2, bx, L + 4, bz2, B.iron); w.box(bx - 1, L + 5, bz2, bx + 1, L + 5, bz2, B.iron); w.set(bx, L + 6, bz2, B.fireY); lights.push({ p: [bx + 0.5, L + 7, bz2 + 0.5], c: '#ffb050', i: 0.8, d: 11, flicker: 0.3 }); }
       // 고원 가장자리 쇠 난간(협곡 쪽)
       for (let x = 6; x < 162; x++) { if (Math.abs(x - MX) <= 5) continue; const z = 106; if (MH.g(w, x, z) !== L) continue; w.set(x, L + 1, z, x % 4 === 0 ? B.graniteDk : B.iron); if (x % 4 === 0) w.set(x, L + 2, z, B.graniteDk); }

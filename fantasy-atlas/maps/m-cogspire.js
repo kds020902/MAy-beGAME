@@ -126,6 +126,8 @@
       MH.circle(w, FCX, TZ0 + TS + 14, 6, B.brass); MH.circle(w, FCX, TZ0 + TS + 14, 3, B.runeO);
       for (const dx of [-9, 9]) bench(FCX + dx - 1, TZ0 + TS + 12, UP + 1, false);
       landmarks.push({ name: '대시계탑', note: '아르카나의 시간을 정하는 시계', p: [FCX + 0.5, cTop + 10, TZ0 + TC + 0.5], tag: 'CLOCK' });
+      // 대시계탑 정문 → 탑 안(하위 지도)
+      acts.push(OR.goAct({ at: [FCX, ty + 5, FZ], h: 7, hit: [TX0 + 6, ty + 5, TZ0 + TS, TX0 + 8, ty + 10, TZ0 + TS + 1], name: '대시계탑 안으로', goto: 'cogspire-clocktower', hint: '놋쇠 문틀의 탑 정문을 열고 톱니와 진자가 도는 대시계탑 속으로 들어가요' }));
       // ── 톱니 옹벽: 맞물려 도는 톱니 일곱 ──
       const gears = [[58, 5.5, 0.4, B.brass], [70, 5.5, -0.4, B.copper], [82, 5.5, 0.4, B.brass], [94, 5.5, -0.4, B.copper], [50, 3.2, -0.69, B.brassDk], [106, 5.5, 0.4, B.brass], [114, 3.2, -0.69, B.verd]];
       gears.forEach(([gx, r, sp, b], k) => {
@@ -167,6 +169,8 @@
       // ── 골렘 공방(아랫단 동쪽)과 시험대의 골렘 ──
       const shop = MH.houseX(w, { x: P(88), z: P(72), sx: 24, sz: 16, floors: 2, fh: 7, face: 'w', pitch: 1, winGap: 4, studs: true, dormers: 2, y: LO, m: { found: B.found, wall: B.brick, frame: B.brass, quoin: B.found, win: B.win, sill: B.brassDk, shutter: B.paint, door: B.door, roof: B.slate, eave: B.ironDk, ridge: B.brass, chimney: B.brickDk, lamp: B.lamp } });
       lights.push({ p: [shop.door[0] - 0.5, shop.door[1] + 3, shop.door[2] + 0.5], c: '#ffd890', i: 1, d: 12, flicker: 0.05, night: true });
+      // 골렘 공방 정문(서쪽) → 공방 안(하위 지도)
+      acts.push(OR.goAct({ at: [shop.door[0] - 1, shop.door[1], shop.door[2]], h: 6, hit: [shop.door[0] - 1, shop.door[1], shop.door[2], shop.door[0], shop.door[1] + 3, shop.door[2] + 1], name: '골렘 공방 안으로', goto: 'cogspire-golemworks', hint: '공방 문을 열고 골렘 몸통이 매달린 조립장과 시험대가 있는 공방 안으로 들어가요' }));
       if (shop.chimney) steam.push({ n: 36, colors: ['#e8e0d8', '#b8b0a8'], mode: 'rise', speed: 0.7, area: [shop.chimney[0], shop.chimney[2], 0.8], y0: shop.chimney[1], y1: shop.chimney[1] + 22, glow: false });
       for (let k = 0; k < 6; k++) clutter(shop.x0 - 4 - (k % 2) * 3, shop.z0 + 1 + k * 2 + (k > 2 ? 6 : 0), k);
       const GX = P(72), GZ = P(98), gy = LO + 1;

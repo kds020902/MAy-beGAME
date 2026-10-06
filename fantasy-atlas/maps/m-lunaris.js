@@ -96,6 +96,18 @@
       lights.push({ name: 'moon', p: [MCX + 0.5, main.top + 8, MCZ + 0.5], c: '#d0f8ff', i: 1.8, d: 32, flicker: 0.05, srcR: 8 });
       lights.push({ p: [MCX + 0.5, main.g + 4, MCZ + 7.5], c: '#c8fff4', i: 0.9, d: 12, flicker: 0.05, night: true, srcR: 6 });
       w.set(MCX - 1, main.g + 4, MCZ + 7, B.lamp); w.set(MCX + 1, main.g + 4, MCZ + 7, B.lamp);
+      // 정문(남쪽): 받침 위로 올린 세 칸 문, 대리석 문틀과 디딤돌 → 첨탑 안(하위 지도)
+      {
+        const g = main.g, dz = MCZ + main.r;
+        for (let x = MCX - 1; x <= MCX + 1; x++) w.set(x, g + 4, dz + 1, 0);
+        for (let x = MCX - 2; x <= MCX + 2; x++) w.set(x, g, dz + 3, B.marbleDk);
+        for (let x = MCX - 2; x <= MCX + 2; x++) for (let y = g + 3; y <= g + 7; y++) {
+          const edge = x === MCX - 2 || x === MCX + 2 || y === g + 7;
+          w.set(x, y, dz, edge ? B.trim : B.door);
+        }
+        w.set(MCX - 2, g + 6, dz, B.lamp); w.set(MCX + 2, g + 6, dz, B.lamp); w.set(MCX, g + 8, dz, B.crysP);
+        acts.push(OR.goAct({ at: [MCX, g + 3, dz + 1], h: 7, hit: [MCX - 1, g + 3, dz, MCX + 1, g + 6, dz + 1], name: '달의 첨탑 안으로', goto: 'lunaris-spire', hint: '받침 위 흰 문을 열고 달빛 우물과 초승달 방이 있는 첨탑 속으로 들어가요' }));
+      }
       acts.push({
         name: '초승달', hint: '첨탑 끝의 초승달이 빨리 돌며 달빛을 뿌려요', hit: [MCX - 7, main.top, MCZ - 5, MCX + 7, main.top + 16, MCZ + 5],
         run: async a => { a.flash('moon', 3, 4.5); a.glow(1.6, 4.5); a.spin('stones', 5, 4.5); a.spin('moon', 8, 4.5); for (let k = 0; k < 9; k++) { a.burst([MCX + 0.5, main.top + 8, MCZ + 0.5], { n: 26, colors: ['#d0f8ff', '#ffffff', '#7af0e0'], speed: 9, up: 1, life: 2.2, gravity: 1.5, spread: 3 }); await a.wait(0.5); } },
@@ -210,6 +222,7 @@
       for (let s = 0; s < 5; s++) w.box(AX - AR - 4 - s, ay + 9 + s, AZ - 4 + s, AX - AR - 1, ay + 9 + s, AZ + 4 - s, s === 0 ? B.trim : B.marble);
       w.box(AX - AR, ay + 1, AZ - 1, AX - AR, ay + 5, AZ + 1, B.door); w.set(AX - AR - 4, ay + 11, AZ, B.crysV);
       for (let s = 1; s <= 3; s++) w.box(AX - AR - 4 - s, ay - s, AZ - 3, AX - AR - 4 - s, ay - s, AZ + 3, B.marbleDk);
+      acts.push(OR.goAct({ at: [Math.floor(AX - AR) - 6, ay - 2, AZ], h: 5, hit: [Math.floor(AX - AR) - 1, ay + 1, AZ - 1, Math.floor(AX - AR), ay + 5, AZ + 1], name: '별빛 서고 안으로', goto: 'lunaris-archive', hint: '기둥 현관의 서고 문을 열고 둥근 서가와 떠도는 책이 있는 서고 안으로 들어가요' }));
       lights.push({ name: 'archive', p: [AX + 0.5, aTop + 2, AZ + 0.5], c: '#c8b8ff', i: 1.4, d: 24, flicker: 0.06, srcR: 5 });
       // 떠도는 책(부품): 서고 둘레를 천천히 돈다
       const books = w.prop({ name: 'books', pivot: [AX + 0.5, ay + AH + 5.5, AZ + 0.5], axis: 'y', speed: 0.35, bob: 0.4, bobSpeed: 0.8 });

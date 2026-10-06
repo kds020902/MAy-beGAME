@@ -211,7 +211,7 @@
       // 창마다 불빛: 본관 정면과 탑들의 창에 아래층부터 위층까지 차례로
       lights.push({ name: 'halls', p: [96.5, G + 12, 103.5], c: '#ffd090', i: 0.35, d: 40, flicker: 0.1, srcR: 10 });
       acts.push({
-        name: '저택의 창불', hint: '해 질 녘, 본관과 탑의 창에 아래층부터 위층까지 차례로 불이 켜져요', hit: [HC - 3, G + 1, FZ, HC + 3, G + 7, FZ + 2],
+        name: '저택의 창불', hint: '해 질 녘, 본관과 탑의 창에 아래층부터 위층까지 차례로 불이 켜져요', hit: [HC + 6, G + 1, FZ, HC + 7, G + 6, FZ + 1],
         run: async a => {
           a.flash('halls', 4, 5); a.glow(1.4, 5);
           const ux = 0.68, uz = 0.73, o = { n: 6, colors: ['#ffd890', '#fff0c0'], speed: 0.6, up: 0.6, life: 0.9, gravity: 0, spread: 0.5 };
@@ -222,6 +222,9 @@
           }
         },
       });
+
+      // 현관동 둥근 아치문으로 본관 안(하위 지도)에 들어간다
+      acts.push(OR.goAct({ at: [HC, G + 1, FZ + 2], name: '황혼의 저택 안으로', goto: 'loki-manor', hint: '현관동 둥근 아치문을 열고 연회 식탁과 넓은 계단이 있는 저택 안으로 들어가요', hit: [HC - 3, G + 1, FZ, HC + 3, G + 7, FZ] }));
 
       // ── 앞뜰: 가운데 돌길, 서쪽 훈련장(모래, 허수아비, 횃불, 마법진), 동쪽 정원과 분수 ──
       for (let z = 101; z < EZ1; z++) for (let x = 91; x <= 101; x++) w.set(x, G, z, (x === 91 || x === 101) ? B.lTrim : B.lFloor);

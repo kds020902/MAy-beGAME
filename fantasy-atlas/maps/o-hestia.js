@@ -103,9 +103,12 @@
       // 화덕의 불: 저택 창마다 따뜻한 불빛
       lights.push({ name: 'hearth', p: [CX + 0.5, G + 4, DZ + 2.5], c: '#ffb860', i: 0.3, d: 26, flicker: 0.3, srcR: 30 });
       acts.push({
-        name: '화덕의 불', hint: '저택 안 화덕에 불이 지펴지며 창마다 따뜻한 불빛이 번져요', hit: [CX - 2, G + 1, DZ, CX + 2, G + 5, DZ + 3],
+        name: '화덕의 불', hint: '저택 안 화덕에 불이 지펴지며 창마다 따뜻한 불빛이 번져요', hit: [CX - 5, G + 1, DZ, CX - 3, G + 5, DZ + 1],
         run: async a => { a.flash('hearth', 6, 4); a.glow(1.4, 4); for (let k = 0; k < 10; k++) { const x = MX0 + 4 + k * 8; a.burst([x + 0.5, G + 4 + (k % 3) * FH, MZ1 + 3.5], { n: 12, colors: ['#ffb860', '#ffe0a0', '#ff7a2a'], speed: 0.8, up: 2, life: 1.2, gravity: -0.3, spread: 0.8 }); await a.wait(0.2); } },
       });
+
+      // 현관 쌍여닫이문으로 본관 안(하위 지도)에 들어간다
+      acts.push(OR.goAct({ at: [CX, G + 1, DZ + 2], name: '화덕의 저택 안으로', goto: 'hestia-manor', hint: '현관 쌍여닫이문을 열고 화덕이 타오르는 저택 안으로 들어가요', hit: [CX - 2, G + 1, DZ, CX + 2, G + 5, DZ] }));
 
       // ── 앞정원: 가운데 길, 둥근 분수와 반달 꽃밭, 생울타리와 나무, 흰 철책과 철문 ──
       const fp = OR.fountain(w, CX, 104, 5.4, B.mTrim, B.stoneG, { h: 5, bowl: 2, top: B.mTrim });
@@ -146,6 +149,10 @@
       acts.push({
         name: '웰프의 대장간', hint: '옆마당 대장간 화로가 달아오르고 모루 위로 불똥이 튀어요', hit: [SMX + 6, G + 1, SMZ + 11, SMX + 10, G + 4, SMZ + 15],
         run: async a => { a.flash('forge', 5, 4); for (let k = 0; k < 10; k++) { a.burst([SMX + 8.5, G + 4, SMZ + 13.5], { n: 16, colors: ['#ffb040', '#ffe08a', '#ff6a1a'], speed: 4, up: 3, life: 0.6, gravity: 8, spread: 0.8 }); if (k % 2) a.burst([SMX + 4, G + 17, SMZ + 3], { n: 8, colors: ['#bcb8b0', '#e8e4dc'], speed: 0.5, up: 3, life: 2, gravity: -0.3, spread: 0.6 }); await a.wait(0.3); } },
+      });
+      acts.push({
+        name: '웰프의 대장간 안으로', hint: '앞이 트인 대장간 작업장 안으로 들어가요. 화로와 모루, 크로조의 마검 진열장이 있어요', goto: 'hestia-forge', hit: [SMX + 1, G + 1, SMZ + 8, SMX + 11, G + 5, SMZ + 10],
+        run: async a => { a.burst([SMX + 6.5, G + 3, SMZ + 11], { n: 34, colors: ['#ffe9a0', '#ffffff', '#ffd060'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.6 }); await a.wait(0.6); },
       });
       const BHX = 52, BHZ = 84;
       w.box(BHX, G + 1, BHZ, BHX + 16, G + 7, BHZ + 14, B.cedar); w.box(BHX + 1, G + 1, BHZ + 1, BHX + 15, G + 6, BHZ + 13, 0);

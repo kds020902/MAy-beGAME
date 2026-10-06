@@ -153,6 +153,16 @@
         name: '주방 굴뚝', hint: '주방 화덕에 불이 확 붙으며 굴뚝으로 연기가 뭉게뭉게 피어올라요', hit: [KX - 2, peak - 2, Z0 + 3, KX + 1, peak + 5, Z0 + 6],
         run: async a => { a.flash('kitchen', 5, 4); for (let k = 0; k < 12; k++) { a.burst([KX + 0.5, peak + 6, Z0 + 5], { n: 14, colors: ['#e8e4dc', '#d0ccc4', '#ffffff'], speed: 0.6, up: 4, life: 2.6, gravity: -0.4, spread: 0.8 }); await a.wait(0.3); } },
       });
+      // 여닫이문을 열고 1층 술집 안(하위 지도)으로 들어간다
+      acts.push({
+        name: '풍요의 여주인 안으로', hint: '조각 문틀 여닫이문을 밀고 바 카운터와 둥근 탁자가 있는 술집 안으로 들어가요', goto: 'mistress-tavern', hit: [DX0, G + 1, Z1, DX1, G + 6, Z1 + 2],
+        run: async a => {
+          await Promise.all([a.turn('doorL', [0, -1.4, 0], 0.6), a.turn('doorR', [0, 1.4, 0], 0.6)]);
+          a.flash('tavern', 6, 2);
+          a.burst([(DX0 + DX1) / 2 + 0.5, G + 4, Z1 + 1.5], { n: 34, colors: ['#ffd090', '#ffe9a0', '#ffffff'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.6 });
+          await a.wait(0.6);
+        },
+      });
       // 내던져지는 의자(부품): 문 밖으로 날아가 길바닥을 구른다
       const chair = w.prop({ name: 'chair', pivot: [DX0 + 2.5, G + 2, Z1 - 2.5], clipOK: 20 });
       chair.box(DX0 + 2, G + 1, Z1 - 3, DX0 + 3, G + 1, Z1 - 2, B.carve2); chair.box(DX0 + 2, G + 2, Z1 - 3, DX0 + 3, G + 3, Z1 - 3, B.carve2);

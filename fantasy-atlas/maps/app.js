@@ -328,6 +328,31 @@
       const segs = pts.map(q => { const l = Math.hypot(q[0] - last[0], q[1] - last[1], q[2] - last[2]); last = q; total += l; return l; });
       for (let k = 0; k < pts.length; k++) await A.tween(name, { off: pts[k], rot: pts[k][3] != null ? [0, pts[k][3], 0] : undefined }, dur * segs[k] / (total || 1), t => t);
     },
+    // 길을 따라 달리기: 진행 방향으로 머리를 돌리며 점들을 지나고, back 시간이 있으면 끝에서 처음 자리에 스르륵 나타난다
+    // fwd: 부품이 처음 놓였을 때 앞이 향하는 쪽('+x' '-x' '+z' '-z')
+    async drive(name, pts, dur, o) {
+      const p = cur && cur.props[name];
+      if (!p) return;
+      o = o || {};
+      const F = { '+x': [1, 0], '-x': [-1, 0], '+z': [0, 1], '-z': [0, -1] }[o.fwd || '+z'] || [0, 1];
+      const base = Math.atan2(F[0], F[1]), u = p.userData;
+      let last = u.off.slice(), total = 0;
+      const segs = pts.map(q => { const l = Math.hypot(q[0] - last[0], q[1] - last[1], q[2] - last[2]); last = q; total += l; return l; });
+      let prev = u.off.slice();
+      for (let k = 0; k < pts.length; k++) {
+        const q = pts[k], dx = q[0] - prev[0], dz = q[2] - prev[2], d = dur * segs[k] / (total || 1);
+        if (Math.hypot(dx, dz) > 0.01) {
+          A.unwind(name);
+          let yaw = Math.atan2(dx, dz) - base, cy = u.rot[1];
+          yaw = cy + ((((yaw - cy) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+          const tt = Math.min(0.35, d * 0.3);
+          if (Math.abs(yaw - cy) > 0.05) await A.tween(name, { rot: [u.rot[0], yaw, u.rot[2]] }, tt);
+          await A.tween(name, { off: q.slice(0, 3) }, Math.max(0.05, d - (Math.abs(yaw - cy) > 0.05 ? tt : 0)), t => t);
+        } else await A.tween(name, { off: q.slice(0, 3) }, d, t => t);
+        prev = q;
+      }
+      if (o.back) await A.respawn(name, o.back);
+    },
     spin(name, mul, dur) {
       const p = cur && cur.props[name];
       if (!p) return Promise.resolve();
@@ -437,6 +462,7 @@
       respawn(n, d) { const p = st[n], o = map.props[n] && map.props[n].userData.o; if (p && o) { p.off = (o.off0 || [0, 0, 0]).slice(); p.rot = (o.rot0 || [0, 0, 0]).slice(); p.scl = (o.scl0 || [1, 1, 1]).slice(); note(n, p); } return later(d || 0.9); },
       unwind() {}, rope: (n, l0, l, d) => R.tween(n, { scl: [1, l / l0, 1] }, d),
       async path(n, pts, dur) { for (const q of pts) await R.tween(n, { off: q.slice(0, 3) }, dur / pts.length); },
+      async drive(n, pts, dur, o) { for (const q of pts) await R.tween(n, { off: q.slice(0, 3) }, dur / pts.length); if (o && o.back) await R.respawn(n, o.back); },
       spin(n, m, d) { if (st[n]) note(n, st[n]); return later(d); },
       flash: (n, m, d) => later(d), glow: (m, d) => later(d), lightning() {}, wind: (m, d) => later(d),
       burst(p) { bursts.push(p); },

@@ -45,6 +45,12 @@ async function dryRun(act, props, lightNames) {
       const segs = pts.map(q => { const l = Math.hypot(q[0] - last[0], q[1] - last[1], q[2] - last[2]); last = q; total += l; return l; });
       for (let k = 0; k < pts.length; k++) await A.tween(n, { off: pts[k].slice(0, 3), rot: pts[k][3] != null ? [0, pts[k][3], 0] : undefined }, dur * segs[k] / (total || 1));
     },
+    async drive(n, pts, dur, o) {
+      const p = st[n]; if (!p) { rec.missing.add(n); return; }
+      let prev = p.off.slice();
+      for (const q of pts) { const dx = q[0] - prev[0], dz = q[2] - prev[2]; await A.tween(n, { off: q.slice(0, 3), rot: Math.hypot(dx, dz) > 0.01 ? [p.rot[0], Math.atan2(dx, dz), p.rot[2]] : undefined }, dur / pts.length); prev = q; }
+      if (o && o.back) await A.respawn(n, o.back);
+    },
     spin(n, mul, d) { if (!st[n]) rec.missing.add(n); else rec.spins.add(n); return later(d); },
     flash(n, mul, d) { rec.flashes.push(n); if (n != null && !lightNames.has(n)) rec.missLights.add(n); return later(d); },
     burst(p, o) { rec.bursts.push(p.slice()); },

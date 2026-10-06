@@ -144,6 +144,8 @@
       // 이정표: 해도실 계단 문 옆, 밖(앞갑판)으로
       { const [x, z] = P(800, 60); const sp = OR.signpost(w, B, x, z, { dir: [1, 0], h: 6, boards: 1 });
         acts.push(OR.goAct({ at: sp, name: '앞갑판으로 내려가기', goto: 'icebreaker', hint: '해도실 계단을 내려가 눈 덮인 앞갑판과 얼음판으로 나가요' })); }
+      { const [x, z] = P(640, 60); const sp = OR.signpost(w, B, x, z, { dir: [-1, 0], h: 6, boards: 1 });
+        acts.push(OR.goAct({ at: sp, name: '3층 체육관으로 내려가기', goto: 'icebreaker-gym', hint: '계단을 여섯 층 내려가 웨지가 버티는 3층 체육관으로 가요' })); }
       // 가운데 조타대: 작은 조타륜(부품)과 키 큰 의자
       const [HX, HZ] = P(690, 300);
       const wheel = w.prop({ name: 'wheel', pivot: [HX + 0.5, G + 6.5, HZ + 0.5], axis: 'z', speed: 0.01 });

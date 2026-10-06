@@ -255,6 +255,9 @@
       { const sx = CX + 9, sz = ZF + 3; w.hm[sx + W * sz] = deckY(sz);
         const sp = OR.signpost(w, B, sx, sz, { dir: [1, 0], h: 6, boards: 1 });
         acts.push(OR.goAct({ at: sp, name: '조타실로 올라가기', goto: 'icebreaker-in', hint: '상부 구조물 계단을 올라 9층 조타실 안으로 들어가요' })); }
+      { const sx = CX - 10, sz = ZF + 3; w.hm[sx + W * sz] = deckY(sz);                 // 왼쪽 문 앞: 3층 체육관(웨지)
+        const sp = OR.signpost(w, B, sx, sz, { dir: [-1, 0], h: 6, boards: 1 });
+        acts.push(OR.goAct({ at: sp, name: '3층 체육관으로', goto: 'icebreaker-gym', hint: '상부 구조물 정면 문으로 들어가 웨지와 블랙 디비전이 버티는 3층 체육관과 식당으로 가요' })); }
 
       // ── 얼음 위: 남동쪽 호버크래프트(부품), 뱃머리 앞 사륜 오토바이 둘, 상자 ──
       for (const [x, z, h] of [[CX + 36, 92, 2], [CX + 38, 92, 1], [CX + 36, 95, 1]]) w.box(x, G + 1, z, x + 1, G + h, z + 1, B.crateM);
@@ -273,13 +276,10 @@
       hov.box(HX0 + 2, G + 4, HZ0 + 2, HX1 - 2, G + 6, HZ0 + 11, B.hoverW); hov.box(HX0 + 2, G + 5, HZ0 + 2, HX1 - 2, G + 5, HZ0 + 2, B.glass);
       for (let z = HZ0 + 3; z <= HZ0 + 10; z += 2) { hov.set(HX0 + 2, G + 5, z, B.glass); hov.set(HX1 - 2, G + 5, z, B.glass); }
       hov.box(HX0 + 2, G + 7, HZ0 + 2, HX1 - 2, G + 7, HZ0 + 11, B.hover); hov.set(HCX, G + 8, HZ0 + 3, B.lampW);
-      const fans = [HCX - 3, HCX + 3];
-      fans.forEach((fx, k) => {
+      for (const fx of [HCX - 3, HCX + 3]) {                                     // 뒤쪽(남쪽) 덕트 프로펠러 둘: 몸체와 함께 움직이도록 한 부품에 넣는다
         for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const r = Math.hypot(dy, dx); if (r > 2.3 && r < 3.4) hov.set(fx + dx, G + 7 + dy, HZ1 - 1, B.fan); }
-        hov.box(fx, G + 4, HZ1 - 1, fx, G + 4, HZ1 - 1, B.fan);
-        const f = w.prop({ name: 'fan' + k, pivot: [fx + 0.5, G + 7.5, HZ1 - 0.5], axis: 'z', speed: 0.01 });
-        f.box(fx - 2, G + 7, HZ1, fx + 2, G + 7, HZ1, B.iron); f.box(fx, G + 5, HZ1, fx, G + 9, HZ1, B.iron);
-      });
+        hov.box(fx, G + 4, HZ1 - 1, fx, G + 4, HZ1 - 1, B.fan); hov.box(fx - 2, G + 7, HZ1, fx + 2, G + 7, HZ1, B.iron); hov.box(fx, G + 5, HZ1, fx, G + 9, HZ1, B.iron);
+      }
       lights.push({ name: 'hover', p: [HCX + 0.5, G + 9, HZ0 + 2.5], c: '#e8f0ff', i: 0.4, d: 22, flicker: 0.05, srcR: 3 });
       landmarks.push({ name: '호버크래프트', note: '등대·해안선 부두에서 얼음 위로 건너오는 탈것', p: [HCX + 0.5, G + 14, 141] });
 
@@ -319,14 +319,11 @@
       const radar = w.prop({ name: 'radar', pivot: [CX - 0.5, BY + 15, RZ1 - 1.5], speed: 0.9 });
       radar.box(CX - 1, BY + 13, RZ1 - 2, CX - 1, BY + 14, RZ1 - 2, B.iron); radar.box(CX - 5, BY + 15, RZ1 - 2, CX + 3, BY + 15, RZ1 - 2, B.frame); radar.box(CX - 5, BY + 16, RZ1 - 2, CX + 3, BY + 16, RZ1 - 2, B.rail);
       acts.push({
-        name: '레이더 · 항공등', hint: '조타실 지붕의 레이더가 빙글빙글 빨라지고 남색 돛대의 붉은 항공등이 깜박여요', hit: [CX - 8, BY + 12, MZ - 3, CX + 8, MTOP + 2, RZ1],
-        run: async a => { a.flash('mast', 6, 4.5); for (let k = 0; k < 4; k++) a.burst([CX - 0.5, MTOP + 1.5, MZ - 0.5], { n: 10, colors: ['#ff4a3a', '#ffb0a0'], speed: 1, up: 0.5, life: 0.8, gravity: 0, spread: 0.4 }); await a.spin('radar', 7, 4.5); },
-      });
-      acts.push({
-        name: '뱃고동', hint: '남색 돛대의 놋쇠 기적에서 김이 뿜어지며 얼어붙은 바다에 긴 뱃고동이 울려요', hit: [CX - 3, BY + 16, MZ - 3, CX + 4, BY + 21, MZ + 2],
+        name: '레이더 · 뱃고동', hint: '조타실 지붕의 레이더가 빙글빙글 빨라지고, 남색 돛대의 놋쇠 기적에서 김을 뿜으며 긴 뱃고동이 울려요', hit: [CX - 8, BY + 12, MZ - 3, CX + 8, MTOP + 2, RZ1],
         run: async a => {
-          a.flash('mast', 5, 5); a.wind(2.4, 5);
+          a.flash('mast', 6, 5); a.wind(2.4, 5); a.spin('radar', 7, 5);
           for (let k = 0; k < 3; k++) {
+            a.burst([CX - 0.5, MTOP + 1.5, MZ - 0.5], { n: 10, colors: ['#ff4a3a', '#ffb0a0'], speed: 1, up: 0.5, life: 0.8, gravity: 0, spread: 0.4 });
             for (let j = 0; j < 5; j++) { a.burst([CX + 2.5, BY + 20, MZ], { n: 22, colors: ['#ffffff', '#e0ecf4', '#b8c8d8'], speed: 2.2, up: 5, life: 2.2, gravity: -0.8, spread: 0.8 }); await a.wait(0.18); }
             await a.wait(0.5);
           }
@@ -368,14 +365,12 @@
         },
       });
       acts.push({
-        name: '호버크래프트 도착', hint: '덕트 프로펠러 둘이 웅웅 돌며 호버크래프트가 눈보라를 일으키며 뱃머리 옆으로 미끄러져 와요', hit: [HX0, G + 1, HZ0, HX1, G + 10, HZ1],
+        name: '호버크래프트 출발', hint: '덕트 프로펠러가 웅웅 울리며 호버크래프트가 뱃전을 따라 북쪽 얼음판 너머로 떠났다가 제자리로 돌아와요', hit: [HX0, G + 1, HZ0, HX1, G + 10, HZ1],
         run: async a => {
-          a.flash('hover', 5, 9); a.spin('fan0', 1200, 9); a.spin('fan1', 1200, 9);
-          const pts = [[4, 0, 12], [-4, 0, 26]];
-          const spray = async () => { for (let k = 0; k < 8; k++) { a.burst([HCX + 0.5, G + 1.5, HZ1 + 1 + 3 * k], { n: 20, colors: ['#ffffff', '#dfe9f2'], speed: 3, up: 1.5, life: 1, gravity: 2, spread: 3, flat: true }); await a.wait(0.4); } };
-          await Promise.all([a.path('hover', pts, 3.2), a.path('fan0', pts, 3.2), a.path('fan1', pts, 3.2), spray()]);
-          await a.wait(1.2);
-          await Promise.all([a.respawn('hover', 1.0), a.respawn('fan0', 1.0), a.respawn('fan1', 1.0)]);
+          a.flash('hover', 5, 8);
+          const spray = async () => { for (let k = 0; k < 10; k++) { a.burst([HCX + 0.5 + Math.min(8, k), G + 1.5, HZ1 + 1 - 9 * k], { n: 20, colors: ['#ffffff', '#dfe9f2'], speed: 3, up: 1.5, life: 1, gravity: 2, spread: 3, flat: true }); await a.wait(0.45); } };
+          // 앞(붉은 이물·조종실)은 북쪽(-z): 뱃전 옆 얼음판을 따라 북쪽 지도 밖으로
+          await Promise.all([a.drive('hover', [[0, 0, -18], [4, 0, -40], [8, 0, -66], [8, 0, -92], [8, 0, -120]], 7, { fwd: '-z', back: 1.0 }), spray()]);
         },
       });
       return { lights, landmarks, acts };

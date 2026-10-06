@@ -148,6 +148,8 @@
         },
       });
       landmarks.push({ name: '곶의 등대', note: '돌아가는 불빛이 배를 부른다', p: [LX + 0.5, cap + 8, LZ + 0.5], tag: 'LIGHT' });
+      // 등대 문 → 하위 지도(등대 안). 탑 몸통이 꽉 차 있어 돌아오면 문 앞 자갈 위에 선다
+      acts.push(OR.goAct({ at: [LX, lg, LZ + 6], h: 4, hit: [LX, lg, LZ + 5, LX, lg + 3, LZ + 6], name: '곶의 등대 안으로', goto: 'harbor-lighthouse', hint: '줄무늬 등대의 문을 열고 나선 계단이 도는 등대 안으로 들어가요' }));
 
       // ── 생선 시장(기둥 회랑) ──
       const MX = 56, MZ = 84;
@@ -185,6 +187,10 @@
       const st = MH.tower(w, { cx: CHX + 3, cz: CHZ + 4, y0: ch.y, h: 30, r: 3, square: true, m: { wall: B.wallW, band: B.found, win: B.win, roof: B.roofB, eave: B.roofDk, finial: B.bell }, pitch: 3 });
       MH.flatten(w, CHX - 2, CHZ + 11, CHX + 18, CHZ + 16, ch.y, B.cobble, B.found);
       landmarks.push({ name: '언덕 위 마을', note: '푸른 지붕의 흰 집과 종탑', p: [CHX + 3.5, st + 4, CHZ + 4.5] });
+      // 교회 문 → 하위 지도(언덕 위 교회 안). 문 안쪽 한 칸을 막아 돌아올 때 바깥 문 앞에 서게 한다
+      { const [cx, cy, cz] = ch.door;
+        w.box(cx - 1, cy, cz - 1, cx + 2, cy + 4, cz - 1, B.wallW);
+        acts.push(OR.goAct({ at: [cx, cy, cz + 1], h: 4, hit: [cx, cy, cz, cx + 1, cy + 3, cz + 1], name: '언덕 위 교회 안으로', goto: 'harbor-chapel', hint: '흰 교회 문을 열고 봉헌 배 모형이 매달린 본당으로 들어가요' })); }
       // ── 모래톱: 건조대, 엎어 둔 거룻배, 바위 ──
       for (const [rx, rz] of [[40, 90], [46, 93]]) { const g = MH.g(w, rx, rz); if (g < sea) continue; w.box(rx, g + 1, rz, rx, g + 6, rz, B.post); w.box(rx + 5, g + 1, rz, rx + 5, g + 6, rz, B.post); w.box(rx, g + 6, rz, rx + 5, g + 6, rz, B.rope); for (let q = 1; q <= 4; q++) { w.set(rx + q, g + 5, rz, B.fish); if (q % 2) w.set(rx + q, g + 4, rz, B.fish); } }
       for (let i = 0; i < 16; i++) { const x = w.ri(4, 40), z = w.ri(110, 160), g = MH.g(w, x, z); if (x > 12 && x < 36) continue; if (g >= sea - 4 && g <= sea + 1) MH.rock(w, x, g, z, w.r(1.5, 3.2), B.rock, null); }

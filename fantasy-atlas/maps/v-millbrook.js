@@ -81,6 +81,9 @@
         w.set(x, y, z, (x + z + y) % 3 ? B.found : B.stoneDk);
       }
       lights.push({ p: [millX + 17, my + 4, mz], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
+      // 방앗간 문 → 하위 지도(물레방앗간 안). 문 안쪽 한 칸을 막아 돌아올 때 바깥 문 앞에 서게 한다
+      w.box(millX + 14, my, mz - 1, millX + 14, my + 4, mz + 2, B.plaster);
+      acts.push(OR.goAct({ at: [millX + 16, my, mz], h: 5, hit: [millX + 15, my, mz, millX + 16, my + 3, mz + 1], name: '물레방앗간 안으로', goto: 'millbrook-mill', hint: '삐걱이는 문을 열고 맷돌이 도는 방앗간 안으로 들어가요' }));
       // 북쪽 처마 헛간: 밀가루 자루와 장작
       for (let dz = 0; dz <= 5; dz++) w.box(millX + 1, my + 7 - Math.ceil(dz / 2), mz - 8 - dz, millX + 12, my + 7 - Math.ceil(dz / 2), mz - 8 - dz, dz === 5 ? B.tileDk : B.thatch);
       for (const x of [millX + 1, millX + 6, millX + 12]) w.box(x, my, mz - 13, x, my + 3, mz - 13, B.wood);
@@ -149,6 +152,10 @@
       w.box(sgx, inn.y + 2, sgz + 2, sgx, inn.y + 4, sgz + 4, B.sign); w.set(sgx, inn.y + 3, sgz + 3, B.frame);
       for (const [bx, bz2] of [[inn.x1 - 2, inn.z1 + 2], [inn.x1 - 1, inn.z1 + 2], [inn.x1 - 2, inn.z1 + 3]]) { const g = MH.g(w, bx, bz2); if (!w.get(bx, g + 1, bz2)) w.set(bx, g + 1, bz2, B.cask); }
       lights.push({ p: [inn.door[0] + 0.5, inn.door[1] + 3, inn.door[2] + 1.5], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
+      // 여관 문 → 하위 지도(여관 안). 문 안쪽 한 칸을 막아 돌아올 때 바깥 문 앞에 서게 한다
+      { const [ix, iy, iz] = inn.door;
+        w.box(ix - 1, iy, iz - 1, ix + 2, iy + 4, iz - 1, B.plaster2);
+        acts.push(OR.goAct({ at: [ix, iy, iz + 1], h: 3, hit: [ix, iy, iz, ix + 1, iy + 3, iz + 1], name: '여관 안으로', goto: 'millbrook-inn', hint: '간판 아래 문을 열고 벽난로가 타는 여관 주점으로 들어가요' })); }
       // 광장과 우물: 두레박과 밧줄은 부품
       const SX = 129, SZ = 116, sg = MH.g(w, SX, SZ);
       for (let z = SZ - 10; z <= SZ + 10; z++) for (let x = SX - 10; x <= SX + 10; x++) { const d = MH.dist(x, z, SX, SZ); if (d < 9.5 && !w.get(x, MH.g(w, x, z) + 2, z)) MH.setH(w, x, z, sg, d > 8.5 ? B.found : ((x + z) % 4 ? B.cobble : B.stoneDk), B.rock); }

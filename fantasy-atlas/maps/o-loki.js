@@ -300,9 +300,7 @@
         run: async a => {
           await Promise.all([a.turn('gateL', [0, 1.5, 0], 1.2), a.turn('gateR', [0, -1.5, 0], 1.2)]);
           await a.path('wagon', [[0, 0, 22], [8, 0, 22, Math.PI / 2], [60, 0, 22, Math.PI / 2]], 4.2);
-          await a.tween('wagon', { scl: [0, 0, 0] }, 0.3);
-          await a.tween('wagon', { off: [0, 0, 0], rot: [0, 0, 0] }, 0.05);
-          await Promise.all([a.tween('wagon', { scl: [1, 1, 1] }, 0.5), a.turn('gateL', [0, 0, 0], 1), a.turn('gateR', [0, 0, 0], 1)]);
+          await Promise.all([a.respawn('wagon', 1.2), a.turn('gateL', [0, 0, 0], 1), a.turn('gateR', [0, 0, 0], 1)]);
         },
       });
       // 이정표: 골목가에서 남쪽 중앙 광장(바벨)으로

@@ -36,6 +36,7 @@ async function dryRun(act, props, lightNames) {
     },
     move(n, off, d) { return A.tween(n, { off }, d); },
     turn(n, rot, d) { return A.tween(n, { rot }, d); },
+    respawn(n, d) { const p = st[n]; if (!p) { rec.missing.add(n); return later(d || 0.9); } const o = props[n].o; p.off = (o.off0 || [0, 0, 0]).slice(); p.rot = (o.rot0 || [0, 0, 0]).slice(); p.scl = [1, 1, 1]; rec.samples[n].push(clone(p)); return later(d || 0.9); },
     unwind(n) { const p = st[n]; if (p) for (let q = 0; q < 3; q++) p.rot[q] = ((p.rot[q] + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; },
     rope(n, l0, l, d) { return A.tween(n, { scl: [1, l / l0, 1] }, d); },
     async path(n, pts, dur) {

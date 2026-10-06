@@ -292,7 +292,7 @@
   // ───── 상호작용 API ─────
   const lightBase = { hemi: 0.6, sun: 0.7 }, flash = { v: 0 };
   let windMul = 1, windT = 1, vortT = 0;
-  const tweens = [];
+  const tweens = [], fades = [];
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   const A = {
     wait: s => new Promise(r => setTimeout(r, s * 1000)),
@@ -304,6 +304,19 @@
     },
     move(name, off, dur, ez) { return A.tween(name, { off }, dur, ez); },
     turn(name, rot, dur, ez) { return A.tween(name, { rot }, dur, ez); },
+    // 끝까지 간 부품을 처음 자리로 순간 이동시키고 투명에서 스르륵 나타나게 한다
+    respawn(name, dur) {
+      const p = cur && cur.props[name];
+      if (!p) return Promise.resolve();
+      const u = p.userData, o = u.o;
+      for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].st === u) { const tw = tweens.splice(i, 1)[0]; tw.res(); }
+      u.off = (o.off0 || [0, 0, 0]).slice(); u.rot = (o.rot0 || [0, 0, 0]).slice(); u.scl = (o.scl0 || [1, 1, 1]).slice();
+      const lit = [], other = [];
+      p.traverse(m => { if (m.isMesh) (m.material === litMat || (m.userData.fade && m.material === m.userData.fade) ? lit : other).push(m); });
+      lit.forEach(m => { if (!m.userData.fade) { m.userData.fade = litMat.clone(); m.userData.fade.transparent = true; m.userData.fade.depthWrite = false; } m.userData.fade.opacity = 0; m.material = m.userData.fade; });
+      other.forEach(m => { m.visible = false; });
+      return new Promise(res => fades.push({ lit, other, t: 0, dur: dur || 0.9, res, map: cur }));
+    },
     // 누적된 회전을 ±180° 안으로 접어 제자리에서 빙글 돌지 않게 한다
     unwind(name) { const p = cur && cur.props[name]; if (p) for (let q = 0; q < 3; q++) p.userData.rot[q] = ((p.userData.rot[q] + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; },
     // 밧줄 길이: 원래 길이 len0을 len으로(위쪽 도르래에 고정된 채 늘고 준다)
@@ -421,6 +434,7 @@
         return later(dur || 1).then(() => { if (to.off) p.off = to.off.slice(); if (to.rot) p.rot = to.rot.slice(); if (to.scl) p.scl = to.scl.slice(); });
       },
       move: (n, off, d) => R.tween(n, { off }, d), turn: (n, rot, d) => R.tween(n, { rot }, d),
+      respawn(n, d) { const p = st[n], o = map.props[n] && map.props[n].userData.o; if (p && o) { p.off = (o.off0 || [0, 0, 0]).slice(); p.rot = (o.rot0 || [0, 0, 0]).slice(); p.scl = (o.scl0 || [1, 1, 1]).slice(); note(n, p); } return later(d || 0.9); },
       unwind() {}, rope: (n, l0, l, d) => R.tween(n, { scl: [1, l / l0, 1] }, d),
       async path(n, pts, dur) { for (const q of pts) await R.tween(n, { off: q.slice(0, 3) }, dur / pts.length); },
       spin(n, m, d) { if (st[n]) note(n, st[n]); return later(d); },
@@ -832,6 +846,13 @@
       if (tw.to.rot) for (let q = 0; q < 3; q++) tw.st.rot[q] = tw.from.rot[q] + (tw.to.rot[q] - tw.from.rot[q]) * e;
       if (tw.to.scl) for (let q = 0; q < 3; q++) tw.st.scl[q] = tw.from.scl[q] + (tw.to.scl[q] - tw.from.scl[q]) * e;
       if (tw.t >= 1 || tw.map !== cur) { tweens.splice(i, 1); tw.res(); }
+    }
+    for (let i = fades.length - 1; i >= 0; i--) {
+      const f = fades[i];
+      f.t += dt / f.dur;
+      const k = Math.min(1, f.t), done = k >= 1 || f.map !== cur;
+      f.lit.forEach(m => { m.userData.fade.opacity = k * k * (3 - 2 * k); if (done) m.material = litMat; });
+      if (done) { f.other.forEach(m => { m.visible = true; }); fades.splice(i, 1); f.res(); }
     }
     windMul += (windT - windMul) * Math.min(1, dt * 1.5);
     vortT += dt * windMul;

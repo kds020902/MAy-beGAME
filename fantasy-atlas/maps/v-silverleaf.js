@@ -142,6 +142,25 @@
       });
       landmarks.push({ name: '흔들다리', note: '윗숲 거목을 잇는 밧줄 다리', p: [midS[0], midS[1] + 9, midS[2]] });
       landmarks.push({ name: '장로의 거목', note: '가장 오래된 나무 위의 회의장', p: [50.5, plats[1].py + 30, 42.5], tag: 'ELDER' });
+      // 장로의 거목 회의장 입구: 아랫단 오두막 동쪽 문 앞 작은 현관 발판(밧줄 난간), 문에 들어가는 상호작용
+      {
+        const E = plats[0], hr = 3.2, ehx = Math.round(E.tx + E.r + 1.4 + hr), edx = Math.round(ehx + hr), edz = E.tz, ey = E.py;
+        for (let z = edz - 4; z <= edz + 4; z++) for (let x = edx - 1; x <= edx + 3; x++) {
+          if (Math.hypot(x - ehx, z - edz) < hr + 0.3) continue;
+          for (let y = ey + 1; y <= ey + 3; y++) { const b = w.get(x, y, z); if (b === B.rope || b === B.leafW || (b === B.barkDk && y > ey + 1)) w.set(x, y, z, 0); }
+          if (x > edx) { w.set(x, ey, z, B.plank); if (x === edx + 3 || Math.abs(z - edz) === 4) { const post = (x === edx + 3 && Math.abs(z - edz) % 4 === 0) || (Math.abs(z - edz) === 4 && x === edx + 3); w.set(x, ey + 2, z, post ? B.barkDk : B.rope); if (post) { w.set(x, ey + 1, z, B.barkDk); w.set(x, ey + 3, z, B.lamp2); } } }
+          if (x > edx) w.set(x, ey - 1, z, B.barkDk);
+        }
+        w.line(edx + 3, ey - 1, edz, E.tx + E.r, ey - 6, edz, B.barkDk, 0.5);
+        w.set(edx, ey + 4, edz, B.lamp2);
+        acts.push({ name: '장로의 거목 회의장 안으로', hint: '오두막 문을 열고 거목 줄기 속 둥근 회의장으로 들어가요', goto: 'silverleaf-elder', hit: [edx, ey + 1, edz, edx, ey + 3, edz],
+          run: async a => {
+            a.burst([edx + 0.5, ey + 3, edz + 0.5], { n: 30, colors: ['#ffe9a0', '#ffffff', '#9affd8'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.4 });
+            // 반딧불이 거목 둘레를 감아 꼭대기까지 솟으며 장로에게 손님을 알린다
+            for (let k = 0; k < 10; k++) { const t = k * 0.7, rr = 19 + k * 0.4; a.burst([E.tx + 0.5 + Math.cos(t) * rr, ey + 6 + k * 4, E.tz + 0.5 + Math.sin(t) * rr], { n: 12, colors: ['#c8ff9a', '#8affe0', '#ffe08a'], speed: 1.2, up: 2, life: 1.6, gravity: -0.4, spread: 1.2 }); await a.wait(0.08); }
+            await a.wait(0.4);
+          } });
+      }
       // 승강 바구니(아래 서쪽 거목): 가지에서 내려온 밧줄이 줄어든다
       const T = plats[4], bx = T.tx, bzz = T.tz + Math.round(T.pr) + 3, bg = MH.g(w, bx, bzz) + 1, beamY = T.py + 8;
       MH.flatten(w, bx - 3, bzz - 2, bx + 3, bzz + 3, bg - 1, B.pathS, B.dirt);
@@ -267,6 +286,16 @@
         },
       });
       landmarks.push({ name: '달샘 술 창고', note: '언덕 속에서 이슬 포도주가 익는 저장고', p: [154.5, vg + 18, 124.5] });
+      // 술 창고 안으로: 문짝을 열고 언덕 속 깊은 저장고(하위 지도)로 내려간다. 돌아오면 문 앞마당에 선다
+      acts.push({
+        name: '달샘 술 창고 안으로', hint: '문짝을 활짝 열고 언덕 속 깊은 통 저장실과 달빛 샘물 숙성 굴로 들어가요', goto: 'silverleaf-cellar', hit: [151, vg + 1, 120, 158, vg + 6, FZ0 + 1],
+        run: async a => {
+          await Promise.all([a.turn('cdoorL', [0, -1.35, 0], 1), a.turn('cdoorR', [0, 1.35, 0], 1)]);
+          a.flash('cellar', 2.5, 1.4);
+          a.burst([154.5, vg + 3, FZ0 + 1.5], { n: 30, colors: ['#ffe9a0', '#c8a0ff', '#ffffff'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.6 });
+          await a.wait(0.7);
+        },
+      });
       // 포도 시렁: 기둥·밧줄·덩굴, 밤에 빛나는 이슬 포도
       const rows = [138, 143, 153, 158];
       rows.forEach((rz, ri) => {

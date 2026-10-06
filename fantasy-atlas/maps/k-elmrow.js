@@ -139,6 +139,9 @@
       });
       lights.push({ p: [ch.door[0] + 0.5, ch.door[1] + 3, ch.door[2] + 1.5], c: '#ffd890', i: 1, d: 12, flicker: 0.1, night: true });
       landmarks.push({ name: '작은 예배당', note: '푸른 첨탑의 종', p: [tx + 3, st + 7, tz + 3] });
+      // 종탑 문: 들어가면 종탑 현관과 본당(하위 지도)
+      acts.push({ name: '작은 예배당 안으로', hint: '종탑 아래 문을 열고 종 줄이 드리운 현관을 지나 신자석과 장미창이 있는 본당으로 들어가요', goto: 'elmrow-chapel', hit: [tx + 2, cy + 1, tz + 5, tx + 3, cy + 5, tz + 5],
+        run: async a => { for (let k = 0; k < 3; k++) { a.burst([tx + 3, cy + 3 + k * 2, tz + 6.5 + k], { n: 16, colors: ['#ffe9a0', '#ffffff', '#c8d8ff'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.4 }); await a.wait(0.2); } await a.wait(0.3); } });
       // ── 첨탑 풍향계(부품) ──
       w.set(tx + 2, st + 4, tz + 2, B.iron);
       const vane = w.prop({ name: 'vane', pivot: [tx + 3, st + 5, tz + 2.5], speed: 0.25 });
@@ -223,6 +226,9 @@
         },
       });
       landmarks.push({ name: '빵집 화덕', note: '아침마다 갓 구운 빵 냄새', p: [OX + 0.5, by + 18, OZ + 0.5], tag: 'BAKERY' });
+      // 빵집 문(서쪽, 차양 아래): 들어가면 진열대·반죽방·안쪽 화덕·2층 가족 방(하위 지도)
+      acts.push({ name: '빵집 안으로', hint: '차양 아래 문을 열고 빵 진열대와 계산대, 안쪽 화덕이 있는 빵집 안으로 들어가요', goto: 'elmrow-bakery', hit: [112, by + 1, bz0 + 9, 112, by + 4, bz0 + 10],
+        run: async a => { for (let k = 0; k < 3; k++) { a.burst([111.5 - k * 2, by + 4 + k * 3, bz0 + 10], { n: 16, colors: ['#ffe9a0', '#ffffff', '#ffd060'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.4 }); await a.wait(0.2); } await a.wait(0.3); } });
       // 두레박 우물(부품): 밧줄이 풀리며 두레박이 내려갔다 물을 길어 올린다
       const WX = 97, WZ = bz0 + 6;
       w.cyl(WX, WZ, by + 1, by + 3, 2.4, B.found); w.cyl(WX, WZ, by + 1, by + 3, 1.4, 0); w.cyl(WX, WZ, by - 4, by, 1.4, 0);

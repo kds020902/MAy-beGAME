@@ -74,6 +74,12 @@
         },
       });
       landmarks.push({ name: '창고 부두', note: '기중기로 짐을 내리는 곳', p: [85.5, whs[1].peak + 6, 67] });
+      // 가운데 벽돌 창고 1층 문: 들어가면 하역장·저장층·다락이 있는 창고 안(하위 지도)
+      {
+        const dx = whs[1].door[0], dz = whs[1].door[2];
+        acts.push({ name: '벽돌 창고 안으로', hint: '기중기 뒤 1층 문을 밀고 상자와 술통이 쌓인 벽돌 창고 하역장으로 들어가요', goto: 'canal-warehouse', hit: [dx, G + 1, dz, dx + 1, G + 4, dz + 1],
+          run: async a => { for (let k = 0; k < 3; k++) { a.burst([dx + 1, G + 3 + k * 2, dz + 1.5 + k], { n: 18, colors: ['#ffe9a0', '#ffffff', '#ffd060'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.4 }); await a.wait(0.2); } await a.wait(0.3); } });
+      }
       // ── 운하 남쪽의 좁고 높은 집들(계단 박공) ──
       const walls = [B.plaster, B.plasterB, B.plasterY, B.plasterP, B.brick];
       let k = 0;

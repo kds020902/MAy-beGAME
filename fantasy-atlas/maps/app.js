@@ -773,8 +773,9 @@
   stage.addEventListener('pointerdown', e => {
     if (e.target.closest('.pin, .actpin')) return;
     if (e.pointerType === 'touch') setTouch();
+    if (play.on && play.tp && e.pointerType === 'mouse') { if (document.pointerLockElement) return; lockPointer(); }
     closeOpts(); if (isSheet()) closeSheet();
-    stage.setPointerCapture(e.pointerId);
+    try { stage.setPointerCapture(e.pointerId); } catch (er) { /* 마우스 잠금 중엔 붙잡기 불가 */ }
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragMode = play.on ? (ptrs.size === 2 ? 'pinch' : 'rot') : (e.button === 2 || e.shiftKey || ptrs.size === 2) ? 'pan' : 'rot';
     downAt = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
@@ -803,7 +804,7 @@
     if (dragMode === 'pan') pan(dx, dy);
     else {
       state.yawT -= dx * 0.008;
-      const pl = play.on && play.tp ? [-0.35, 1.3] : [0.3, 1.2];
+      const pl = pitchLim();
       state.pitchT = Math.max(pl[0], Math.min(pl[1], state.pitchT + dy * 0.005));
       if (Math.abs(dx) > 1 && !play.on) { state.auto = false; syncToggles(); }
     }
@@ -838,7 +839,7 @@
   const PL = { r: 0.42, h: 1.5, walk: 5.2, run: 9, jump: 8.6, grav: 24 };
   const play = {
     on: false, tp: false, lock: false, p: [0, 0, 0], v: [0, 0, 0], ground: false, swim: false, face: 0, faceT: 0, stepVis: 0,
-    keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 7, tpCur: 7, saved: null, spawns: {},
+    keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 7, tpCur: 7, saved: null, spawns: {}, view: 'iso', jumpQ: false, air: 0, unlockAt: 0,
     disc: store.get('disc', {}), toastT: 0, cut: 1e5,
   };
   const app = $('#app'), promptEl = $('#prompt'), toastEl = $('#toast'), playBtn = $('#play');
@@ -1007,7 +1008,7 @@
       avatar.visible = true;
       spawnPlayer(null);
     } else {
-      setTP(false);
+      setView('iso', true);
       const s = play.saved;
       if (s) { state.targetT.copy(s.target); state.zoomT = s.zoom; state.pitchT = s.pitch; }
       avatar.visible = false; pLight.intensity = 0;
@@ -1015,13 +1016,37 @@
     }
     syncDisc();
   }
-  function setTP(on) {
-    if (play.tp === on) return;
-    play.tp = on;
-    $('#bview').setAttribute('aria-pressed', String(on));
-    if (on) { state.pitchT = 0.32; play.tpCur = play.tpDist; }
-    else { state.pitchT = 0.6; if (play.on) state.zoomT = playZoom(); }
+  // 시점: 2.5D(정사영) → 1인칭 → 3인칭 뒤 → 3인칭 앞. 원근 시점은 바라보는 방향 L = -camDir(yaw, pitch)
+  const VIEWS = ['iso', 'fp', 'tpb', 'tpf'], VNAME = { iso: '2.5D', fp: '1인칭', tpb: '3인칭 뒤', tpf: '3인칭 앞' };
+  const pitchLim = () => !play.on || play.view === 'iso' ? [0.3, 1.2] : play.view === 'fp' ? [-1.553, 1.553] : [-1.2, 1.45];
+  function setView(v, quiet) {
+    if (play.view === v) return;
+    const was = play.view;
+    play.view = v; play.tp = v !== 'iso';
+    app.dataset.view = v;
+    $('#bview').setAttribute('aria-pressed', String(play.tp));
+    if (v === 'iso') { unlock(); state.pitchT = 0.6; if (play.on) state.zoomT = playZoom(); }
+    else {
+      if (was === 'iso') state.pitchT = v === 'fp' ? 0.1 : 0.3;
+      state.yaw = state.yawT; state.pitch = state.pitchT = Math.max(pitchLim()[0], Math.min(pitchLim()[1], state.pitchT));
+      play.tpCur = play.tpDist;
+    }
+    if (!quiet) toast(VNAME[v]);
   }
+  const setTP = on => setView(on ? 'tpb' : 'iso');
+  const cycleView = () => setView(VIEWS[(VIEWS.indexOf(play.view) + 1) % VIEWS.length]);
+  // 마우스 잠금(원근 시점에서 클릭): 머리 없는 브라우저나 샌드박스에선 거절될 수 있어 조용히 넘긴다
+  function lockPointer() {
+    try { const r = stage.requestPointerLock && stage.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 잠금 불가 */ }
+  }
+  function unlock() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* 무시 */ } }
+  document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) play.unlockAt = performance.now(); app.classList.toggle('locked', !!document.pointerLockElement); });
+  document.addEventListener('mousemove', e => {
+    if (!play.on || document.pointerLockElement !== stage) return;
+    const pl = pitchLim();
+    state.yawT -= e.movementX * 0.0026; state.yaw = state.yawT;
+    state.pitchT = Math.max(pl[0], Math.min(pl[1], state.pitchT + e.movementY * 0.0026)); state.pitch = state.pitchT;
+  });
   function interact() {
     const a = play.near;
     if (!a || a.busy || play.lock) return false;
@@ -1031,14 +1056,18 @@
   const MOVEKEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight']);
   function playKey(e, down) {
     const c = e.code;
-    if (MOVEKEYS.has(c)) { if (down) play.keys[c] = true; else delete play.keys[c]; return true; }
+    if (MOVEKEYS.has(c)) {
+      if (down) { if (c === 'Space' && !e.repeat) play.jumpQ = true; play.keys[c] = true; } else delete play.keys[c];
+      return true;
+    }
     if (!down) return false;
     if (c === 'KeyE') { if (!interact() && !play.tp) state.yawT += Math.PI / 4; }
     else if (c === 'KeyF' || c === 'Enter') interact();
     else if (c === 'KeyQ') state.yawT -= Math.PI / 4;
-    else if (c === 'KeyV') setTP(!play.tp);
+    else if (c === 'KeyV' || c === 'F5') cycleView();
     else if (c === 'KeyR') respawn();
-    else if (c === 'Escape') setPlay(false);
+    // 첫 Esc는 마우스 잠금만 푼다(브라우저가 먼저 풀었으면 그 직후 Esc도 무시)
+    else if (c === 'Escape') { if (document.pointerLockElement) unlock(); else if (performance.now() - play.unlockAt > 400) setPlay(false); }
     else if (c === 'Equal' || c === 'NumpadAdd') zoomPlay(1 / 1.25);
     else if (c === 'Minus' || c === 'NumpadSubtract') zoomPlay(1.25);
     else return false;
@@ -1065,12 +1094,12 @@
   joy.addEventListener('pointermove', e => { if (e.pointerId === play.joy.id) joyMove(e); });
   ['pointerup', 'pointercancel'].forEach(t => joy.addEventListener(t, e => { if (e.pointerId === play.joy.id) joyReset(); }));
   const hold = (el, code) => {
-    el.addEventListener('pointerdown', e => { e.preventDefault(); play.keys[code] = true; });
+    el.addEventListener('pointerdown', e => { e.preventDefault(); if (code === 'Space') play.jumpQ = true; play.keys[code] = true; });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => el.addEventListener(t, () => { delete play.keys[code]; }));
   };
   hold($('#bjump'), 'Space');
   $('#bact').addEventListener('click', () => interact());
-  $('#bview').addEventListener('click', () => setTP(!play.tp));
+  $('#bview').addEventListener('click', () => cycleView());
 
   // 상호작용 안내: 가장 가까운 상호작용 상자(3칸 안)
   function syncPrompt() {
@@ -1148,8 +1177,19 @@
     const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.45 : depth > 0.1 ? 0.7 : 1);
     const acc = Math.min(1, dt * (play.ground || play.swim ? 14 : 5));
     v[0] += (mx * sp - v[0]) * acc; v[2] += (mz * sp - v[2]) * acc;
-    if (Math.abs(mx) + Math.abs(mz) > 0.05) play.faceT = Math.atan2(mx, mz);
-    if (K.Space && !play.lock) { if (play.ground) { v[1] = PL.jump; play.ground = false; } else if (play.swim) v[1] = Math.max(v[1], 2.6); }
+    if (play.tp) play.faceT = state.yaw + Math.PI;   // 원근 시점: 바라보는 쪽으로 몸을 돌린다
+    else if (Math.abs(mx) + Math.abs(mz) > 0.05) play.faceT = Math.atan2(mx, mz);
+    if (play.ground) play.air = 0;
+    if (!play.lock && (K.Space || play.jumpQ)) {
+      if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; }
+      else if (play.swim) v[1] = Math.max(v[1], 2.6);
+      else if (play.jumpQ && play.air < 2) {
+        // 2단 점프: 발밑에 반짝이 한 줌
+        v[1] = PL.jump * 0.92; play.air = 2;
+        spawnBurst([p[0], p[1] + 0.1, p[2]], { n: 22, colors: ['#fff4c4', '#ffd468', '#ffffff', '#ffa04a'], speed: 2.4, up: -0.6, life: 0.6, gravity: 1.5, spread: 0.5, flat: true });
+      }
+    }
+    play.jumpQ = false;
     if (play.swim) { v[1] += (-PL.grav * 0.15 + (depth - 0.9) * 7) * dt; v[1] *= Math.pow(0.15, dt); }
     else v[1] = Math.max(-30, v[1] - PL.grav * dt);
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / 0.25));
@@ -1178,6 +1218,7 @@
       const d = Math.hypot(dx, dy, dz);
       if (d <= bd) { bd = d; best = a; }
     }
+    if (play.view === 'fp') { const ai = aimAct(); if (ai) best = ai; }
     if (best !== play.near || (best && promptEl.dataset.k !== best.name + best.busy)) { play.near = best; syncPrompt(); }
     // 발견
     const f = found();
@@ -1204,24 +1245,53 @@
     play.cut = cut;
     clip.constant = cut;
   }
-  // 3인칭: 정령 뒤 원근 카메라, 벽에 막히면 당겨 온다
+  // 원근 시점: 1인칭은 눈높이에서 앞을, 3인칭 뒤·앞은 정령을 바라보며 벽에 막히면 당겨 온다
   function updateTP(dt) {
     const head = state.target.clone(); head.y += 0.45;
-    const d = camDir(state.yaw, state.pitch);
-    const hv = [head.x + W / 2, head.y + cur.base, head.z + D / 2];
-    const hit = march(cur, hv, d);
-    const want = Math.max(0.5, Math.min(play.tpDist, hit - 0.4));
-    play.tpCur = want < play.tpCur ? want : play.tpCur + (want - play.tpCur) * Math.min(1, dt * 4);
+    const c = camDir(state.yaw, state.pitch), fp = play.view === 'fp';
     pcam.aspect = state.rtW / state.rtH;
-    pcam.position.set(head.x + d[0] * play.tpCur, head.y + d[1] * play.tpCur, head.z + d[2] * play.tpCur);
-    pcam.lookAt(head);
+    pcam.near = fp ? 0.1 : 0.2;
+    if (fp) {
+      pcam.position.copy(head);
+      pcam.lookAt(head.x - c[0], head.y - c[1], head.z - c[2]);
+      avatar.visible = false;
+    } else {
+      const d = play.view === 'tpf' ? [-c[0], -c[1], -c[2]] : c;
+      const hit = march(cur, [head.x + W / 2, head.y + cur.base, head.z + D / 2], d);
+      const want = Math.max(0.5, Math.min(play.tpDist, hit - 0.4));
+      play.tpCur = want < play.tpCur ? want : play.tpCur + (want - play.tpCur) * Math.min(1, dt * 4);
+      pcam.position.set(head.x + d[0] * play.tpCur, head.y + d[1] * play.tpCur, head.z + d[2] * play.tpCur);
+      pcam.lookAt(head);
+      avatar.visible = play.tpCur > 1.2;
+    }
     pcam.updateProjectionMatrix(); pcam.updateMatrixWorld();
-    avatar.visible = play.tpCur > 0.9;
+  }
+  // 1인칭 겨냥: 십자선 방향 6칸 안, 지형에 가리지 않은 상호작용 상자
+  function aimAct() {
+    const c = camDir(state.yaw, state.pitch), d = [-c[0], -c[1], -c[2]];
+    const o = [pcam.position.x + W / 2, pcam.position.y + cur.base, pcam.position.z + D / 2];
+    const wall = march(cur, o, d);
+    let best = null, bt = 6;
+    for (const a of cur.acts) {
+      const h = a.hit;
+      let t0 = 0, t1 = Infinity;
+      for (let q = 0; q < 3; q++) {
+        const lo = h[q], hi = h[q + 3] + 1;
+        if (Math.abs(d[q]) < 1e-9) { if (o[q] < lo || o[q] > hi) { t0 = Infinity; break; } continue; }
+        let ta = (lo - o[q]) / d[q], tb = (hi - o[q]) / d[q];
+        if (ta > tb) [ta, tb] = [tb, ta];
+        t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
+      }
+      if (t0 <= t1 && t0 <= bt && t0 <= wall + 0.75) { bt = t0; best = a; }
+    }
+    return best;
   }
   // 원근 카메라도 같은 픽셀 후처리를 거친다(깊이 배율만 바꿔서)
   function renderView(c) {
-    if (c === cam) { post.render(scene, cam, t); return; }
+    if (c === cam) { post.u.outline.value = 1; post.render(scene, cam, t); return; }
     const u = post.u;
+    // 원근 깊이는 선형이 아니라 외곽선 검출이 맞지 않으니 원근 시점에선 외곽선을 끈다(디더·안개·빛 번짐은 그대로)
+    u.outline.value = 0;
     u.uT.value = t; u.range.value = TP_RANGE;
     u.invVP.value.multiplyMatrices(c.projectionMatrix, c.matrixWorldInverse).invert();
     renderer.setRenderTarget(post.rt); renderer.render(scene, c);
@@ -1258,8 +1328,9 @@
     if (state.auto && !play.on && !dragMode && !(cur && cur.acts.some(a => a.busy))) state.yawT += dt * 0.07;
     if (play.on && cur) stepPlay(dt);
     const k = 1 - Math.pow(0.0015, dt);
-    state.yaw += (state.yawT - state.yaw) * k;
-    state.pitch += (state.pitchT - state.pitch) * k;
+    const kl = play.on && play.tp ? 1 - Math.pow(1e-7, dt) : k;
+    state.yaw += (state.yawT - state.yaw) * kl;
+    state.pitch += (state.pitchT - state.pitch) * kl;
     state.zoom += (state.zoomT - state.zoom) * k;
     state.target.lerp(state.targetT, play.on ? 1 - Math.pow(play.tp ? 1e-6 : 2e-5, dt) : k);
     const aspect = state.rtW / state.rtH, vh = viewHalf();
@@ -1340,12 +1411,12 @@
   window.__atlas = {
     state, cam, show: i => show(i, true), cur: () => cur, run: k => cur && runAct(cur.acts[k]), travel: id => travel(id), MAPS, freeRect,
     // 놀이 모드 손잡이
-    play: on => setPlay(on !== false), tp: on => setTP(on !== false), get keys() { return play.keys; }, interact,
-    player: () => ({ on: play.on, tp: play.tp, p: play.p.slice(), v: play.v.slice(), ground: play.ground, swim: play.swim, near: play.near && play.near.name, home: play.home && play.home.slice(), disc: cur ? found().length : 0, map: cur && cur.def.id }),
-    key: (code, down) => { if (down) play.keys[code] = true; else delete play.keys[code]; },
+    play: on => setPlay(on !== false), tp: on => setTP(on !== false), view: v => setView(v), cycleView, lockPointer, get keys() { return play.keys; }, interact,
+    player: () => ({ on: play.on, tp: play.tp, view: play.view, yaw: state.yaw, pitch: state.pitch, air: play.air, locked: !!document.pointerLockElement, p: play.p.slice(), v: play.v.slice(), ground: play.ground, swim: play.swim, near: play.near && play.near.name, home: play.home && play.home.slice(), disc: cur ? found().length : 0, map: cur && cur.def.id }),
+    key: (code, down) => { if (down) { if (code === 'Space' && !play.keys.Space) play.jumpQ = true; play.keys[code] = true; } else delete play.keys[code]; },
     tpTo: (x, y, z) => placeAt([x, y, z]), besideBox, mapSpawn: () => mapSpawn(cur),
     // 느린 기기(소프트웨어 GL) 검사용: 물리를 1/60초씩 sec초만큼 돌린다
-    step: sec => { for (let i = 0; i < Math.round(sec * 60); i++) if (play.on && cur) stepPlay(1 / 60); },
+    step: sec => { let top = -Infinity; for (let i = 0; i < Math.round(sec * 60); i++) if (play.on && cur) { stepPlay(1 / 60); top = Math.max(top, play.p[1]); } return top; },
   };
 
   // ───── 시작 ─────

@@ -236,6 +236,13 @@
   #hud kbd, #prompt kbd { font-family: var(--pixel); font-size: 10px; border: 1px solid var(--line-hi); padding: 0 4px; color: var(--text); background: rgba(0, 0, 0, 0.3); }
   #hud .sub { color: var(--muted); font-size: 11px; }
   #hud .hi { display: none; letter-spacing: 0.02em; }
+  #hud .pv { display: none; }
+  #app.playing:not([data-view="iso"]):not(.locked):not(.touch) #hud .pv { display: inline; }
+  #xhair { display: none; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; pointer-events: none; z-index: 4; }
+  #xhair::before, #xhair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 0 1px #000; }
+  #xhair::before { left: 6px; top: 0; width: 2px; height: 14px; }
+  #xhair::after { left: 0; top: 6px; width: 14px; height: 2px; }
+  #app.playing[data-view="fp"] #xhair { display: block; }
   #hud-disc { color: var(--gold); font-weight: 800; }
   #hud-disc:empty { display: none; }
   #app.touch #hud .hk, #app.touch #hud .sub { display: none; }
@@ -274,7 +281,7 @@
   #app.playing.touch #prompt { bottom: 196px; }
 </style>
 
-<div id="app">
+<div id="app" data-view="iso">
   <div id="stage" aria-label="3D 지역 지도. 드래그해서 돌리고 휠로 확대합니다." role="img">
     <canvas id="view"></canvas>
   </div>
@@ -287,9 +294,10 @@
     <h1 id="name">잿빛 묘지</h1>
     <p id="desc"></p>
     <div id="hud" class="px-box">
-      <span class="hk"><kbd>WASD</kbd> 이동 · <kbd>Space</kbd> 점프 · <kbd>Shift</kbd> 달리기 · <kbd>E</kbd> 상호작용 · <kbd>V</kbd> 시점 · <kbd>G</kbd> 지도 보기</span>
-      <span class="sub"><kbd>Q</kbd> <kbd>E</kbd> 회전 · 드래그 둘러보기 · 휠 확대 · <kbd>R</kbd> 처음 자리</span>
-      <span class="hi">◐ 이동 · ▲ 점프 · ◆ 상호작용 · ◎ 시점</span>
+      <span class="hk"><kbd>WASD</kbd> 이동 · <kbd>Space</kbd> 점프 · <kbd>Shift</kbd> 달리기 · <kbd>E</kbd> 상호작용 · <kbd>F5</kbd>/<kbd>V</kbd> 시점 · <kbd>G</kbd> 지도 보기</span>
+      <span class="sub">공중에서 <kbd>Space</kbd> 한 번 더 = 2단 점프 · <kbd>Q</kbd> <kbd>E</kbd> 회전 · 휠 확대 · <kbd>R</kbd> 처음 자리</span>
+      <span class="sub pv">클릭하면 마우스로 둘러보기 · <kbd>Esc</kbd> 풀기</span>
+      <span class="hi">◐ 이동 · ▲ 점프(공중에서 한 번 더) · ◆ 상호작용 · ◎ 시점</span>
       <span id="hud-disc"></span>
     </div>
   </header>
@@ -366,6 +374,7 @@
     </div>
   </div>
 
+  <div id="xhair" aria-hidden="true"></div>
   <button type="button" id="prompt" class="px-box" hidden></button>
   <div id="toast" class="px-box" role="status" hidden></div>
   <div id="touchpad">

@@ -353,13 +353,14 @@
       w.box(126, G + 3, 98, 126, G + 6, 98, B.steel); w.box(125, G + 7, 98, 127, G + 8, 98, B.polB); w.box(125, G + 9, 98, 127, G + 9, 98, B.concW);   // 작은 경찰 표지판
       landmarks.push({ name: '경찰 저지선', note: '유료 탈출구 V-Ex · 5000루블', p: [118, G + 14, 90], tag: 'EXFIL' });
       acts.push({
-        name: '경찰 저지선 V-Ex', hint: '5000루블을 내면 차단봉이 올라가고 경광등을 켠 경찰차가 북쪽 도로로 빠져나가요', hit: [EX0, G + 1, BGZ, EX1, G + 6, 97],
+        name: '경찰 저지선 V-Ex', hint: '5000루블을 내면 차단봉이 올라가고 경광등을 켠 경찰차가 남쪽 큰길로 나가 서쪽으로 빠져나가요', hit: [EX0, G + 1, BGZ, EX1, G + 6, 97],
         run: async a => {
           a.flash('police', 8, 7);
           for (let k = 0; k < 4; k++) { a.burst([118.5 + (k % 2), G + 6, 92.5], { n: 14, colors: k % 2 ? ['#ff3030', '#ff9a9a'] : ['#3a7aff', '#9ac0ff'], speed: 4, up: 0.4, life: 0.5, gravity: 0, spread: 0.5, flat: true }); await a.wait(0.3); }
           await a.turn('boom', [0, 0, -1.4], 1);
-          await a.path('police', [[0, 0, -6, 0], [-1, 0, -20, 0], [-1, 0, -36, 0]], 3);
-          a.burst([118, G + 2, 54], { n: 20, colors: ['#9a9a98', '#c8c8c4'], speed: 2, up: 1, life: 1, gravity: 0, spread: 3 });
+          // 앞(남쪽)으로 나가 남쪽 큰길에서 서쪽으로 꺾어 큰길을 따라 지도 밖까지
+          a.burst([119, G + 1.5, 97], { n: 20, colors: ['#9a9a98', '#c8c8c4'], speed: 2, up: 1, life: 1, gravity: 0, spread: 3, flat: true });
+          await a.drive('police', [[0, 0, 6], [-1, 0, 10], [-4, 0, 13.5], [-10, 0, 13.5], [-30, 0, 13.5], [-50, 0, 13.5], [-70, 0, 13.5], [-90, 0, 13.5], [-102, 0, 13.5], [-108, 0, 12], [-140, 0, 12]], 5.5, { fwd: '+z' });
           await Promise.all([a.respawn('police', 1.0), a.turn('boom', [0, 0, 0], 1)]);
         },
       });

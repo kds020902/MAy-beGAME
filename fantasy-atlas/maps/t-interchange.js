@@ -318,9 +318,8 @@
             await a.wait(0.3);
           }
           for (let k = 0; k < 4; k++) a.burst([TRX - 0.5 + k * 2, G + 2, TRZ + 0.5], { n: 12, colors: ['#3a3634', '#5a5654'], speed: 1, up: 2, life: 1.8, gravity: -0.5, spread: 0.8 });
-          await a.tween('truck', { off: [8, 0, 0] }, 1.6);
-          await a.wait(0.6);
-          await a.respawn('truck', 1.0);
+          // 앞으로 나가 북쪽 차로로 올라간 뒤 차로를 따라 서쪽 지도 밖까지
+          await a.drive('truck', [[2, 0, 0], [4, 0, -3], [5, 0, -8], [5, 0, -14], [3, 0, -18], [-1, 0, -21], [-6, 0, -22.5], [-80, 0, -22.5]], 6, { fwd: '+x', back: 1.0 });
         },
       });
       const tent = (x0, z0, len, col) => {

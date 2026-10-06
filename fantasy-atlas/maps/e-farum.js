@@ -339,7 +339,7 @@
       });
 
       // ══ 폭풍을 도는 고룡(부품) ══
-      const orb = w.prop({ name: 'dragon', pivot: [RX + 0.5, base, RZ + 0.5], speed: 0.13, bob: 3, bobSpeed: 0.6, clipOK: 99999 });
+      const orb = w.prop({ name: 'dragon', pivot: [RX + 0.5, base, RZ + 0.5], speed: -0.13, bob: 3, bobSpeed: 0.6, clipOK: 99999 });
       LB.dragon(orb, { x: RX + 70, y: base + 44, z: RZ, dir: Math.PI / 2, s: 0.9, pose: 'fly', wingUp: 5, span: 26, torn: 0.3, m: { body: B.drag, belly: B.dragB, bone: B.dragBone, wing: B.dragW, horn: B.dragBone, eye: B.dragEye, spike: B.dragBone } });
       acts.push({
         name: '고룡의 비행', hint: '폭풍을 도는 고룡이 날갯짓을 빨리하며 붉은 번개를 흩뿌려요', hit: [RX + 66, base + 40, RZ - 6, RX + 74, base + 50, RZ + 6],

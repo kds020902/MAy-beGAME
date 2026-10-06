@@ -299,8 +299,10 @@
         name: '원정 출발', hint: '짐을 실은 원정 마차가 정문을 지나 큰길로 떠나요. 던전 깊은 층으로 가는 원정이에요', hit: [WX - 3, G + 1, WZ0, WX + 3, G + 8, WZ1 + 3],
         run: async a => {
           await Promise.all([a.turn('gateL', [0, 1.5, 0], 1.2), a.turn('gateR', [0, -1.5, 0], 1.2)]);
-          await a.path('wagon', [[0, 0, 22], [8, 0, 22, Math.PI / 2], [60, 0, 22, Math.PI / 2]], 4.2);
-          await Promise.all([a.respawn('wagon', 1.2), a.turn('gateL', [0, 0, 0], 1), a.turn('gateR', [0, 0, 0], 1)]);
+          // 정문 → 앞 골목(동쪽) → 북쪽 큰길을 따라 남쪽 끝 지도 밖까지
+          const go = a.drive('wagon', [[0, 0, 16], [2, 0, 20], [6, 0, 22], [62, 0, 22], [67, 0, 25], [69.5, 0, 32], [69.5, 0, 95]], 8, { fwd: '+z', back: 1.0 });
+          await a.wait(2.4);
+          await Promise.all([go, a.turn('gateL', [0, 0, 0], 1), a.turn('gateR', [0, 0, 0], 1)]);
         },
       });
       // 이정표: 골목가에서 남쪽 중앙 광장(바벨)으로

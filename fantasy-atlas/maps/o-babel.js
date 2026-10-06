@@ -200,7 +200,7 @@
       landmarks.push({ name: '바벨', note: '던전의 뚜껑 · 50층 탑', p: [BX + 0.5, G + 80, BZ + 0.5], boss: true });
       landmarks.push({ name: '신들의 개인 방', note: '꼭대기는 여신의 방', p: [BX + 0.5, CY + 32, BZ + 0.5] });
       // 탑을 도는 비둘기 떼(부품)
-      const doves = w.prop({ name: 'doves', pivot: [BX + 0.5, G, BZ + 0.5], speed: 0.22, clipOK: 99999 });
+      const doves = w.prop({ name: 'doves', pivot: [BX + 0.5, G, BZ + 0.5], speed: -0.22, clipOK: 99999 });
       for (let k = 0; k < 14; k++) {
         const a = k / 14 * TAU + hash3(k, 1, 1) * 0.3, r = 20 + (k % 4) * 3, y = G + 50 + (k * 7) % 22, x = Math.round(BX + Math.cos(a) * r), z = Math.round(BZ + Math.sin(a) * r);
         const tx = Math.round(-Math.sin(a)), tz = Math.round(Math.cos(a));

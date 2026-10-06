@@ -66,7 +66,8 @@ function getThree() {
 function buildHtml() {
   let h = fs.readFileSync(path.join(MAPS, 'index.html'), 'utf8');
   let n = 0; const missing = [];
-  h = h.replace(/<script src="([a-z0-9-]+\.js)"><\/script>/g, (m, f) => {
+  // 지도 스크립트 + audio/manifest.js 를 끼워 넣는다(소리 파일 자체는 아래에서 app/audio/ 로 복사)
+  h = h.replace(/<script src="((?:audio\/)?[a-z0-9-]+\.js)"><\/script>/g, (m, f) => {
     const p = path.join(MAPS, f);
     if (!fs.existsSync(p)) { missing.push(f); return ''; }
     n++;
@@ -84,9 +85,27 @@ function buildHtml() {
   rm(APPDIR);
   fs.mkdirSync(APPDIR, { recursive: true });
   fs.writeFileSync(path.join(APPDIR, 'index.html'), h);
+  copyAudio();
   log(`app/index.html: ${n}개 스크립트 + three r128 인라인, ${Math.round(h.length / 1024)} KB`,
     missing.length ? 'MISSING ' + missing.join(',') : '');
   if (missing.length) process.exitCode = 2;
+}
+
+// 소리 파일: maps/audio/ → app/audio/ (상대 경로 "audio/..." 그대로; manifest.js 등 스크립트는 이미 인라인)
+function copyAudio() {
+  const src = path.join(MAPS, 'audio');
+  if (!fs.existsSync(src)) { log('maps/audio 없음 — 소리 없이 빌드'); return; }
+  let files = 0, bytes = 0;
+  fs.cpSync(src, path.join(APPDIR, 'audio'), {
+    recursive: true,
+    filter: f => {
+      if (fs.statSync(f).isDirectory()) return true;
+      if (/\.js$/i.test(f)) return false;
+      files++; bytes += fs.statSync(f).size;
+      return true;
+    },
+  });
+  log(`app/audio: ${files}개 파일, ${(bytes / 1048576).toFixed(1)} MB`);
 }
 
 // ---------- 3) Electron 프리빌트 다운로드 (캐시 + SHA256 검증) ----------

@@ -3,7 +3,7 @@ const fs = require('fs');
 const dir = __dirname + '/maps/';
 let h = fs.readFileSync(dir + 'index.html', 'utf8');
 let n = 0, missing = [];
-h = h.replace(/<script src="([a-z0-9-]+\.js)"><\/script>/g, (m, f) => {
+h = h.replace(/<script src="((?:audio\/)?[a-z0-9-]+\.js)"><\/script>/g, (m, f) => {
   if (!fs.existsSync(dir + f)) { missing.push(f); return ''; }
   n++;
   return '<script>\n' + fs.readFileSync(dir + f, 'utf8') + '\n</script>';

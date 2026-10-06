@@ -11,6 +11,222 @@
     set(k, v) { try { localStorage.setItem('f5map2.' + k, JSON.stringify(v)); } catch (e) { /* 저장소 없음 */ } },
   };
 
+  // ───── 소리: 전체·음악·환경음·효과음 버스, 지연 로딩·해독 캐시, 첫 입력에 깨우기 ─────
+  // window.AUDIO(audio/manifest.js)가 없거나 열쇠·파일이 없으면 조용히 넘어간다(절대 throw하지 않음)
+  const SND = (function () {
+    const KINDS = ['bgm', 'amb', 'sfx'];
+    const DEF = { bgm: 0.35, amb: 0.5, sfx: 0.8, mute: false };
+    const vol = Object.assign({}, DEF);
+    (function () { const s = store.get('audio', null); if (s && typeof s === 'object') for (const k in DEF) if (typeof s[k] === typeof DEF[k]) vol[k] = s[k]; })();
+    const log = [];
+    const note = o => { o.t = Math.round(performance.now()); log.push(o); if (log.length > 400) log.splice(0, log.length - 400); };
+    const lib = kind => { const A = window.AUDIO; return A && A[kind] && typeof A[kind] === 'object' ? A[kind] : {}; };
+    function urlOf(kind, key) {
+      let u = key ? lib(kind)[key] : null;
+      if (Array.isArray(u)) u = u.length ? u[Math.floor(Math.random() * u.length)] : null;
+      return typeof u === 'string' && u ? u : null;
+    }
+    const clamp01 = x => Math.max(0, Math.min(1, x));
+    const AC = window.AudioContext || window.webkitAudioContext;
+    let ctx = null, master = null, unlocked = false, panOK = false, live = 0;
+    const bus = {};
+    function ensure() {
+      if (ctx || !AC) return ctx;
+      try { ctx = new AC(); } catch (e) { ctx = null; return null; }
+      master = ctx.createGain(); master.connect(ctx.destination);
+      KINDS.forEach(k => { bus[k] = ctx.createGain(); bus[k].connect(master); });
+      panOK = typeof ctx.createStereoPanner === 'function';
+      applyVol();
+      return ctx;
+    }
+    const lvl = kind => vol.mute ? 0 : vol[kind];
+    function applyVol() {
+      voices.forEach(v => { if (v.el) v.el.volume = clamp01(v.cur * lvl(v.kind)); });
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      try {
+        master.gain.setTargetAtTime(vol.mute ? 0 : 1, now, 0.04);
+        KINDS.forEach(k => bus[k].gain.setTargetAtTime(vol[k], now, 0.04));
+      } catch (e) { /* 무시 */ }
+    }
+
+    // 파일 → ArrayBuffer: fetch가 안 되는 file:// 에서는 XHR, 그것도 안 되면 <audio> 요소로 재생
+    function fetchAB(url) {
+      const xhr = () => new Promise((res, rej) => {
+        try {
+          const x = new XMLHttpRequest();
+          x.open('GET', url); x.responseType = 'arraybuffer';
+          x.onload = () => (x.status === 200 || (x.status === 0 && x.response && x.response.byteLength)) ? res(x.response) : rej(new Error('xhr ' + x.status));
+          x.onerror = () => rej(new Error('xhr'));
+          x.send();
+        } catch (e) { rej(e); }
+      });
+      if (!window.fetch || location.protocol === 'file:') return xhr();
+      return fetch(url).then(r => { if (!r.ok) { const e = new Error('http ' + r.status); e.http = true; throw e; } return r.arrayBuffer(); })
+        .catch(e => { if (e && e.http) throw e; return xhr(); });
+    }
+    function decode(ab) {
+      return new Promise((res, rej) => {
+        try { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); } catch (e) { rej(e); }
+      });
+    }
+    const bufs = new Map();   // url → { p, b: AudioBuffer | 'el' | null | undefined(로딩 중), kind, at }
+    function load(url, kind) {
+      let e = bufs.get(url);
+      if (e) { e.at = performance.now(); return e.p; }
+      e = { b: undefined, kind, at: performance.now() };
+      e.p = fetchAB(url).then(decode).then(b => (e.b = b), err => {
+        e.b = location.protocol === 'file:' ? 'el' : null;
+        if (!e.b) note({ type: 'err', url, msg: String((err && err.message) || err) });
+        return e.b;
+      });
+      bufs.set(url, e);
+      evict();
+      return e.p;
+    }
+    // 해독한 음악은 커서(2분 스테레오 ≈ 40MB) 쓰지 않는 것부터 버린다
+    function evict() {
+      const used = new Set(voices.filter(v => !v.dead).map(v => v.url));
+      for (const [kind, max] of [['bgm', 3], ['amb', 10]]) {
+        const all = [...bufs.entries()].filter(([, e]) => e.kind === kind);
+        let n = all.length;
+        all.filter(([u, e]) => !used.has(u) && e.b !== undefined).sort((p, q) => p[1].at - q[1].at).forEach(([u]) => { if (n > max) { bufs.delete(u); n--; } });
+      }
+    }
+
+    // 반복 재생(음악·환경음): 목표 크기 tgt로 fade초 동안 천천히 오르내린다
+    const voices = [];
+    function startLoop(kind, key, url, tgt, fade) {
+      const v = { kind, key, url, cur: 0, tgt, fade, src: null, g: null, el: null, dead: false, last: -1 };
+      voices.push(v);
+      load(url, kind).then(b => {
+        if (v.dead || v.tgt <= 0) { v.dead = true; return; }
+        try {
+          if (b && b !== 'el') {
+            const s = ctx.createBufferSource(); s.buffer = b; s.loop = true;
+            const g = ctx.createGain(); g.gain.value = 0; s.connect(g); g.connect(bus[kind]);
+            s.start(0, 0);   // 고리 이음매가 미리 섞여 있어 처음부터 loop로 튼다
+            v.src = s; v.g = g;
+          } else if (b === 'el') {
+            const el = new Audio(url); el.loop = true; el.volume = 0;
+            const p = el.play(); if (p && p.catch) p.catch(() => {});
+            v.el = el;
+          } else { v.dead = true; return; }
+          note({ type: kind, key, url });
+        } catch (e) { v.dead = true; }
+      });
+      return v;
+    }
+    function stopVoice(v) {
+      v.dead = true;
+      try { if (v.src) v.src.stop(); } catch (e) { /* 이미 멈춤 */ }
+      try { if (v.g) v.g.disconnect(); } catch (e) { /* 무시 */ }
+      try { if (v.el) v.el.pause(); } catch (e) { /* 무시 */ }
+    }
+    function tick(dt) {
+      for (let i = voices.length - 1; i >= 0; i--) {
+        const v = voices[i];
+        if (v.src || v.el || v.tgt === 0) {
+          const s = dt / v.fade;
+          v.cur = v.cur < v.tgt ? Math.min(v.tgt, v.cur + s) : Math.max(v.tgt, v.cur - s);
+        }
+        if ((v.tgt === 0 && v.cur <= 0) || (v.dead && !v.src && !v.el)) { stopVoice(v); voices.splice(i, 1); continue; }
+        if (Math.abs(v.cur - v.last) > 0.001) {
+          v.last = v.cur;
+          if (v.g) v.g.gain.value = v.cur;
+          if (v.el) v.el.volume = clamp01(v.cur * lvl(v.kind));
+        }
+      }
+    }
+    let want = { bgm: null, amb: [] };
+    function scene(w) { want = w; if (unlocked) sync(); }
+    function sync() {
+      if (!ctx) return;
+      // 음악: 같은 곡이면 그대로(멀어지던 중이면 되살림), 다르면 2.5초 동안 엇갈려 바꾼다
+      const burl = want.bgm ? urlOf('bgm', want.bgm) : null;
+      let keep = null;
+      voices.forEach(v => {
+        if (v.kind !== 'bgm' || v.dead) return;
+        if (!keep && burl && v.key === want.bgm) { keep = v; v.tgt = 1; v.fade = 2.5; } else { v.tgt = 0; v.fade = 2.5; }
+      });
+      if (burl && !keep) startLoop('bgm', want.bgm, burl, 1, 2.5);
+      // 환경음 층
+      const wantA = {};
+      (want.amb || []).forEach(l => { if (l && l.k && urlOf('amb', l.k)) wantA[l.k] = Math.max(wantA[l.k] || 0, l.v); });
+      const have = {};
+      voices.forEach(v => {
+        if (v.kind !== 'amb' || v.dead) return;
+        if (wantA[v.key] != null && !have[v.key]) { have[v.key] = 1; v.tgt = wantA[v.key]; v.fade = 2.2; } else { v.tgt = 0; v.fade = 2.2; }
+      });
+      for (const k in wantA) if (!have[k]) startLoop('amb', k, urlOf('amb', k), wantA[k], 2.2);
+    }
+    const lastAt = {};
+    function sfx(key, o) {
+      o = o || {};
+      if (!unlocked || !ctx) return;
+      const g0 = o.vol == null ? 1 : o.vol;
+      if (!(g0 >= 0.01)) return;
+      const nowMs = performance.now();
+      if (o.gap && lastAt[key] && nowMs - lastAt[key] < o.gap * 1000) return;
+      const url = urlOf('sfx', key);
+      if (!url) { note({ type: 'miss', key }); return; }
+      lastAt[key] = nowMs;
+      if (live > 28) return;
+      load(url, 'sfx').then(b => {
+        if (performance.now() - nowMs > 1500) return;   // 너무 늦게 도착한 소리는 버린다
+        try {
+          if (b && b !== 'el') {
+            const s = ctx.createBufferSource(); s.buffer = b;
+            s.playbackRate.value = o.rate || (0.95 + Math.random() * 0.1);
+            const g = ctx.createGain(); g.gain.value = g0;
+            s.connect(g);
+            let out = g;
+            if (panOK && o.pan) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, o.pan)); g.connect(p); out = p; }
+            out.connect(bus.sfx);
+            live++; s.onended = () => { live--; try { out.disconnect(); g.disconnect(); } catch (e) { /* 무시 */ } };
+            s.start(ctx.currentTime + (o.delay || 0));
+          } else if (b === 'el') {
+            const el = new Audio(url); el.volume = clamp01(g0 * lvl('sfx'));
+            const p = el.play(); if (p && p.catch) p.catch(() => {});
+          } else return;
+          note({ type: 'sfx', key, url, vol: Math.round(g0 * 100) / 100, pan: Math.round((o.pan || 0) * 100) / 100 });
+        } catch (e) { /* 무시 */ }
+      });
+    }
+    const PRE = ['jump', 'djump', 'land', 'step_grass', 'step_stone', 'step_wood', 'step_snow', 'splash', 'swim', 'ui_click', 'ui_open', 'discover', 'travel', 'interact'];
+    const urlsOf = k => { const u = lib('sfx')[k]; return (Array.isArray(u) ? u : [u]).filter(x => typeof x === 'string' && x); };
+    // 자주 쓰는 소리는 바로, 나머지 효과음(작은 파일)은 조금 뒤 하나씩 천천히 받아 둔다
+    function preload() {
+      PRE.forEach(k => urlsOf(k).forEach(x => load(x, 'sfx')));
+      const rest = [];
+      for (const k in lib('sfx')) if (!PRE.includes(k)) urlsOf(k).forEach(x => rest.push(x));
+      let i = 0;
+      const next = () => { if (i < rest.length) { load(rest[i++], 'sfx'); setTimeout(next, 80); } };
+      setTimeout(next, 1500);
+    }
+    // 자동 재생 정책: 첫 클릭·키 입력 때 AudioContext를 만들고 깨운다
+    function unlock() {
+      if (!ensure()) return;
+      if (ctx.state !== 'running') { try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 무시 */ } }
+      if (!unlocked) { unlocked = true; note({ type: 'unlock', state: ctx.state }); preload(); sync(); }
+    }
+    ['pointerdown', 'keydown', 'touchend', 'click'].forEach(t => window.addEventListener(t, unlock, true));
+    function setVol(k, v) {
+      if (k === 'mute') vol.mute = !!v; else if (KINDS.includes(k)) vol[k] = clamp01(+v || 0); else return;
+      store.set('audio', vol); applyVol();
+    }
+    return {
+      scene, sfx, tick, unlock, setVol, vol, log,
+      has: (kind, key) => !!urlOf(kind, key),
+      state: () => ({
+        ctx: ctx ? ctx.state : null, unlocked, vol: Object.assign({}, vol), bufs: bufs.size,
+        bgm: voices.filter(v => v.kind === 'bgm' && v.tgt > 0 && !v.dead).map(v => v.key),
+        amb: voices.filter(v => v.kind === 'amb' && v.tgt > 0 && !v.dead).map(v => v.key + '@' + Math.round(v.tgt * 100) / 100),
+        playing: voices.filter(v => v.src || v.el).map(v => v.kind + ':' + v.key + ':' + Math.round(v.cur * 100) / 100),
+      }),
+    };
+  })();
+
   // ───── 렌더러 ─────
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1);
@@ -211,7 +427,7 @@
     };
     let verts = 0;
     disposables.forEach(d => { if (d.attributes && d.attributes.position) verts += d.attributes.position.count; });
-    const entry = { i, def, base, group, liquid, lights, particles, landmarks, props, acts, fog, disposables, occ: w.data, liq: w.liq, W, D, H, verts };
+    const entry = { i, def, base, group, liquid, lights, particles, landmarks, props, acts, fog, disposables, occ: w.data, liq: w.liq, W, D, H, verts, stepT: stepTypes(w) };
     cache.set(i, entry);
     // 캐시는 4개까지, 큰 지도가 많으면 정점 합계로도 줄인다
     const total = () => { let n = 0; cache.forEach(e => { n += e.verts; }); return n; };
@@ -255,6 +471,7 @@
     renderInfo();
     hideTip();
     if (play.on) spawnPlayer(fromId);
+    audioScene();
   }
 
   // ───── 낮과 밤 ─────
@@ -289,11 +506,12 @@
     $('#tday').setAttribute('aria-pressed', String(state.time === 'day'));
     $('#tnight').setAttribute('aria-pressed', String(state.time === 'night'));
     $('#tauto').textContent = '기본(' + (def.time === 'night' ? '밤' : '낮') + ')';
+    audioScene();
   }
 
   // ───── 상호작용 API ─────
   const lightBase = { hemi: 0.6, sun: 0.7 }, flash = { v: 0 };
-  let windMul = 1, windT = 1, vortT = 0;
+  let windMul = 1, windT = 1, vortT = 0, windBase = 1;   // windBase: 날씨(fx.js)가 정하는 바탕 바람
   const tweens = [], fades = [];
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   const A = {
@@ -369,7 +587,10 @@
     burst(p, o) { spawnBurst(p, o); },
     glow(mul, dur) { glowMat.uniforms.uBoost.value = mul; return A.wait(dur).then(() => { glowMat.uniforms.uBoost.value = 1; }); },
     // 하늘 전체가 번쩍(번개)
-    lightning(k) { flash.v = Math.max(flash.v, k || 1); },
+    lightning(k) {
+      flash.v = Math.max(flash.v, k || 1);
+      SND.sfx('thunder', { vol: Math.min(1, 0.45 + (k || 1) * 0.35), gap: 0.7, delay: 0.12 + Math.random() * 0.3 });
+    },
     // 입자 바람·회오리 세기를 잠시 바꾼다
     wind(mul, dur) { windT = mul; return A.wait(dur).then(() => { windT = 1; }); },
   };
@@ -377,9 +598,16 @@
     if (a.busy || !cur) return;
     const map = cur;
     a.busy = true; syncActs();
+    actSound(a, fromList);
     // 놀이 모드에선 카메라가 정령을 따라가므로 동작 카메라는 쓰지 않는다
     if (!play.on) showAct(a, map, fromList);
-    try { await a.run(A); } catch (e) { /* 지도를 바꾸면 중단 */ }
+    // 탈것 이름이면 drive를 시작할 때 엔진 소리(동작 시작 소리로 이미 냈으면 생략)
+    const AA = Object.create(A);
+    AA.drive = (n, pts, dur, o) => {
+      if (VEHICLE.test(a.name) && !(a.sndKeys || []).includes('engine')) sfxAt('engine', actCenter(a), 0.8, { gap: 1.5 });
+      return A.drive(n, pts, dur, o);
+    };
+    try { await a.run(AA); } catch (e) { /* 지도를 바꾸면 중단 */ }
     a.busy = false; if (cur === map) syncActs();
     if (a.goto && cur === map) travel(a.goto);
   }
@@ -389,6 +617,7 @@
     if (i < 0) return;
     const fade = $('#fade');
     fade.classList.add('on');
+    SND.sfx('travel', { vol: 0.8 });
     play.lock = true;
     await A.wait(0.4);
     show(i);
@@ -397,6 +626,138 @@
     await A.wait(0.15);
     play.lock = false;
     fade.classList.remove('on');
+  }
+
+  // ───── 소리 고르기: 지도 → 음악·환경음, 동작 → 효과음, 블록 → 발소리 ─────
+  const CAT_SND = {
+    dungeon: { amb: ['cave'], bgm: 'dungeon' }, village: { amb: ['field_birds', 'town@0.4'], bgm: 'village' },
+    kingdom: { amb: ['town'], bgm: 'kingdom' }, magic: { amb: ['magic_hum'], bgm: 'magic' },
+    lands: { amb: ['mountain_wind'], bgm: 'lands' }, orario: { amb: ['town'], bgm: 'orario' }, tarkov: { amb: ['city_ruin'], bgm: 'tarkov' },
+  };
+  const layer = s => { const m = String(s).split('@'); const v = m[1] != null ? parseFloat(m[1]) : 1; return { k: m[0], v: isFinite(v) ? Math.max(0, Math.min(1, v)) : 1 }; };
+  const listOf = x => Array.isArray(x) ? x : typeof x === 'string' && x ? [x] : null;
+  let weather = {};
+  window.ATLAS_AUDIO = {
+    setWeather(d) {
+      try {
+        const nd = d && typeof d === 'object' ? { type: d.type, amb: d.amb, intensity: d.intensity, indoor: !!d.indoor } : {};
+        if (JSON.stringify(nd) === JSON.stringify(weather)) return;
+        weather = nd; audioScene();
+      } catch (e) { /* 무시 */ }
+    },
+    sfx: (k, o) => SND.sfx(k, o), state: () => SND.state(),
+  };
+  function audioScene() {
+    try {
+      if (!cur) return;
+      const def = cur.def, cd = CAT_SND[def.cat] || CAT_SND.dungeon;
+      const AM = window.AUDIO_MAP, e = (AM && typeof AM === 'object' && AM[def.id]) || {};
+      let ls = (listOf(e.amb) || cd.amb).map(layer);
+      if (effTime() === 'night') {
+        // 밤: 새소리는 빼고, 바깥 지도엔 풀벌레를 더한다
+        const birds = ls.some(l => l.k === 'field_birds' || l.k === 'forest');
+        ls = ls.filter(l => l.k !== 'field_birds');
+        const extra = listOf(e.night);
+        if (extra) ls = ls.concat(extra.map(layer));
+        else if (birds && !e.indoor) ls.push({ k: 'night_insects', v: 0.6 });
+      }
+      // 날씨(fx.js): 지도 환경음 위에 비·눈·폭풍 층을 얹는다(실내면 먹먹하게 작게)
+      const wl = listOf(weather.amb);
+      if (wl) {
+        const k = isFinite(+weather.intensity) && weather.intensity != null ? Math.max(0, Math.min(1, +weather.intensity)) : 1;
+        const m = k * (weather.indoor || e.indoor ? 0.35 : 1);
+        if (m > 0.01) ls = ls.concat(wl.map(layer).map(l => ({ k: l.k, v: l.v * m })));
+      }
+      const atlasMul = play.on ? 1 : 0.55;   // 지도 보기에서는 환경음을 조금 낮춘다
+      const bgm = [e.bgm, cd.bgm].find(k => k && SND.has('bgm', k)) || e.bgm || cd.bgm;
+      SND.scene({ bgm, amb: ls.map(l => ({ k: l.k, v: l.v * atlasMul })) });
+    } catch (er) { /* 소리 없이 계속 */ }
+  }
+  function stepTypes(w) {
+    const out = new Uint8Array(w.blocks.length);
+    for (const n in w.id) {
+      const id = w.id[n], b = w.blocks[id];
+      let k = 0;
+      if (/snow|frost|icicle|^ice|Ice/.test(n)) k = 3;
+      else if (/plank|wood|deck|timber|log(?!o)|beam|bark|root|crate|barrel|board|bridge|hull|trunk|shelf|desk|table|bench|pallet|sleeper/i.test(n)) k = 2;
+      else if (/grass|leaf|moss|fern|hedge|needle|flower|wheat|hay|lichen|vine|straw|stubble|mud|soil|dirt|sawdust|petal|sand|ash|lily|reed|fung|mush|carpet|rug|^mat|turf|briar|ivy|mound|sprout|lotus|cabbage|lavender|fur/i.test(n)) k = 1;
+      else if (b && b._t && !/roof|wall|glass|win|trim|plate|copper|patina|verd|teal|iron|steel|metal|rune|crys/i.test(n) && b._t[1] > b._t[0] * 1.15 && b._t[1] > b._t[2] * 1.1) k = 1;
+      out[id] = k;
+    }
+    return out;
+  }
+  // 동작 이름(없으면 설명)의 낱말로 효과음을 고른다. [정규식, 열쇠들, 크기]
+  const VEHICLE = /트럭|차량|자동차|택시|크루저|열차|기관차|비행선|호버|고카트|시동|엔진|광차|마차|하늘배/;
+  const ACT_SFX = [
+    [/경보|사이렌/, ['alarm'], 0.8],
+    [/뱃고동/, ['horn'], 1],
+    [/안개문|차원문|축복|혼불|도깨비불|원소|왕좌/, ['magic', 'sparkle'], 0.8],
+    [/폭발|화재|탱크|불꽃놀이|축포|섬광탄|밤하늘 불꽃/, ['explosion'], 1],
+    [/번개|낙뢰|폭풍/, ['thunder'], 1],
+    [/기관총|저격|NSV|AGS|PKM/, ['gunshot_distant'], 0.9],
+    [/차단기|레버|스위치|정전|전원/, ['lever'], 0.8],
+    [/갑문|수문/, ['door_metal', 'water_pour'], 0.85],
+    [/화로|화덕|봉화|횃불|용광로|화장로|모닥불|벽난로|용암|쇳물|화형|신호탄/, ['fire'], 0.9],
+    [/종(?!이)|풍경/, ['bell'], 0.9],
+    [/(대문|정문|석문|성문|철문|하역문|미닫이문|여닫이문|회전문|셔터|창살|게이트|철망|문 열기|[^개]문$|영묘의 문|무덤 문|지하실|해치)/, ['door'], 0.9],
+    [/(^|\s)관$|얼음관|석상|조각상/, ['door_stone'], 0.8],
+    [/사슬|도개교|쇠우리|승강기|엘리베이터|기중기|크레인|도르래|두레박|닻|양묘기/, ['gate_chain'], 0.85],
+    [/컴퓨터|하드 드라이브|무전기|레이더|화면|조타륜/, ['lever'], 0.8],
+    [/망치|모루|대장간|해머|숫돌|풀무/, ['anvil'], 0.9],
+    [/점등|조명|불빛|창불|등불|등롱|투광등|탐조등|마석등|간판|등탑|등대|LED|로고|글자/, ['sparkle'], 0.7],
+    [/까마귀/, ['crow'], 0.9],
+    [/새|비둘기|갈매기|박쥐|부엉이|가고일|오리|백조|꿀벌|고룡|날개|물새/, ['bird_flap'], 0.85],
+    [/쇄빙/, ['engine', 'explosion'], 0.7],
+    [VEHICLE, ['engine'], 0.85],
+    [/톱 |컨베이어|에스컬레이터|가동|팬$/, ['engine'], 0.6],
+    [/마차|수레|그네|풍차|풍향계|풍향 닭|물레(?!방아)|빨랫줄|흔들다리|바구니|의자|오르골|저울|시계|망원경|들어 올리/, ['creak'], 0.8],
+    [/불|굴뚝|연기|가마(?!솥)/, ['fire'], 0.85],
+    [/상자|보물|은닉처|의료품/, ['chest'], 0.9],
+    [/솥|증류|물약|사과주|술|성배|방울/, ['bubble'], 0.8],
+    [/물고기|은어|파도|진수|뛰기/, ['splash'], 0.9],
+    [/물|분수|샘|우물|폭포|물결|수로|목욕탕|펌프|나룻배|잎배|(^|\s)배( |$)|연못|호수|어선|부표|그물/, ['water_pour'], 0.85],
+    [/책|서고|서책|금서/, ['book'], 0.9],
+    [/유리|스테인드|장미창|거울|창의 햇살/, ['glass'], 0.8],
+    [/마법|룬|소환|수정|빛|오로라|별|달|혜성|유성|마력|영혼|성검|봉인|후광|고치|은빛|광채|공명|현자|호문쿨루스|마나|신들|여신|치유/, ['magic', 'sparkle'], 0.8],
+    [/가스|바람|회오리|소용돌이|눈보라|휘장|깃발|잎비|꽃잎|낙엽|덩굴|담쟁이|덮개/, ['wind_gust'], 0.8],
+    [/무너|붕괴|굴러|낙하|부서|갈라|바위 비|발자국/, ['explosion'], 0.55],
+    [/훈련|난전|결투|대결|검|칼|과녁|바벨|농구|쇠고리|족쇄|가시|철/, ['metal_hit'], 0.8],
+    [/시장|노점|동전|금화|만찬|잔치/, ['coins'], 0.8],
+  ];
+  function doorKey(s) { return /철|쇠|셔터|게이트|철망|KIBA|회전문|보안/.test(s) ? 'door_metal' : /석|돌|얼음|바위|무덤|영묘|납골/.test(s) ? 'door_stone' : 'door_wood'; }
+  function actSfx(a) {
+    const own = listOf(a.sfx);
+    if (own) return own.map(k => [k, 1]);
+    for (const txt of [a.name || '', a.hint || '']) {
+      for (const [re, ks, v] of ACT_SFX) if (re.test(txt)) return ks.map(k => [k === 'door' ? doorKey(txt) : k, v]);
+    }
+    return [['interact', 0.8]];
+  }
+  const actCenter = a => a.box.getCenter(new THREE.Vector3());
+  // 듣는 자리(놀이 모드: 정령, 지도 보기: 카메라 중심)에서 멀수록 작게, 화면 가로 위치로 살짝 좌우
+  const sndV = new THREE.Vector3();
+  function sfxAt(key, w, vol, o) {
+    try {
+      if (!cur) return;
+      const L = play.on ? toW(play.p) : state.target, d = w.distanceTo(L);
+      const R = play.on ? 12 : Math.max(10, viewHalf() / Math.max(0.3, state.zoom) * 0.6);
+      let g = (vol == null ? 1 : vol) / (1 + (d / R) * (d / R));
+      if (!play.on) g = Math.max(g, 0.15 * (vol == null ? 1 : vol));
+      sndV.copy(w).project(play.on && play.tp ? pcam : cam);
+      const pan = sndV.z > 1 ? 0 : Math.max(-0.7, Math.min(0.7, sndV.x * 0.7));
+      SND.sfx(key, Object.assign({ vol: g, pan }, o));
+    } catch (e) { /* 무시 */ }
+  }
+  function actSound(a, near) {
+    try {
+      if (a.goto) return;   // 길 안내는 이동 소리(travel)로
+      const ks = actSfx(a), c = actCenter(a);
+      a.sndKeys = ks.map(k => k[0]);
+      ks.forEach(([k, v], i) => {
+        const f = () => { if (near && !play.on) SND.sfx(k, { vol: v }); else sfxAt(k, c, v); };
+        if (i) setTimeout(f, 140 * i); else f();
+      });
+    } catch (e) { /* 무시 */ }
   }
 
   // ───── 동작 카메라: 움직일 부품이 가려지면 잘 보이는 쪽으로 돌고, 움직임 전체가 화면에 들어오게 ─────
@@ -722,6 +1083,60 @@
     $('#more').setAttribute('aria-expanded', open);
     if (open && isSheet()) closeSheet();
   });
+  // ───── 소리 조절 창 · 크레딧 · 단추 소리 ─────
+  const sndBtn = $('#snd'), sndPop = $('#sndpop');
+  function syncSnd() {
+    const v = SND.vol;
+    ['bgm', 'amb', 'sfx'].forEach(k => {
+      const r = $('#vol-' + k), o = $('#vol-' + k + '-o');
+      if (r) r.value = String(Math.round(v[k] * 100));
+      if (o) o.textContent = String(Math.round(v[k] * 100));
+    });
+    const m = $('#vol-mute'); if (m) m.setAttribute('aria-pressed', String(v.mute));
+    if (sndBtn) { sndBtn.textContent = v.mute ? '🔇' : '🔊'; sndBtn.classList.toggle('muted', v.mute); sndBtn.setAttribute('aria-label', v.mute ? '소리 설정(음소거됨)' : '소리 설정'); }
+  }
+  function closeSnd() { if (sndPop && !sndPop.hidden) { sndPop.hidden = true; sndBtn.setAttribute('aria-expanded', 'false'); } }
+  const toggleMute = () => { SND.setVol('mute', !SND.vol.mute); syncSnd(); };
+  if (sndBtn && sndPop) {
+    sndBtn.addEventListener('click', () => {
+      sndPop.hidden = !sndPop.hidden;
+      sndBtn.setAttribute('aria-expanded', String(!sndPop.hidden));
+      const A0 = window.AUDIO; $('#snd-note').hidden = !!(A0 && (A0.bgm || A0.sfx || A0.amb));
+      if (!sndPop.hidden) { closeOpts(); if (isSheet()) closeSheet(); }
+    });
+    ['bgm', 'amb', 'sfx'].forEach(k => {
+      const r = $('#vol-' + k);
+      if (!r) return;
+      r.addEventListener('input', () => { SND.setVol(k, +r.value / 100); syncSnd(); });
+      if (k === 'sfx') r.addEventListener('change', () => SND.sfx('ui_click', { vol: 0.8 }));
+    });
+    $('#vol-mute').addEventListener('click', toggleMute);
+    document.addEventListener('pointerdown', e => { if (!e.target.closest('#sndw')) closeSnd(); }, true);
+  }
+  syncSnd();
+  function renderCredits() {
+    const A0 = window.AUDIO, cr = A0 && Array.isArray(A0.credits) ? A0.credits.filter(c => c && typeof c === 'object') : [];
+    const sec = $('#credits-sec'), ul = $('#credits');
+    if (!sec || !ul) return;
+    sec.hidden = !cr.length;
+    const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    ul.innerHTML = cr.map(c => {
+      const t = esc(c.title || c.file || '?'), u = typeof c.url === 'string' && /^https?:\/\//.test(c.url) ? c.url : null;
+      return `<li>${u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${t}</a>` : t}${c.author ? ' · ' + esc(c.author) : ''}${c.license ? ' · ' + esc(c.license) : ''}</li>`;
+    }).join('');
+  }
+  renderCredits();
+  $('#credits-btn').addEventListener('click', () => {
+    const ul = $('#credits'); ul.hidden = !ul.hidden;
+    $('#credits-btn').setAttribute('aria-expanded', String(!ul.hidden));
+  });
+  // 단추 소리: 창을 여닫는 단추는 ui_open, 나머지는 ui_click(동작·놀이 단추는 제 소리가 따로 있음)
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button');
+    if (!b || b.disabled) return;
+    if (b.matches('.act, .actpin, #prompt, #bjump, #bact, #bview, #vol-mute')) { if (b.id === 'vol-mute') SND.sfx('ui_click', { vol: 0.7 }); return; }
+    SND.sfx(b.matches('#sheet-toggle, #more, #snd, #credits-btn') ? 'ui_open' : 'ui_click', { vol: 0.6, gap: 0.05 });
+  });
   function resetView() {
     if (play.on) { respawn(); return; }
     const def = cur.def;
@@ -731,6 +1146,7 @@
     if (e.target.closest && e.target.closest('input,textarea')) return;
     // 한글 입력 상태에서도 되도록 놀이 키는 e.code로 본다
     if (e.code === 'KeyG' && !e.ctrlKey && !e.metaKey && !e.altKey) { setPlay(!play.on); e.preventDefault(); return; }
+    if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleMute(); e.preventDefault(); return; }
     if (play.on) { if (playKey(e, true)) e.preventDefault(); return; }
     const k = e.key.toLowerCase(), list = catMaps(state.cat);
     if (k === 'q') state.yawT -= Math.PI / 4;
@@ -774,7 +1190,7 @@
     if (e.target.closest('.pin, .actpin')) return;
     if (e.pointerType === 'touch') setTouch();
     if (play.on && play.tp && e.pointerType === 'mouse') { if (document.pointerLockElement) return; lockPointer(); }
-    closeOpts(); if (isSheet()) closeSheet();
+    closeOpts(); closeSnd(); if (isSheet()) closeSheet();
     try { stage.setPointerCapture(e.pointerId); } catch (er) { /* 마우스 잠금 중엔 붙잡기 불가 */ }
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragMode = play.on ? (ptrs.size === 2 ? 'pinch' : 'rot') : (e.button === 2 || e.shiftKey || ptrs.size === 2) ? 'pan' : 'rot';
@@ -841,6 +1257,7 @@
     on: false, tp: false, lock: false, p: [0, 0, 0], v: [0, 0, 0], ground: false, swim: false, face: 0, faceT: 0, stepVis: 0,
     keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 7, tpCur: 7, saved: null, spawns: {}, view: 'iso', jumpQ: false, air: 0, unlockAt: 0,
     disc: store.get('disc', {}), toastT: 0, cut: 1e5,
+    wasGround: false, wasWet: false, fallTop: 0, stepAcc: 1, swimAcc: 1,
   };
   const app = $('#app'), promptEl = $('#prompt'), toastEl = $('#toast'), playBtn = $('#play');
   // 정령 모양: 둥근 몸통(발광) + 점 두 개 눈 + 머리 위 작은 불꽃. 복셀 메셔를 그대로 써서 지도와 같은 결로 만든다
@@ -967,6 +1384,7 @@
   }
   function placeAt(s, face) {
     play.p = [s[0], s[1], s[2]]; play.v = [0, 0, 0]; play.stepVis = 0; play.ground = false;
+    play.fallTop = s[1]; play.wasGround = true; play.wasWet = false;
     play.face = play.faceT = face != null ? face : Math.atan2(W / 2 - s[0], D / 2 - s[2]);
     const w = toW(play.p);
     state.targetT.set(w.x, w.y + 0.8, w.z); state.target.copy(state.targetT);
@@ -1015,6 +1433,7 @@
       play.near = null; syncPrompt();
     }
     syncDisc();
+    audioScene();
   }
   // 시점: 2.5D(정사영) → 1인칭 → 3인칭 뒤 → 3인칭 앞. 원근 시점은 바라보는 방향 L = -camDir(yaw, pitch)
   const VIEWS = ['iso', 'fp', 'tpb', 'tpf'], VNAME = { iso: '2.5D', fp: '1인칭', tpb: '3인칭 뒤', tpf: '3인칭 앞' };
@@ -1181,11 +1600,11 @@
     else if (Math.abs(mx) + Math.abs(mz) > 0.05) play.faceT = Math.atan2(mx, mz);
     if (play.ground) play.air = 0;
     if (!play.lock && (K.Space || play.jumpQ)) {
-      if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; }
+      if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; SND.sfx('jump', { vol: 0.55 }); }
       else if (play.swim) v[1] = Math.max(v[1], 2.6);
       else if (play.jumpQ && play.air < 2) {
         // 2단 점프: 발밑에 반짝이 한 줌
-        v[1] = PL.jump * 0.92; play.air = 2;
+        v[1] = PL.jump * 0.92; play.air = 2; SND.sfx('djump', { vol: 0.6 });
         spawnBurst([p[0], p[1] + 0.1, p[2]], { n: 22, colors: ['#fff4c4', '#ffd468', '#ffffff', '#ffa04a'], speed: 2.4, up: -0.6, life: 0.6, gravity: 1.5, spread: 0.5, flat: true });
       }
     }
@@ -1196,6 +1615,7 @@
     for (let i = 0; i < n; i++) { moveH(0, v[0] * dt / n); moveH(2, v[2] * dt / n); moveV(v[1] * dt / n); }
     play.ground = v[1] <= 0 && boxHit(p[0], p[1] - 0.05, p[2]);
     if (p[1] < -3) { respawn(); return; }
+    footAudio(dt, depth, run);
     play.stepVis *= Math.pow(0.0005, dt);
     let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     play.face += da * Math.min(1, dt * 12);
@@ -1225,10 +1645,49 @@
     for (const l of cur.landmarks) {
       if (f.includes(l.name)) continue;
       if (Math.hypot(l.p[0] - cx, l.p[2] - cz) <= 12 && Math.abs(l.p[1] - cyy) <= 18) {
-        f.push(l.name); store.set('disc', play.disc); toast('발견: ' + l.name); syncDisc();
+        f.push(l.name); store.set('disc', play.disc); toast('발견: ' + l.name); syncDisc(); SND.sfx('discover', { vol: 0.75, gap: 0.6 });
       }
     }
     if (play.toastT > 0) { play.toastT -= dt; if (play.toastT <= 0.4) toastEl.classList.add('out'); if (play.toastT <= 0) toastEl.hidden = true; }
+  }
+  // 발소리·착지·물소리: 발밑 블록 이름으로 풀·돌·나무·눈을 고르고, 걷는 속도만큼 자주 낸다
+  const STEPK = ['step_stone', 'step_grass', 'step_wood', 'step_snow'];
+  function stepKey() {
+    const p = play.p, y = Math.floor(p[1] - 0.05);
+    if (y < 0 || y >= H || !cur.stepT) return STEPK[0];
+    for (const [ox, oz] of [[0, 0], [-PL.r, -PL.r], [PL.r, -PL.r], [-PL.r, PL.r], [PL.r, PL.r]]) {
+      const x = Math.floor(p[0] + ox), z = Math.floor(p[2] + oz);
+      if (x < 0 || z < 0 || x >= W || z >= D) continue;
+      const id = cur.occ[x + W * (z + D * y)];
+      if (id) return STEPK[cur.stepT[id] || 0];
+    }
+    return STEPK[0];
+  }
+  function footAudio(dt, depth, run) {
+    const p = play.p, v = play.v, spd = Math.hypot(v[0], v[2]), wet = depth > 0.4;
+    if (wet && !play.wasWet) SND.sfx('splash', { vol: Math.min(1, 0.4 + Math.max(0, play.fallTop - p[1]) * 0.12), gap: 0.25 });
+    play.wasWet = wet;
+    if (play.swim) {
+      play.fallTop = p[1]; play.stepAcc = 1.2;
+      if (spd > 0.6) { play.swimAcc += spd * dt; if (play.swimAcc >= 2.3) { play.swimAcc = 0; SND.sfx('swim', { vol: 0.45 }); } } else play.swimAcc = 1.6;
+    } else if (!play.ground) play.fallTop = Math.max(play.fallTop, p[1]);
+    else {
+      if (!play.wasGround) {
+        const drop = play.fallTop - p[1];
+        if (drop > 1.5 && !wet) SND.sfx('land', { vol: Math.min(1, 0.4 + drop * 0.06) });
+        else if (drop > 0.3) SND.sfx(depth > 0.1 ? 'splash' : stepKey(), { vol: 0.3 });
+        play.stepAcc = 0;
+      }
+      play.fallTop = p[1];
+      if (spd > 0.8) {
+        play.stepAcc += spd * dt;
+        if (play.stepAcc >= 1.75) {
+          play.stepAcc = 0;
+          SND.sfx(depth > 0.1 ? 'splash' : stepKey(), { vol: (depth > 0.1 ? 0.22 : run ? 0.42 : 0.32), rate: 0.9 + Math.random() * 0.2 });
+        }
+      } else play.stepAcc = 1.2;
+    }
+    play.wasGround = play.ground;
   }
   // 2.5D: 정령이 지붕·벽에 가리면 머리 위 천장(없으면 머리 위 4칸)부터 위를 잘라 안이 보이게 한다
   function updateCut() {
@@ -1294,8 +1753,7 @@
     u.outline.value = 0;
     u.uT.value = t; u.range.value = TP_RANGE;
     u.invVP.value.multiplyMatrices(c.projectionMatrix, c.matrixWorldInverse).invert();
-    renderer.setRenderTarget(post.rt); renderer.render(scene, c);
-    renderer.setRenderTarget(null); renderer.render(post.scene, post.cam);
+    post.draw(scene, c);
   }
 
   // ───── 크기: 도트 한 칸이 기기 픽셀 정수배가 되도록 ─────
@@ -1324,6 +1782,7 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now; t += dt;
+    SND.tick(Math.min(0.5, Math.max(0, (now - (frame.prevNow || now)) / 1000))); frame.prevNow = now;
     // 상호작용이 움직이는 동안엔 자동 회전을 잠시 멈춘다
     if (state.auto && !play.on && !dragMode && !(cur && cur.acts.some(a => a.busy))) state.yawT += dt * 0.07;
     if (play.on && cur) stepPlay(dt);
@@ -1363,7 +1822,7 @@
       f.lit.forEach(m => { m.userData.fade.opacity = k * k * (3 - 2 * k); if (done) m.material = litMat; });
       if (done) { f.other.forEach(m => { m.visible = true; }); fades.splice(i, 1); f.res(); }
     }
-    windMul += (windT - windMul) * Math.min(1, dt * 1.5);
+    windMul += (windT * windBase - windMul) * Math.min(1, dt * 1.5);
     vortT += dt * windMul;
     if (flash.v > 0.001 || hemi.intensity !== lightBase.hemi) {
       flash.v *= Math.pow(0.002, dt);
@@ -1403,6 +1862,7 @@
       }
     }
     stepBurst(dt);
+    if (fx) fx.frame(dt, t, view);
     renderView(view);
     requestAnimationFrame(frame);
   }
@@ -1416,8 +1876,13 @@
     key: (code, down) => { if (down) { if (code === 'Space' && !play.keys.Space) play.jumpQ = true; play.keys[code] = true; } else delete play.keys[code]; },
     tpTo: (x, y, z) => placeAt([x, y, z]), besideBox, mapSpawn: () => mapSpawn(cur),
     // 느린 기기(소프트웨어 GL) 검사용: 물리를 1/60초씩 sec초만큼 돌린다
+    // 소리 검사용
+    get audioLog() { return SND.log; }, audio: () => SND.state(), sfx: (k, o) => SND.sfx(k, o), actSfx: a => actSfx(a),
     step: sec => { let top = -Infinity; for (let i = 0; i < Math.round(sec * 60); i++) if (play.on && cur) { stepPlay(1 / 60); top = Math.max(top, play.p[1]); } return top; },
   };
+
+  // 날씨·셰이더 모드(fx.js, 없으면 건너뜀)
+  const fx = window.FX ? FX.init({ renderer, scene, post, sun, hemi, litMat, A, flash, state, effTime, viewHalf, cur: () => cur, play: () => play, setWind: v => { windBase = v; } }) : null;
 
   // ───── 시작 ─────
   resize();

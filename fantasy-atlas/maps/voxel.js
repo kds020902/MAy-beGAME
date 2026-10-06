@@ -288,6 +288,7 @@
       gl_Position = projectionMatrix * viewMatrix * wp; }`;
   const LIQ_FS = `
     uniform float uT; uniform float uSpeed; uniform float uAlpha; uniform vec3 uA; uniform vec3 uB; uniform vec3 uC;
+    uniform float uEnh; uniform vec4 uEye; uniform vec3 uSun; uniform vec3 uSunC; uniform vec3 uSkyC; uniform float uGlint;
     varying vec3 vW; varying vec3 vN;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     void main(){
@@ -301,6 +302,17 @@
         c = mix(c, uC, step(0.82, n));
         float sp = step(0.99, h(p + floor(t * 2.0)));
         c = mix(c, uC, sp);
+        // 셰이더 모드: 프레넬(비스듬히 볼수록 하늘빛) + 해 반사 반짝임. 끄면(uEnh 0) 위와 똑같다
+        if (uEnh > 0.5 && uAlpha > 0.9) {
+          vec3 V = uEye.w > 0.5 ? normalize(uEye.xyz - vW) : uEye.xyz;
+          vec3 N = normalize(vec3(sin(p.x * 1.3 + t * 1.7) * 0.22 + sin((p.x + p.y) * 0.8 - t) * 0.12, 1.0, cos(p.y * 1.1 - t * 1.4) * 0.22));
+          float fr = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
+          c = mix(c, uSkyC, clamp(fr * 1.1, 0.0, 0.65));
+          float s = pow(max(dot(reflect(-V, N), uSun), 0.0), 48.0);
+          c += uSunC * step(0.35, s) * 0.5;
+          float g2 = step(0.986, h(p * 1.7 + floor(t * 2.6) + 7.0)) * (0.4 + 0.6 * smoothstep(0.0, 0.6, uSun.y));
+          c = mix(c, mix(uC, vec3(1.0), 0.7), g2 * uGlint);
+        }
       } else {
         vec2 p = floor(vec2((vW.x + vW.z) * 2.0, vW.y * 2.0 + t * 6.0));
         float n = h(vec2(p.x, 0.0));
@@ -348,6 +360,9 @@
       uniforms: {
         uT: { value: 0 }, uSpeed: { value: speed == null ? 1 : speed }, uAlpha: { value: glow ? 0.75 : 1 },
         uA: { value: new THREE.Color(colors[0]) }, uB: { value: new THREE.Color(colors[1]) }, uC: { value: new THREE.Color(colors[2]) },
+        // 셰이더 모드(fx.js가 매 프레임 채운다)
+        uEnh: { value: 0 }, uEye: { value: new THREE.Vector4(0, 1, 0, 0) }, uSun: { value: new THREE.Vector3(0, 1, 0) },
+        uSunC: { value: new THREE.Color('#fff') }, uSkyC: { value: new THREE.Color('#9ac') }, uGlint: { value: 1 },
       },
       vertexShader: LIQ_VS, fragmentShader: LIQ_FS, side: THREE.DoubleSide,
     });
@@ -355,12 +370,20 @@
   }
 
   // ───── 픽셀 후처리 ─────
+  // 같은 셰이더를 두 벌 만든다: 기본(지금까지 그대로) / ENH(셰이더 모드: 부드러운 빛 번짐·틈새 그늘·색보정·비네트·햇빛 산란)
+  // wx*(날씨 안개·하늘·어둡게·번개)는 0이면 기본 결과와 똑같다
   const POST_FS = `
     uniform sampler2D tC; uniform sampler2D tD; uniform vec2 res; uniform float range; uniform mat4 invVP;
     uniform float uT; uniform float levels; uniform float dither; uniform float outline; uniform float stars; uniform float bloom;
     uniform vec3 sky0; uniform vec3 sky1; uniform vec3 skyGlow;
     uniform vec4 fogBox; uniform float fogStart; uniform float fogFloor; uniform float fogDepth;
     uniform vec3 haze; uniform vec3 hazeColor; uniform vec2 fogTop;
+    uniform vec4 wxFog; uniform vec4 wxSky; uniform float wxDim; uniform float wxFlash; uniform vec3 wxFocus; uniform vec2 wxRange;
+  #ifdef ENH
+    uniform sampler2D tB; uniform float bloomK; uniform float persp; uniform float zNear; uniform float zFar; uniform vec4 eye;
+    uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 sunUV; uniform float aoK; uniform float vig;
+    uniform vec3 gLift; uniform vec3 gGain; uniform float gSat; uniform float gCon; uniform float scatK;
+  #endif
     varying vec2 vUv;
     float bayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float bayer4(vec2 a){ return bayer2(0.5 * a) * 0.25 + bayer2(a); }
@@ -373,6 +396,13 @@
       return mix(c, skyGlow, smoothstep(0.8, 0.0, length(q)) * 0.6);
     }
     vec3 tap(vec2 px){ vec4 s = texture2D(tC, (px + 0.5) / res); return s.rgb * step(0.6, s.a) * step(s.a, 0.8); }
+  #ifdef ENH
+    float lin(float d){
+      if (persp > 0.5) { float z = d * 2.0 - 1.0; return 2.0 * zNear * zFar / (zFar + zNear - z * (zFar - zNear)); }
+      return d * range;
+    }
+    float occ1(vec2 px, float zc){ float dz = zc - lin(dep(px)); return smoothstep(0.15, 1.0, dz) * (1.0 - smoothstep(2.5, 6.0, dz)); }
+  #endif
     void main(){
       vec2 px = floor(vUv * res);
       vec2 uv = (px + 0.5) / res;
@@ -380,11 +410,20 @@
       vec4 src = texture2D(tC, uv);
       float b = bayer4(px);
       vec3 sky = skyAt(uv, px, b);
+      if (wxSky.a > 0.0 || wxFlash > 0.0) sky = mix(sky, wxSky.rgb, wxSky.a) + vec3(0.8, 0.85, 1.0) * wxFlash;
+  #ifdef ENH
+      vec4 wq = invVP * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); wq /= wq.w;
+      vec3 rd = eye.w > 0.5 ? normalize(wq.xyz - eye.xyz) : -eye.xyz;
+      float sc = pow(max(dot(rd, sunDir), 0.0), 6.0) * scatK;
+  #endif
       vec3 c;
       if (src.a < 0.3) {
         c = sky;
         float s = hash(px);
         if (s > 1.0 - 0.0035 * stars) c += vec3(0.55) * (0.5 + 0.5 * sin(uT * 1.7 + s * 900.0)) * smoothstep(0.3, 1.0, uv.y);
+  #ifdef ENH
+        c += sunCol * sc * 0.35;
+  #endif
       } else {
         c = src.rgb;
         if (src.a > 0.95) {
@@ -392,7 +431,15 @@
           float e = l * range;
           if (e > 3.0) c *= mix(1.0, 0.3, outline);
           else if (e > 0.7) c *= mix(1.0, 0.66, outline);
+  #ifdef ENH
+          // 틈새 그늘: 둘레 8점 중 카메라 쪽으로 튀어나온 곳이 많을수록 어둡게
+          float zc = lin(d);
+          float o = occ1(px + vec2(2.0, 0.0), zc) + occ1(px - vec2(2.0, 0.0), zc) + occ1(px + vec2(0.0, 2.0), zc) + occ1(px - vec2(0.0, 2.0), zc)
+                  + occ1(px + vec2(3.0, 3.0), zc) + occ1(px - vec2(3.0, 3.0), zc) + occ1(px + vec2(3.0, -3.0), zc) + occ1(px - vec2(3.0, -3.0), zc);
+          c *= 1.0 - aoK * min(1.0, o / 5.0);
+  #endif
         }
+        if (wxDim < 1.0 && abs(src.a - 0.75) > 0.05) c *= wxDim;
         vec4 wp = invVP * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
         wp /= wp.w;
         float hz = smoothstep(haze.x, haze.x - haze.z, wp.y) * haze.y;
@@ -405,14 +452,57 @@
         f = clamp(f + (b - 0.5) * 0.2, 0.0, 1.0);
         f = floor(f * 5.0 + 0.5) / 5.0;
         c = mix(c, sky, f);
+        if (wxFog.a > 0.0) {
+          float wf = wxFog.a * smoothstep(wxRange.x, wxRange.y, length(wp.xyz - wxFocus));
+          wf = clamp(floor((wf + (b - 0.5) * 0.16) * 6.0 + 0.5) / 6.0, 0.0, 1.0);
+          c = mix(c, wxFog.rgb, wf);
+        }
+  #ifdef ENH
+        // 햇빛 산란: 해 쪽을 볼 때 먼 곳·안개가 해 빛깔로 물든다
+        c = mix(c, sunCol, clamp(sc * (f + 0.12), 0.0, 0.6));
+  #endif
       }
       vec3 bl = tap(px + vec2(1.0, 0.0)) + tap(px - vec2(1.0, 0.0)) + tap(px + vec2(0.0, 1.0)) + tap(px - vec2(0.0, 1.0));
       bl = bl * 0.5 + (tap(px + vec2(2.0, 1.0)) + tap(px - vec2(2.0, 1.0)) + tap(px + vec2(-1.0, 2.0)) + tap(px + vec2(1.0, -2.0))) * 0.3;
       bl += (tap(px + vec2(3.0, 0.0)) + tap(px - vec2(3.0, 0.0)) + tap(px + vec2(0.0, 3.0)) + tap(px - vec2(0.0, 3.0))) * 0.15;
       c += bl * bloom * 0.25;
+  #ifdef ENH
+      // 넓고 부드러운 빛 번짐(1/4 해상도에서 흐린 것)
+      c += texture2D(tB, vUv).rgb * bloomK;
+      // 빛줄기: 해 쪽으로 걸어가며 하늘이 보이는 비율을 모은다
+      if (sunUV.z > 0.0) {
+        vec2 dl = (sunUV.xy - uv) / 10.0;
+        float acc = 0.0; vec2 sp = uv + dl * b;
+        for (int i = 0; i < 10; i++) { acc += step(texture2D(tC, sp).a, 0.3); sp += dl; }
+        float fall = 1.0 - smoothstep(0.0, 1.1, length((sunUV.xy - uv) * vec2(res.x / res.y, 1.0)));
+        c += sunCol * (acc / 10.0) * fall * fall * sunUV.z * 0.32;
+      }
+      // 색보정: 대비·채도·밝은 쪽/어두운 쪽 색
+      c = (c - 0.5) * gCon + 0.5;
+      float lu = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(vec3(lu), c, gSat) * gGain + gLift * (1.0 - lu);
+      vec2 vq = (uv - 0.5) * vec2(1.0, 0.85);
+      c *= 1.0 - vig * smoothstep(0.25, 0.75, length(vq));
+      c = max(c, 0.0);
+  #endif
       c = floor(c * levels + mix(0.5, b, dither)) / levels;
       gl_FragColor = vec4(c, 1.0);
     }`;
+  // 빛 번짐 재료: 발광 칸(알파 0.75)은 그대로, 아주 밝은 칸은 조금. 4×4 칸을 한 점으로 모은다
+  const BRIGHT_FS = `
+    uniform sampler2D tC; uniform vec2 res; uniform float thr; uniform float litK; varying vec2 vUv;
+    vec3 m(vec2 o){ vec4 s = texture2D(tC, vUv + o / res); float g = step(0.6, s.a) * step(s.a, 0.8);
+      float l = dot(s.rgb, vec3(0.3, 0.59, 0.11)); return s.rgb * (g + step(0.3, s.a) * (1.0 - g) * smoothstep(thr, thr + 0.12, l) * litK); }
+    void main(){ gl_FragColor = vec4((m(vec2(-1.0, -1.0)) + m(vec2(1.0, -1.0)) + m(vec2(-1.0, 1.0)) + m(vec2(1.0, 1.0))) * 0.25, 1.0); }`;
+  const BLUR_FS = `
+    uniform sampler2D tS; uniform vec2 dir; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tS, vUv).rgb * 0.227;
+      c += (texture2D(tS, vUv + dir * 1.385).rgb + texture2D(tS, vUv - dir * 1.385).rgb) * 0.316;
+      c += (texture2D(tS, vUv + dir * 3.231).rgb + texture2D(tS, vUv - dir * 3.231).rgb) * 0.070;
+      gl_FragColor = vec4(c, 1.0);
+    }`;
+  const QUAD_VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
 
   class PostFX {
     constructor(renderer) {
@@ -420,6 +510,9 @@
       this.rt = new THREE.WebGLRenderTarget(4, 4, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
       this.rt.depthTexture = new THREE.DepthTexture();
       this.rt.depthTexture.type = THREE.UnsignedIntType;
+      const lo = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, stencilBuffer: false };
+      this.rtA = new THREE.WebGLRenderTarget(1, 1, lo);
+      this.rtB = new THREE.WebGLRenderTarget(1, 1, lo);
       this.u = {
         tC: { value: this.rt.texture }, tD: { value: this.rt.depthTexture },
         res: { value: new THREE.Vector2(4, 4) }, range: { value: 1 }, uT: { value: 0 }, invVP: { value: new THREE.Matrix4() },
@@ -427,19 +520,39 @@
         sky0: { value: new THREE.Color('#000') }, sky1: { value: new THREE.Color('#000') }, skyGlow: { value: new THREE.Color('#000') },
         fogBox: { value: new THREE.Vector4(0, 0, 48, 48) }, fogStart: { value: 0.72 }, fogFloor: { value: -12 }, fogDepth: { value: 10 },
         haze: { value: new THREE.Vector3(-100, 0, 1) }, hazeColor: { value: new THREE.Color('#fff') }, fogTop: { value: new THREE.Vector2(1e4, 18) },
+        // 날씨(fx.js)
+        wxFog: { value: new THREE.Vector4(1, 1, 1, 0) }, wxSky: { value: new THREE.Vector4(1, 1, 1, 0) }, wxDim: { value: 1 }, wxFlash: { value: 0 },
+        wxFocus: { value: new THREE.Vector3() }, wxRange: { value: new THREE.Vector2(10, 80) },
+        // 셰이더 모드
+        tB: { value: this.rtA.texture }, bloomK: { value: 0.9 }, persp: { value: 0 }, zNear: { value: 1 }, zFar: { value: 800 }, eye: { value: new THREE.Vector4(0, 1, 0, 0) },
+        sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunCol: { value: new THREE.Color('#fff') }, sunUV: { value: new THREE.Vector3(0.5, 1.2, 0) },
+        aoK: { value: 0.35 }, vig: { value: 0.22 }, gLift: { value: new THREE.Vector3() }, gGain: { value: new THREE.Vector3(1, 1, 1) }, gSat: { value: 1.08 }, gCon: { value: 1.05 }, scatK: { value: 0.5 },
       };
-      const mat = new THREE.ShaderMaterial({
-        uniforms: this.u,
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-        fragmentShader: POST_FS, depthTest: false, depthWrite: false,
-      });
-      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+      const mk = (fs, uniforms, defines) => new THREE.ShaderMaterial({ uniforms, vertexShader: QUAD_VS, fragmentShader: fs, depthTest: false, depthWrite: false, defines: defines || {} });
+      this.matBase = mk(POST_FS, this.u);
+      this.matEnh = null;                          // 처음 켤 때 컴파일
+      this.bu = { tC: this.u.tC, res: this.u.res, thr: { value: 0.86 }, litK: { value: 0.35 } };
+      this.matBright = mk(BRIGHT_FS, this.bu);
+      this.blurU = { tS: { value: null }, dir: { value: new THREE.Vector2() } };
+      this.matBlur = mk(BLUR_FS, this.blurU);
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.matBase);
       quad.frustumCulled = false;
+      this.quad = quad;
       this.scene = new THREE.Scene();
       this.scene.add(quad);
       this.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      this.enh = false;
     }
-    setSize(w, h) { this.rt.setSize(w, h); this.u.res.value.set(w, h); }
+    // 셰이더 모드 켜고 끄기(끄면 예전과 똑같은 셰이더로 돌아간다)
+    setEnhanced(on) {
+      this.enh = !!on;
+      if (on && !this.matEnh) this.matEnh = new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: QUAD_VS, fragmentShader: POST_FS, depthTest: false, depthWrite: false, defines: { ENH: '' } });
+      this.quad.material = on ? this.matEnh : this.matBase;
+    }
+    setSize(w, h) {
+      this.rt.setSize(w, h); this.u.res.value.set(w, h);
+      this.rtA.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); this.rtB.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));
+    }
     setSky(a, b, g, stars) {
       this.u.sky0.value.set(a); this.u.sky1.value.set(b); this.u.skyGlow.value.set(g);
       this.u.stars.value = stars === false ? 0 : 1;
@@ -454,14 +567,29 @@
       u.hazeColor.value.set(f.hazeColor || '#ffffff');
       u.fogTop.value.set(f.top != null ? f.top : 1e4, f.topDepth || 18);
     }
+    pass(mat, target) { this.quad.material = mat; this.r.setRenderTarget(target); this.r.render(this.scene, this.cam); }
+    // 장면을 그린 뒤 후처리(정사영·원근 모두 이 길로)
+    draw(scene, cam) {
+      const r = this.r;
+      r.setRenderTarget(this.rt);
+      r.render(scene, cam);
+      if (this.enh) {
+        const a = this.rtA, b = this.rtB;
+        this.pass(this.matBright, a);
+        this.blurU.tS.value = a.texture; this.blurU.dir.value.set(1 / a.width, 0); this.pass(this.matBlur, b);
+        this.blurU.tS.value = b.texture; this.blurU.dir.value.set(0, 1 / a.height); this.pass(this.matBlur, a);
+        this.blurU.tS.value = a.texture; this.blurU.dir.value.set(2 / a.width, 0); this.pass(this.matBlur, b);
+        this.blurU.tS.value = b.texture; this.blurU.dir.value.set(0, 2 / a.height); this.pass(this.matBlur, a);
+        this.quad.material = this.matEnh;
+      }
+      r.setRenderTarget(null);
+      r.render(this.scene, this.cam);
+    }
     render(scene, cam, t) {
       this.u.uT.value = t;
       this.u.range.value = cam.far - cam.near;
       this.u.invVP.value.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).invert();
-      this.r.setRenderTarget(this.rt);
-      this.r.render(scene, cam);
-      this.r.setRenderTarget(null);
-      this.r.render(this.scene, this.cam);
+      this.draw(scene, cam);
     }
   }
 

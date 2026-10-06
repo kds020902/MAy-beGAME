@@ -279,6 +279,23 @@
   #bact { border-color: var(--act); }
   #bact:disabled { opacity: 0.45; border-color: var(--line); }
   #app.playing.touch #prompt { bottom: 196px; }
+  /* 소리 조절: 🔊 단추 + 위로 뜨는 작은 창(음악·환경음·효과음·음소거) */
+  #sndw { position: relative; display: inline-flex; }
+  #snd { font-family: inherit; font-size: 15px; }
+  #snd[aria-expanded="true"] { border-color: var(--gold); }
+  #snd.muted { color: var(--muted); }
+  #sndpop { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 7; width: 210px; padding: 10px 12px 9px; display: grid; gap: 8px; font-size: 12px; }
+  #sndpop label { display: grid; grid-template-columns: 48px 1fr 30px; align-items: center; gap: 8px; }
+  #sndpop input[type="range"] { width: 100%; margin: 0; accent-color: var(--gold); }
+  #sndpop output { font-family: var(--pixel); font-size: 10px; color: var(--muted); text-align: right; }
+  #sndpop .px-btn { justify-self: start; }
+  #sndpop .note { color: var(--muted); font-size: 11px; line-height: 1.5; }
+  #credits-sec { font-size: 11px; color: var(--muted); }
+  #credits-btn { background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-size: 11px; }
+  #credits-btn:hover { color: var(--text); }
+  #credits { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 5px; line-height: 1.5; }
+  #credits a { color: var(--text); }
+  @media (max-width: 760px), (max-height: 520px) { #sndpop { width: min(230px, calc(100vw - 40px)); } }
 </style>
 
 <div id="app" data-view="iso">
@@ -323,13 +340,28 @@
       드래그 회전 · 휠 확대 · 우클릭 드래그 이동<br>
       <kbd>G</kbd> 들어가기 · 정령이 되어 지도 안을 걸어요<br>
       <kbd>Q</kbd> <kbd>E</kbd> 45° 회전 · <kbd>R</kbd> 처음 시점<br>
-      <kbd>1</kbd>–<kbd>5</kbd> 지도 · <kbd>←</kbd> <kbd>→</kbd> 이전/다음 · <kbd>↑</kbd> <kbd>↓</kbd> 카테고리
+      <kbd>1</kbd>–<kbd>5</kbd> 지도 · <kbd>←</kbd> <kbd>→</kbd> 이전/다음 · <kbd>↑</kbd> <kbd>↓</kbd> 카테고리<br>
+      <kbd>M</kbd> 소리 끄기/켜기
     </div>
+    <section id="credits-sec" hidden>
+      <button type="button" id="credits-btn" aria-expanded="false" aria-controls="credits">크레딧</button>
+      <ul id="credits" hidden></ul>
+    </section>
   </aside>
 
   <div id="bottom">
     <div id="ctrl">
       <button type="button" class="px-btn lbl-sm" id="play" aria-pressed="false">들어가기</button>
+      <div id="sndw">
+        <button type="button" class="px-btn ico" id="snd" aria-expanded="false" aria-controls="sndpop" aria-label="소리 설정">🔊</button>
+        <div id="sndpop" class="px-box" role="group" aria-label="소리 크기" hidden>
+          <label>음악 <input type="range" id="vol-bgm" min="0" max="100" step="1"><output id="vol-bgm-o"></output></label>
+          <label>환경음 <input type="range" id="vol-amb" min="0" max="100" step="1"><output id="vol-amb-o"></output></label>
+          <label>효과음 <input type="range" id="vol-sfx" min="0" max="100" step="1"><output id="vol-sfx-o"></output></label>
+          <button type="button" class="px-btn lbl-sm" id="vol-mute" aria-pressed="false">음소거</button>
+          <span class="note" id="snd-note" hidden>소리 파일이 아직 없어요</span>
+        </div>
+      </div>
       <div class="grp">
         <button type="button" class="px-btn ico" id="rl" aria-label="왼쪽으로 45도 회전">&lt;</button>
         <button type="button" class="px-btn ico" id="rr" aria-label="오른쪽으로 45도 회전">&gt;</button>
@@ -444,4 +476,7 @@
 <script src="t-woods-in.js"></script>
 <script src="t-interchange.js"></script>
 <script src="t-interchange-in.js"></script>
+<script src="audio/manifest.js"></script>
+<script src="audio-map.js"></script>
+<script src="fx.js"></script>
 <script src="app.js"></script>

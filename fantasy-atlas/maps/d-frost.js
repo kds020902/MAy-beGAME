@@ -1,4 +1,4 @@
-// 서리 왕좌 — 빙하 계곡 꼭대기의 얼음 성채와 얼어붙은 폭포, 폭포 동쪽 단의 기사단 묘역과 서리 영묘 (160칸)
+// 서리 왕좌 — 빙하 계곡 꼭대기의 얼음 성채와 절벽의 얼음 감옥, 감옥 동쪽 단의 기사단 묘역과 서리 영묘 (160칸)
 (function () {
   'use strict';
   const { hash3 } = VX;
@@ -6,8 +6,8 @@
   const s = v => Math.round(v * K);
   MAPS.push({
     id: 'frost', cat: 'dungeon', name: '서리 왕좌', en: 'Frost Throne', color: '#7cc4e0', seed: 71, base: 20, time: 'day', size: [W, D, Hh],
-    desc: '영원한 겨울에 갇힌 옛 왕국. 얼어붙은 기사들은 아직도 왕을 지킨다. 폭포 동쪽 단에는 쓰러진 기사들이 묻힌 묘역과 옛 기사단장들의 얼음관을 모신 서리 영묘가 눈에 덮여 있다.',
-    info: { title: '장소 정보', en: 'FROST THRONE', rows: [['생김새', '빙하 계곡 꼭대기의 얼음 성채'], ['명소', '겨울 왕좌 · 얼어붙은 폭포 · 기사단 묘역'], ['주의', '묘역의 혼불이 오르면 얼음관이 열림']] },
+    desc: '영원한 겨울에 갇힌 옛 왕국. 얼어붙은 기사들은 아직도 왕을 지킨다. 절벽을 깎은 얼음 감옥에는 사슬에 매달린 얼음 우리가 삐걱이고, 그 동쪽 단에는 쓰러진 기사들이 묻힌 묘역과 옛 기사단장들의 얼음관을 모신 서리 영묘가 눈에 덮여 있다.',
+    info: { title: '장소 정보', en: 'FROST THRONE', rows: [['생김새', '빙하 계곡 꼭대기의 얼음 성채'], ['명소', '겨울 왕좌 · 얼음 감옥 · 기사단 묘역'], ['주의', '묘역의 혼불이 오르면 얼음관이 열림']] },
     monsters: { normal: ['얼어붙은 망자', '서리 늑대', '창백한 기사', '묘역의 혼불'], mid: '서리 기사단장', boss: '겨울의 왕' },
     sky: ['#1c2c48', '#34507a', '#86aed4'], stars: false,
     hemi: ['#e0f0ff', '#34414f', 0.66], sun: ['#f0f8ff', 0.78, [0.4, 1, 0.6]],
@@ -56,32 +56,85 @@
       MH.water(w, base + 1, (x, z) => z > s(94));
       const lights = [], acts = [], landmarks = [];
 
-      // ── 얼어붙은 폭포 ──
-      const fallTop = MH.g(w, MX, s(62)), fallBot = MH.g(w, MX, s(78));
-      for (let x = s(55); x <= s(73); x++) for (let z = s(62); z <= s(78) - 1; z++) {
-        const g = MH.g(w, x, z);
-        if (g <= fallBot) continue;
-        w.set(x, g, z, (x * 3 + z) % 7 === 0 ? B.glowIce : B.icicle);
-        if (hash3(x, 1, z) > 0.4) w.set(x, g + 1, z, B.icicle);
-        if (w.slope[x + W * z] >= 3) for (let y = g - 1; y > fallBot; y--) if (hash3(x, y, z) > 0.35 && !w.get(x, y, z + 1)) w.set(x, y, z + 1, (x + y) % 6 === 0 ? B.glowIce : B.icicle);
+      // ── 얼음 감옥: 빙하 절벽을 깎아 만든 두 층 감방과 사슬에 매달린 얼음 우리 ──
+      const PT = MH.g(w, 80, 83), PB = MH.g(w, 80, 96), PZ = 89;   // 절벽 윗단·아랫마당 높이, 감방 앞면
+      for (let i = 0; i < 20; i++) w.ri(4, 10);                      // (옛 지형과 같은 난수 흐름 유지)
+      // 아랫마당: 판석과 눈더미
+      MH.flatten(w, 66, PZ + 1, 96, 101, PB, B.flag, B.rock);
+      for (let z = PZ + 1; z <= 101; z++) for (let x = 66; x <= 96; x++) if (hash3(x, 7, z) > 0.72 || x === 66 || x === 96 || z === 101) MH.paint(w, x, z, hash3(x, 8, z) > 0.5 ? B.snow2 : B.trail);
+      // 절벽 벽: 윗단까지 바위로 채우고 앞면은 석축으로
+      for (let z = 83; z <= PZ; z++) for (let x = 66; x <= 96; x++) if (MH.g(w, x, z) < PT) MH.setH(w, x, z, PT, z === PZ ? B.castleDk : B.snow, B.rock);
+      for (let x = 66; x <= 96; x++) for (let y = PB + 1; y < PT; y++) w.set(x, y, PZ, (y - PB) % 4 === 0 ? B.castleDk : hash3(x, y, 3) > 0.8 ? B.rockDk : B.cliff);
+      for (let x = 66; x <= 96; x++) { w.set(x, PT + 1, PZ, x % 2 ? B.trim : B.castleDk); if (hash3(x, 9, 1) > 0.45) for (let q = 1; q <= 1 + Math.floor(hash3(x, 9, 2) * 3); q++) if (!w.get(x, PT + 1 - q, PZ + 1)) w.set(x, PT + 1 - q, PZ + 1, q > 2 ? B.glowIce : B.icicle); }
+      // 감방: 아래층(높이 5)과 위층(높이 4), 각 다섯 칸
+      const cellX = [68, 73, 78, 83, 88], tiers = [[PB + 1, 5], [PB + 8, Math.min(4, PT - PB - 10)]];
+      let ck = 0;
+      for (const [y0, h] of tiers) for (const x0 of cellX) {
+        const k = ck++, y1 = y0 + h - 1;
+        w.box(x0, y0, 85, x0 + 2, y1, PZ, 0);
+        w.box(x0, y0 - 1, 85, x0 + 2, y0 - 1, PZ, B.flag);
+        // 문틀과 쐐기돌
+        w.box(x0 - 1, y0, PZ, x0 - 1, y1 + 1, PZ, B.castleDk); w.box(x0 + 3, y0, PZ, x0 + 3, y1 + 1, PZ, B.castleDk);
+        w.box(x0 - 1, y1 + 1, PZ, x0 + 3, y1 + 1, PZ, B.castleDk); w.set(x0 + 1, y1 + 1, PZ, B.trim);
+        // 뒷벽의 사슬과 족쇄
+        for (const sx of [x0, x0 + 2]) { w.box(sx, y1 - 1, 85, sx, y1, 85, B.iron); w.set(sx, y1 - 2, 85, k % 2 ? B.gold : B.iron); }
+        // 속: 얼음에 갇힌 짐승 / 뼈 무더기 / 서리 결정
+        if (k % 3 === 1) { w.box(x0, y0, 86, x0 + 2, y0 + 2, 88, B.ice); w.set(x0 + 1, y0 + 1, 87, B.glowIce); w.set(x0, y0 + 2, 86, B.trim); w.set(x0 + 2, y0 + 2, 86, B.trim); w.set(x0 + 1, y0 + 3, 87, B.snow); }
+        else if (k % 3 === 2) { w.box(x0, y0, 86, x0 + 2, y0, 87, B.trim); w.set(x0 + 1, y0 + 1, 86, B.trim); w.set(x0 + 2, y0, 88, B.snow2); w.set(x0, y0, 88, B.glowIce); }
+        else { w.set(x0 + 1, y0, 86, B.glowIce); w.set(x0 + 1, y0 + 1, 86, B.icicle); w.set(x0, y0, 88, B.snow2); for (let q = 0; q < 2; q++) w.set(x0 + 2, y1 - q, 86, B.icicle); }
+        // 철창(가운데 아래 감방은 열리는 문짝)
+        const door = k === 2, dp = door ? w.prop({ name: 'cellDoor', pivot: [x0, y0, PZ + 0.5] }) : w;
+        for (let x = x0; x <= x0 + 2; x++) for (let y = y0; y <= y1; y++) if ((x - x0) % 2 === 0 || (y - y0) % (door ? 2 : 3) === (door ? 0 : 1)) dp.set(x, y, PZ, B.iron);
+        if (door) dp.set(x0 + 2, y0 + 2, PZ, B.gold);
       }
-      const shards = w.prop({ name: 'shards', pivot: [MX + 0.5, fallBot, 100] });
-      for (let i = 0; i < 20; i++) {
-        const sx = 70 + i, sz = 99 + (i % 3), g = MH.g(w, sx, sz), h = w.ri(4, 10);
-        for (let q = 1; q <= h; q++) if (!w.get(sx, g + q, sz)) shards.set(sx, g + q, sz, q > h - 2 ? B.glowIce : B.icicle);
+      // 위층 통로: 판석 난간길과 쇠사다리
+      w.box(67, PB + 7, PZ + 1, 93, PB + 7, PZ + 2, B.castleDk);
+      for (let x = 67; x <= 93; x++) { w.set(x, PB + 8, PZ + 2, x % 4 === 3 ? B.castle : B.iron); if (x % 4 === 3) w.set(x, PB + 6, PZ + 1, B.iron); }
+      for (let y = PB + 1; y <= PB + 8; y++) w.set(94, y, PZ + 1, y % 2 ? B.iron : B.castleDk);
+      w.set(94, PB + 7, PZ + 2, 0); w.set(93, PB + 8, PZ + 2, 0);
+      // 감방 사이 푸른 횃불
+      for (const px of [71, 76, 81, 86, 91]) { w.set(px, PB + 3, PZ + 1, B.iron); w.set(px, PB + 4, PZ + 1, B.blueFire); w.set(px, PB + 11, PZ + 1, B.iron); w.set(px, PB + 12, PZ + 1, B.blueFire); }
+      // 절벽 위 교수대처럼 튀어나온 쇠들보
+      const cages = [];
+      for (const [ci, cx] of [72, 80, 88].entries()) {
+        w.box(cx - 1, PT + 1, 85, cx + 1, PT + 1, 87, B.castleDk);
+        w.box(cx, PT + 2, 86, cx, PT + 13, 86, B.iron); w.set(cx, PT + 14, 86, B.blueFire);
+        w.box(cx, PT + 13, 86, cx, PT + 13, 97, B.iron); w.set(cx, PT + 14, 97, B.iron); w.set(cx, PT + 14, 85, B.iron);
+        for (let q = 0; q < 5; q++) w.set(cx, PT + 8 + q, 87 + q, B.iron);
+        // 매달린 얼음 우리(부품): 사슬 + 5×5 철창 + 안에 얼어붙은 것
+        const nm = 'cage' + ci, cz = 96, yb = PT - 3 + (ci % 2) * 2, yt = yb + 5;
+        const cp = w.prop({ name: nm, pivot: [cx + 0.5, PT + 13, cz + 0.5], axis: 'z' });
+        for (let y = yt + 1; y <= PT + 12; y++) cp.set(cx, y, cz, B.iron);
+        cp.box(cx - 2, yb, cz - 2, cx + 2, yb, cz + 2, B.iron); cp.box(cx - 2, yt, cz - 2, cx + 2, yt, cz + 2, B.iron);
+        cp.box(cx - 1, yt, cz - 1, cx + 1, yt, cz + 1, B.snow);
+        for (let y = yb + 1; y < yt; y++) for (let d = -2; d <= 2; d++) if (d % 2 === 0 || y === yb + 3) { cp.set(cx + d, y, cz - 2, B.iron); cp.set(cx + d, y, cz + 2, B.iron); cp.set(cx - 2, y, cz + d, B.iron); cp.set(cx + 2, y, cz + d, B.iron); }
+        if (ci === 0) { cp.box(cx - 1, yb + 1, cz - 1, cx + 1, yb + 3, cz + 1, B.ice); cp.set(cx, yb + 2, cz, B.glowIce); cp.set(cx - 1, yb + 4, cz, B.trim); cp.set(cx + 1, yb + 4, cz, B.trim); }
+        else if (ci === 1) { cp.box(cx - 1, yb + 1, cz - 1, cx + 1, yb + 1, cz + 1, B.trim); cp.set(cx, yb + 2, cz, B.trim); cp.set(cx, yb + 3, cz, B.glowIce); cp.set(cx - 1, yb + 2, cz + 1, B.icicle); }
+        else { cp.box(cx - 1, yb + 1, cz - 1, cx + 1, yb + 4, cz + 1, B.iceDk); cp.box(cx, yb + 2, cz, cx, yb + 3, cz, B.glowIce); }
+        for (const d of [-2, 2]) cp.set(cx + d, yb - 1, cz + d, B.icicle);
+        cages.push([nm, cx, yb, cz]);
       }
-      lights.push({ name: 'falls', p: [MX + 0.5, fallBot + 6, 100], c: '#9fe8ff', i: 0.9, d: 30, flicker: 0.05, srcR: 9 });
+      // 마당: 깨진 족쇄, 뼈, 가운데 푸른 화로
+      for (const [bx, bz, b] of [[70, 93, B.trim], [71, 93, B.trim], [86, 92, B.iron], [87, 92, B.iron], [75, 100, B.trim], [84, 99, B.trim], [85, 99, B.snow2]]) w.set(bx, PB + 1, bz, b);
+      w.box(79, PB + 1, 92, 81, PB + 1, 92, B.castleDk); w.box(80, PB + 2, 92, 80, PB + 2, 92, B.iron); w.set(80, PB + 3, 92, B.blueFire); w.set(79, PB + 2, 92, B.iron); w.set(81, PB + 2, 92, B.iron);
+      lights.push({ name: 'prison', p: [80.5, PB + 5, 92.5], c: '#9fe8ff', i: 0.9, d: 30, flicker: 0.12 });
+      lights.push({ p: [80.5, PT + 15, 86.5], c: '#6ad0ff', i: 0.7, d: 20, flicker: 0.3 });
       acts.push({
-        name: '얼어붙은 폭포', hint: '얼음이 갈라지며 파편이 튀어요', hit: [69, fallBot, 90, 91, fallTop + 1, 103],
+        name: '얼음 감옥', hint: '사슬에 매달린 얼음 우리들이 삐걱이며 흔들리고, 가운데 감방 철창문이 열리며 냉기가 쏟아져요', hit: [66, PB + 1, 85, 96, PT + 14, 99],
         run: async a => {
-          a.flash('falls', 4, 2.6);
-          for (let k = 0; k < 4; k++) { await a.move('shards', [0, 1, 0], 0.09); await a.move('shards', [0, 0, 0], 0.09); }
-          await a.turn('shards', [0.24, 0, 0], 0.22);
-          for (let k = 0; k < 3; k++) { a.burst([MX + 0.5, fallBot + 7 + k * 2, 99], { n: 50, colors: ['#ffffff', '#c8ecfa', '#9fe8ff'], speed: 11, up: 3, life: 1.8, gravity: 6, spread: 9 }); await a.wait(0.3); }
-          await a.turn('shards', [0, 0, 0], 0.9);
+          a.flash('prison', 4, 4.5);
+          for (let k = 0; k < 4; k++) {
+            const r = (k % 2 ? 0.22 : -0.22) * (1 - k * 0.15);
+            await Promise.all(cages.map(([nm], i) => a.turn(nm, [0, 0, i % 2 ? -r : r], 0.45)));
+            for (const [, cx, yb, cz] of cages) a.burst([cx + 0.5, yb, cz + 0.5], { n: 10, colors: ['#ffffff', '#c8ecfa'], speed: 2, up: 0, life: 1, gravity: 6, spread: 1.5 });
+          }
+          await Promise.all([...cages.map(([nm]) => a.turn(nm, [0, 0, 0], 0.6)), a.turn('cellDoor', [0, -1.35, 0], 1)]);
+          for (let k = 0; k < 5; k++) { a.burst([79.5, PB + 2, PZ + 1], { n: 30, colors: ['#ffffff', '#c8ecfa', '#9fe8ff'], speed: 5, up: 0.5, life: 1.6, gravity: 0.4, spread: 1.5, flat: true }); await a.wait(0.3); }
+          await a.wait(0.6);
+          await a.turn('cellDoor', [0, 0, 0], 0.8);
         },
       });
-      landmarks.push({ name: '얼어붙은 폭포', note: '빙하가 멈춘 자리', p: [MX + 0.5, fallTop + 11, 88] });
+      landmarks.push({ name: '얼음 감옥', note: '절벽을 깎은 감방과 매달린 얼음 우리', p: [80.5, PT + 22, 92] });
       landmarks.push({ name: '서리 호수', note: '서리 늑대 무리의 사냥터', p: [75.5, base + 11, 140.5] });
 
       // ── 얼음 성채 ──
@@ -187,15 +240,15 @@
       });
       landmarks.push({ name: '겨울의 왕좌', note: '보스 · 겨울의 왕', p: [80.5, L + 45, 32], boss: true });
       MH.tower(w, { cx: 80, cz: 11, y0: L + 1, h: 37, r: 6.25, m: tm, step: 0.34 });
-      // ── 성문에서 호숫가까지: 눈길과 폭포 옆 돌계단 ──
+      // ── 성문에서 호숫가까지: 눈길과 감옥 옆 돌계단 ──
       const path1 = [[80.5, 66], [71, 72.5], [59.5, 77.5]];
       MH.path(w, path1, 2.75, B.trail);
       const sTop = MH.g(w, 59, 77), sBot = MH.g(w, 59, 102);
-      MH.flight(w, { name: '폭포 옆 계단', axis: 'z', c: 59, half: 4, a: 79, b: 100, ha: sTop, hb: sBot, step: B.flag, edge: B.castleDk, fill: B.rock, rail: B.castleDk, post: B.castle, postGap: 5,
+      MH.flight(w, { name: '감옥 옆 계단', axis: 'z', c: 59, half: 4, a: 79, b: 100, ha: sTop, hb: sBot, step: B.flag, edge: B.castleDk, fill: B.rock, rail: B.castleDk, post: B.castle, postGap: 5,
         onPost: (x, y, z, k) => { w.set(x, y, z, B.blueFire); if (k === 10 && x > 59) lights.push({ p: [x + 0.5, y + 1, z + 0.5], c: '#6ad0ff', i: 0.9, d: 18, flicker: 0.3 }); } });
       MH.path(w, [[59.5, 101], [60.5, 110], [65, 116]], 2.75, B.trail);
 
-      // ── 기사단 묘역(새 구역): 폭포 동쪽 단, 쇠울타리 안의 묘비와 얼음관, 서리 영묘 ──
+      // ── 기사단 묘역(새 구역): 감옥 동쪽 단, 쇠울타리 안의 묘비와 얼음관, 서리 영묘 ──
       const GX0 = 102, GX1 = 130, GZ0 = 70, GZ1 = 98, GL = MH.g(w, 112, 86);
       const inGrave = (x, z) => x >= GX0 - 4 && x <= GX1 + 4 && z >= GZ0 - 4 && z <= GZ1 + 4;
       const path2 = [[84, 66], [95, 73], [102, 84.5]];

@@ -394,7 +394,7 @@
       if (g2.nite) inner.add(new THREE.Mesh(g2.nite, niteMat));
       disposables.push(g2.lit); if (g2.glow) disposables.push(g2.glow); if (g2.nite) disposables.push(g2.nite);
       piv.add(inner); group.add(piv);
-      piv.userData = { o, base: pv.slice(), off: (o.off0 || [0, 0, 0]).slice(), rot: (o.rot0 || [0, 0, 0]).slice(), scl: (o.scl0 || [1, 1, 1]).slice(), ang: 0, mul: 1, mulT: 1, samp: surfaceSamples(pr.w, pv, 60) };
+      piv.userData = { o, base: pv.slice(), off: (o.off0 || [0, 0, 0]).slice(), rot: (o.rot0 || [0, 0, 0]).slice(), scl: (o.scl0 || [1, 1, 1]).slice(), ang: 0, mul: 1, mulT: 1, samp: surfaceSamples(pr.w, pv, 60), vw: pr.w };
       props[o.name || ('p' + k)] = piv;
     });
     const liquid = VX.buildLiquid(w, def.liquid, def.liqSpeed, def.liqGlow);
@@ -418,6 +418,7 @@
       box: new THREE.Box3(toWorld([a.hit[0], a.hit[1], a.hit[2]]), toWorld([a.hit[3] + 1, a.hit[4] + 1, a.hit[5] + 1])),
       world: toWorld([(a.hit[0] + a.hit[3] + 1) / 2, a.hit[4] + 2, (a.hit[2] + a.hit[5] + 1) / 2]), busy: false,
     }));
+    classifyProps(props, acts);
     const f = def.fog || {};
     const fog = {
       box: [(f.box ? f.box[0] : W / 2) - W / 2, (f.box ? f.box[1] : D / 2) - D / 2, f.box ? f.box[2] : W / 2, f.box ? f.box[3] : D / 2],
@@ -529,6 +530,7 @@
       const p = cur && cur.props[name];
       if (!p) return Promise.resolve();
       const u = p.userData, o = u.o;
+      u.respawns = (u.respawns || 0) + 1;   // 타고 있던 정령을 내려 주는 신호
       for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].st === u) { const tw = tweens.splice(i, 1)[0]; tw.res(); }
       u.off = (o.off0 || [0, 0, 0]).slice(); u.rot = (o.rot0 || [0, 0, 0]).slice(); u.scl = (o.scl0 || [1, 1, 1]).slice();
       const lit = [], other = [];
@@ -1256,7 +1258,7 @@
   const play = {
     on: false, tp: false, lock: false, p: [0, 0, 0], v: [0, 0, 0], ground: false, swim: false, face: 0, faceT: 0, stepVis: 0,
     keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 7, tpCur: 7, saved: null, spawns: {}, view: 'iso', jumpQ: false, air: 0, unlockAt: 0,
-    disc: store.get('disc', {}), toastT: 0, cut: 1e5,
+    disc: store.get('disc', {}), toastT: 0, cut: 1e5, props: null, ignore: [], ride: null, lastSafe: null,
     wasGround: false, wasWet: false, fallTop: 0, stepAcc: 1, swimAcc: 1,
   };
   const app = $('#app'), promptEl = $('#prompt'), toastEl = $('#toast'), playBtn = $('#play');
@@ -1321,11 +1323,119 @@
     return cur.occ[x + W * (z + D * y)] !== 0;
   }
   const liqAt = (x, z) => (x < 0 || z < 0 || x >= W || z >= D) ? -1 : cur.liq[x + W * z];
-  function boxHit(x, y, z) {
+  function worldHit(x, y, z) {
     const x0 = Math.floor(x - PL.r), x1 = Math.floor(x + PL.r), z0 = Math.floor(z - PL.r), z1 = Math.floor(z + PL.r);
     const y0 = Math.floor(y + 1e-4), y1 = Math.floor(y + PL.h - 1e-4);
     for (let yy = y0; yy <= y1; yy++) for (let zz = z0; zz <= z1; zz++) for (let xx = x0; xx <= x1; xx++) if (pSolid(xx, yy, zz)) return true;
     return false;
+  }
+  const boxHit = (x, y, z) => worldHit(x, y, z) || !!propHit(x, y, z);
+
+  // ───── 움직이는 부품 충돌·타기 ─────
+  // 문·대문·셔터·창살(닫혀 있으면 막고, 열리면 비켜 남)과 탈것(승강기·배·빗자루·수레·비행선)만 단단하다.
+  // o.ghost로 빼고 o.solid로 넣을 수 있다. 부품의 복셀 집합(희소 Map)을 그대로 쓰고, 정령 상자의 표본 점을
+  // 부품 행렬의 역행렬로 부품 자리로 옮겨 한 칸씩 본다(가까운 부품만, 점 27개)
+  const DOOR_N = /door|gate|shut|^port$|portc|hatch|grate|^leaf[NS]$|bridge|^boom$|flap/i;
+  const RIDE_N = /lift|basket|boat|skiff|ferry|gond|raft|floe|cart|wagon|coach|airship|broom|^float\d|hover|loco|truck|carriage|kart|^ural$|^el\d$|^b[12]$|fisher/i;
+  const NOSOLID = /lid|rope|chain|pulley|bell|orb|beam|bolt/i;
+  const DOOR_K = /문|셔터|창살|게이트|차단기|door|gate/i;
+  const RIDE_K = /승강|엘리베이터|리프트|빗자루|나룻배|돛배|조각배|어선|(^|\s)배|보트|곤돌라|뗏목|마차|수레|짐차|비행선|기관차|열차|호버|트럭|카트|바구니|유빙/;
+  function classifyProps(props, acts) {
+    for (const n in props) {
+      const u = props[n].userData, o = u.o;
+      let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9, cnt = 0;
+      const PW = u.vw.W, PD = u.vw.D;
+      for (const [i] of u.vw.data) {
+        const x = i % PW, z = Math.floor(i / PW) % PD, y = Math.floor(i / (PW * PD));
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); z0 = Math.min(z0, z); z1 = Math.max(z1, z); cnt++;
+      }
+      u.c = [(x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2, (z0 + z1 + 1) / 2];
+      u.R = Math.hypot(x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1) / 2;
+      u.acts = [];
+      u.solid = !o.ghost && cnt >= 4 && (!!o.solid || (!NOSOLID.test(n) && (DOOR_N.test(n) || RIDE_N.test(n))));
+    }
+    // 동작 이름이 문·탈것이면 그 동작이 움직이는 부품(코드 안 따옴표 이름)도 단단하게
+    for (const a of acts) {
+      let src = ''; try { src = String(a.run); } catch (e) { /* 무시 */ }
+      const names = new Set(); src.replace(/['"`]([A-Za-z_]\w*)['"`]/g, (m0, q) => { if (props[q]) names.add(q); return m0; });
+      const door = DOOR_K.test(a.name), ride = RIDE_K.test(a.name + ' ' + (a.hint || ''));
+      names.forEach(q => {
+        const u = props[q].userData;
+        u.acts.push(a);
+        if (!u.o.ghost && (door || ride) && !NOSOLID.test(q) && u.vw.data.size >= 6) u.solid = true;
+      });
+    }
+  }
+  const tmpV3 = new THREE.Vector3();
+  // 이번 걸음에 볼 부품: 단단하고, 보이고(크기 0 아님), 정령 가까이
+  function nearProps() {
+    const out = [], p = play.p;
+    for (const n in cur.props) {
+      const pv = cur.props[n], u = pv.userData;
+      if (!u.solid) continue;
+      const sc = pv.scale;
+      if (Math.abs(sc.x) < 0.05 || Math.abs(sc.y) < 0.05 || Math.abs(sc.z) < 0.05) continue;
+      pv.updateMatrix();
+      tmpV3.set(u.c[0] - u.base[0], u.c[1] - u.base[1], u.c[2] - u.base[2]).applyMatrix4(pv.matrix);
+      if (Math.hypot(tmpV3.x - p[0], tmpV3.y - p[1] - 0.75, tmpV3.z - p[2]) > u.R * Math.max(sc.x, sc.y, sc.z) + 4) continue;
+      u.inv = (u.inv || new THREE.Matrix4()).copy(pv.matrix).invert();
+      out.push(pv);
+    }
+    return out;
+  }
+  // 점(복셀 좌표)이 부품 복셀 안인지
+  function propPt(u, x, y, z) {
+    const e = u.inv.elements, b = u.base;
+    const lx = e[0] * x + e[4] * y + e[8] * z + e[12] + b[0], ly = e[1] * x + e[5] * y + e[9] * z + e[13] + b[1], lz = e[2] * x + e[6] * y + e[10] * z + e[14] + b[2];
+    return u.vw.get(Math.floor(lx), Math.floor(ly), Math.floor(lz)) !== 0;
+  }
+  const SX = [-1, 0, 1];
+  function propBox(pv, x, y, z, ys) {
+    const u = pv.userData;
+    for (const fy of ys) for (const fx of SX) for (const fz of SX) if (propPt(u, x + fx * PL.r, y + fy, z + fz * PL.r)) return true;
+    return false;
+  }
+  const BODY_Y = [0.05, PL.h / 2, PL.h - 0.05], FEET_Y = [-0.08];
+  function propHit(x, y, z) {
+    if (!play.props) return null;
+    for (const pv of play.props) if (!play.ignore.includes(pv) && propBox(pv, x, y, z, BODY_Y)) return pv;
+    return null;
+  }
+  function propUnder() {
+    const p = play.p;
+    if (!play.props) return null;
+    for (const pv of play.props) if (!play.ignore.includes(pv) && propBox(pv, p[0], p[1], p[2], FEET_Y)) return pv;
+    return null;
+  }
+  const dM = new THREE.Matrix4();
+  // 타고 있는 부품이 지난 걸음 뒤로 움직인 만큼(이동 + 회전) 정령도 옮긴다. 맵 밖으로 나가거나 순간 이동(되돌아오기)하면 내려 준다
+  function carry() {
+    const pv = play.ride, p = play.p;
+    if (!pv || !pv.userData.prevM) return;
+    const u = pv.userData;
+    pv.updateMatrix();
+    dM.copy(u.prevM).invert().premultiply(pv.matrix);
+    tmpV3.set(p[0], p[1], p[2]).applyMatrix4(dM);
+    const jump = Math.hypot(tmpV3.x - p[0], tmpV3.y - p[1], tmpV3.z - p[2]);
+    const sc = pv.scale;
+    // 되돌아오기(A.respawn)로 순간 이동했거나, 맵 밖으로 나가거나, 사라지면 내려 준다
+    if (u.respawns !== u.ridSeen || jump > 16 || tmpV3.x < 1.5 || tmpV3.z < 1.5 || tmpV3.x > W - 1.5 || tmpV3.z > D - 1.5 || tmpV3.y < 0 || Math.abs(sc.x * sc.y * sc.z) < 0.01) { dropOff(); return; }
+    p[0] = tmpV3.x; p[1] = tmpV3.y; p[2] = tmpV3.z;
+    // 방향: x축 단위 벡터가 돈 만큼 몸도 돈다
+    const e = dM.elements, yaw = Math.atan2(-e[2], e[0]);
+    if (Math.abs(yaw) > 1e-5) { play.face += yaw; play.faceT += yaw; }
+  }
+  // 내릴 자리: 마지막으로 딛은 맨땅, 없으면 부품이 처음 놓인 자리 둘레에서 설 곳, 그것도 없으면 출발점
+  function dropOff() {
+    const pv = play.ride;
+    play.ride = null;
+    let s = play.lastSafe;
+    if (!s && pv) { const c = pv.userData.c; s = standAround(c[0], c[1], c[2]); }
+    s = s || play.home;
+    if (!s) return;
+    placeAt(s, play.face);
+    toast('내렸어요');
+    spawnBurst([s[0], s[1] + 0.5, s[2]], { n: 18, colors: ['#ffe9a0', '#ffffff'], speed: 1.8, up: 1.6, life: 0.7, gravity: -0.3, spread: 0.6 });
   }
   const colTop = (x, z) => { for (let y = H - 1; y >= 0; y--) if (cur.occ[x + W * (z + D * y)]) return y; return -1; };
   // (x,z) 열에서 발 높이 y 근처(가까운 순)에 설 수 있는 자리
@@ -1367,6 +1477,15 @@
     return s;
   }
   // 상호작용 상자 곁에 설 자리(안쪽 고리부터)
+  function standAround(cx, cy, cz) {
+    const X = Math.floor(cx), Z = Math.floor(cz), Y = Math.floor(cy);
+    for (let d = 1; d <= 12; d++) for (let dz = -d; dz <= d; dz++) for (let dx = -d; dx <= d; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== d) continue;
+      const y = standNear(X + dx, Z + dz, Y, 8);
+      if (y >= 0) return [X + dx + 0.5, y, Z + dz + 0.5];
+    }
+    return null;
+  }
   function besideBox(h) {
     const cx = (h[0] + h[3] + 1) / 2, cz = (h[2] + h[5] + 1) / 2;
     for (let d = 1; d <= 8; d++) {
@@ -1384,6 +1503,8 @@
   }
   function placeAt(s, face) {
     play.p = [s[0], s[1], s[2]]; play.v = [0, 0, 0]; play.stepVis = 0; play.ground = false;
+    play.ride = null; play.lastSafe = worldHit(s[0], s[1] - 0.05, s[2]) && !worldHit(s[0], s[1], s[2]) ? [s[0], s[1], s[2]] : null;
+    play.props = null; play.ignore = [];
     play.fallTop = s[1]; play.wasGround = true; play.wasWet = false;
     play.face = play.faceT = face != null ? face : Math.atan2(W / 2 - s[0], D / 2 - s[2]);
     const w = toW(play.p);
@@ -1402,6 +1523,7 @@
   }
   function respawn() {
     if (!cur || !play.home) return;
+    play.ride = null;
     placeAt(play.home, play.home[3]);
     spawnBurst([play.p[0], play.p[1] + 0.6, play.p[2]], { n: 26, colors: ['#ffe9a0', '#ffc860', '#ffffff'], speed: 2, up: 2, life: 0.9, gravity: -0.5, spread: 0.8 });
   }
@@ -1567,18 +1689,35 @@
     p[q] = old;
   }
   function moveV(d) {
-    const p = play.p;
+    const p = play.p, old = p[1];
     p[1] += d;
     if (!boxHit(p[0], p[1], p[2])) return;
-    p[1] = d < 0 ? Math.floor(p[1] + 1e-4) + 1 : Math.floor(p[1] + PL.h) - PL.h - 1e-3;
+    if (worldHit(p[0], p[1], p[2])) p[1] = d < 0 ? Math.floor(p[1] + 1e-4) + 1 : Math.floor(p[1] + PL.h) - PL.h - 1e-3;
+    else {
+      // 부품 윗면·아랫면은 칸 경계가 아니니 옛 자리와 새 자리 사이를 반씩 좁혀 닿는 곳을 찾는다
+      let lo = old, hi = p[1];
+      for (let k = 0; k < 7; k++) { const m = (lo + hi) / 2; if (boxHit(p[0], m, p[2])) hi = m; else lo = m; }
+      p[1] = boxHit(p[0], lo, p[2]) ? old : lo;
+    }
     play.v[1] = 0;
   }
   function stepPlay(dt) {
     const p = play.p, v = play.v, K = play.keys;
-    // 끼었으면 위로 빼고, 안 되면 처음 자리로
+    // 움직이는 부품: 타고 있으면 같이 옮기고, 지금 몸과 겹친 부품(닫히며 덮친 문 등)은 빠져나갈 때까지 무시
+    play.props = nearProps(); play.ignore = [];
+    carry();
+    if (!play.props) play.props = nearProps();
+    // 부품이 몸을 살짝 파고들면(흔들리는 배·올라오는 승강기) 위로 올려 태우고, 깊이 덮치면(닫히는 문) 빠져나갈 때까지 무시
+    for (const pv of play.props) {
+      if (!propBox(pv, p[0], p[1], p[2], BODY_Y)) continue;
+      const lim = pv === play.ride ? 1.5 : 0.75;
+      let k = 0.125; while (k <= lim && propBox(pv, p[0], p[1] + k, p[2], BODY_Y)) k += 0.125;
+      if (k <= lim && !worldHit(p[0], p[1] + k, p[2])) { p[1] += k; if (play.v[1] < 0) play.v[1] = 0; } else play.ignore.push(pv);
+    }
+    // 끼었으면 위로 빼고, 안 되면 처음 자리로(타고 있었으면 마지막 안전한 땅으로)
     if (boxHit(p[0], p[1], p[2])) {
       let k = 1; while (k <= 4 && boxHit(p[0], p[1] + k, p[2])) k++;
-      if (k <= 4) p[1] = Math.floor(p[1]) + k; else { respawn(); return; }
+      if (k <= 4) p[1] = Math.floor(p[1]) + k; else { if (play.ride) dropOff(); else respawn(); return; }
     }
     let ix = 0, iz = 0;
     if (!play.lock) {
@@ -1613,8 +1752,13 @@
     else v[1] = Math.max(-30, v[1] - PL.grav * dt);
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / 0.25));
     for (let i = 0; i < n; i++) { moveH(0, v[0] * dt / n); moveH(2, v[2] * dt / n); moveV(v[1] * dt / n); }
-    play.ground = v[1] <= 0 && boxHit(p[0], p[1] - 0.05, p[2]);
-    if (p[1] < -3) { respawn(); return; }
+    const under = v[1] <= 0.01 ? propUnder() : null;
+    play.ground = v[1] <= 0.01 && (worldHit(p[0], p[1] - 0.05, p[2]) || !!under);
+    if (p[1] < -3) { if (play.ride || play.lastSafe) dropOff(); else respawn(); return; }
+    // 발밑이 부품이면 탄다(다음 걸음에 그 부품이 움직인 만큼 따라감)
+    play.ride = under;
+    if (under) { const u = under.userData; under.updateMatrix(); u.prevM = (u.prevM || new THREE.Matrix4()).copy(under.matrix); u.ridSeen = u.respawns; }
+    else if (play.ground && depth <= 0.1 && worldHit(p[0], p[1] - 0.05, p[2])) play.lastSafe = p.slice();
     footAudio(dt, depth, run);
     play.stepVis *= Math.pow(0.0005, dt);
     let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
@@ -1639,6 +1783,7 @@
       if (d <= bd) { bd = d; best = a; }
     }
     if (play.view === 'fp') { const ai = aimAct(); if (ai) best = ai; }
+    if (!best && play.ride && play.ride.userData.acts.length) best = play.ride.userData.acts[0];
     if (best !== play.near || (best && promptEl.dataset.k !== best.name + best.busy)) { play.near = best; syncPrompt(); }
     // 발견
     const f = found();
@@ -1872,9 +2017,11 @@
     state, cam, show: i => show(i, true), cur: () => cur, run: k => cur && runAct(cur.acts[k]), travel: id => travel(id), MAPS, freeRect,
     // 놀이 모드 손잡이
     play: on => setPlay(on !== false), tp: on => setTP(on !== false), view: v => setView(v), cycleView, lockPointer, get keys() { return play.keys; }, interact,
+    ride: () => play.ride && Object.keys(cur.props).find(n => cur.props[n] === play.ride),
+    solidProps: () => cur ? Object.keys(cur.props).filter(n => cur.props[n].userData.solid) : [],
     player: () => ({ on: play.on, tp: play.tp, view: play.view, yaw: state.yaw, pitch: state.pitch, air: play.air, locked: !!document.pointerLockElement, p: play.p.slice(), v: play.v.slice(), ground: play.ground, swim: play.swim, near: play.near && play.near.name, home: play.home && play.home.slice(), disc: cur ? found().length : 0, map: cur && cur.def.id }),
     key: (code, down) => { if (down) { if (code === 'Space' && !play.keys.Space) play.jumpQ = true; play.keys[code] = true; } else delete play.keys[code]; },
-    tpTo: (x, y, z) => placeAt([x, y, z]), besideBox, mapSpawn: () => mapSpawn(cur),
+    tpTo: (x, y, z) => placeAt([x, y, z]), standNear, besideBox, mapSpawn: () => mapSpawn(cur),
     // 느린 기기(소프트웨어 GL) 검사용: 물리를 1/60초씩 sec초만큼 돌린다
     // 소리 검사용
     get audioLog() { return SND.log; }, audio: () => SND.state(), sfx: (k, o) => SND.sfx(k, o), actSfx: a => actSfx(a),

@@ -1,0 +1,14 @@
+{
+  "name": "fate-five-atlas",
+  "productName": "Fate Five Atlas",
+  "version": "1.0.0",
+  "description": "Fate Five 지역 지도 — 오프라인 데스크톱 실행본",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "build:win": "node build-desktop.js win",
+    "build:linux": "node build-desktop.js linux",
+    "build:mac": "node build-desktop.js mac",
+    "build:all": "node build-desktop.js all"
+  }
+}

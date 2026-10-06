@@ -228,6 +228,50 @@
     #panel { top: 54px; bottom: 10px; left: auto; width: min(330px, 44%); max-height: none; }
     #compass { top: 10px; right: 120px; }
   }
+  /* 놀이 모드: 도깨비불 정령이 되어 걷기 */
+  #play { border-color: var(--gold); color: var(--gold); font-weight: 800; }
+  #play[aria-pressed="true"] { color: var(--text); border-color: var(--line-hi); }
+  #hud { display: none; }
+  #app.playing #hud { display: grid; gap: 4px; margin-top: 6px; padding: 7px 9px 6px; font-size: 12px; line-height: 1.6; width: max-content; max-width: 100%; }
+  #hud kbd, #prompt kbd { font-family: var(--pixel); font-size: 10px; border: 1px solid var(--line-hi); padding: 0 4px; color: var(--text); background: rgba(0, 0, 0, 0.3); }
+  #hud .sub { color: var(--muted); font-size: 11px; }
+  #hud .hi { display: none; letter-spacing: 0.02em; }
+  #hud-disc { color: var(--gold); font-weight: 800; }
+  #hud-disc:empty { display: none; }
+  #app.touch #hud .hk, #app.touch #hud .sub { display: none; }
+  #app.touch #hud .hi { display: inline; }
+  #app.playing #desc, #app.playing .eyebrow { display: none; }
+  #app.playing #nav, #app.playing #ctrl .grp, #app.playing #more { display: none !important; }
+  #app.playing .actpin, #app.playing .pin.unfound, #app.playing #acts-sec { display: none; }
+  .disc { font-family: var(--font); font-size: 11px; font-weight: 800; letter-spacing: 0; color: var(--gold); margin-right: 6px; }
+  .place.found .pn::after { content: ''; width: 6px; height: 6px; margin-left: auto; background: var(--gold); transform: rotate(45deg); box-shadow: 0 0 0 2px #000; flex: none; }
+  #prompt {
+    position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 5; display: grid; gap: 3px; text-align: center;
+    max-width: min(440px, calc(100% - 32px)); padding: 8px 14px 7px; cursor: pointer; border-color: var(--act); color: var(--text);
+  }
+  #prompt b { font-weight: 800; font-size: 14px; }
+  #prompt span { font-size: 12px; color: var(--muted); }
+  #prompt.go { border-color: var(--gold); }
+  #prompt:active { transform: translate(calc(-50% + 1px), 1px); }
+  #toast {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%); z-index: 6; pointer-events: none; white-space: nowrap;
+    padding: 8px 14px 7px; font-weight: 800; color: #fff1cf; border-color: var(--gold); transition: opacity 0.4s steps(4);
+  }
+  #toast.out { opacity: 0; }
+  #touchpad { display: none; position: absolute; left: 0; right: 0; bottom: 0; height: 0; pointer-events: none; z-index: 5; }
+  #app.playing.touch #touchpad { display: block; }
+  #joy {
+    position: absolute; left: 20px; bottom: 66px; width: 116px; height: 116px; border-radius: 50%; pointer-events: auto; touch-action: none;
+    display: grid; place-items: center; background: rgba(17, 13, 20, 0.55); border: 2px solid var(--line-hi); box-shadow: 0 0 0 2px #000;
+  }
+  #joy::before { content: ''; position: absolute; inset: 14px; border-radius: 50%; border: 2px dashed var(--line); }
+  #joy-k { width: 46px; height: 46px; border-radius: 50%; background: var(--panel-solid); border: 2px solid var(--gold); box-shadow: 0 0 0 2px #000; pointer-events: none; }
+  #tbtns { position: absolute; right: 16px; bottom: 66px; display: grid; grid-template-columns: auto auto; gap: 10px; align-items: end; pointer-events: auto; }
+  #tbtns .px-btn { min-width: 64px; min-height: 48px; font-size: 13px; font-weight: 800; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #bjump { grid-row: span 2; min-height: 106px !important; border-color: var(--gold); color: var(--gold); }
+  #bact { border-color: var(--act); }
+  #bact:disabled { opacity: 0.45; border-color: var(--line); }
+  #app.playing.touch #prompt { bottom: 196px; }
 </style>
 
 <div id="app">
@@ -242,6 +286,12 @@
     <span id="en">Ashen Cemetery</span>
     <h1 id="name">잿빛 묘지</h1>
     <p id="desc"></p>
+    <div id="hud" class="px-box">
+      <span class="hk"><kbd>WASD</kbd> 이동 · <kbd>Space</kbd> 점프 · <kbd>Shift</kbd> 달리기 · <kbd>E</kbd> 상호작용 · <kbd>V</kbd> 시점 · <kbd>G</kbd> 지도 보기</span>
+      <span class="sub"><kbd>Q</kbd> <kbd>E</kbd> 회전 · 드래그 둘러보기 · 휠 확대 · <kbd>R</kbd> 처음 자리</span>
+      <span class="hi">◐ 이동 · ▲ 점프 · ◆ 상호작용 · ◎ 시점</span>
+      <span id="hud-disc"></span>
+    </div>
   </header>
 
   <button type="button" id="sheet-toggle" class="px-btn" aria-expanded="false" aria-controls="panel">장소 · 정보</button>
@@ -252,7 +302,7 @@
       <ul id="acts"></ul>
     </section>
     <section>
-      <h2>주요 장소 <small>PLACES</small></h2>
+      <h2>주요 장소 <small><span id="disc" class="disc" hidden></span>PLACES</small></h2>
       <ul id="places"></ul>
     </section>
     <section>
@@ -263,6 +313,7 @@
       지도 위 깜빡이는 마름모를 누르면 움직여요<br>
       낮 · 밤 버튼으로 시간을 바꿔요(기본은 지도마다 다름)<br>
       드래그 회전 · 휠 확대 · 우클릭 드래그 이동<br>
+      <kbd>G</kbd> 들어가기 · 정령이 되어 지도 안을 걸어요<br>
       <kbd>Q</kbd> <kbd>E</kbd> 45° 회전 · <kbd>R</kbd> 처음 시점<br>
       <kbd>1</kbd>–<kbd>5</kbd> 지도 · <kbd>←</kbd> <kbd>→</kbd> 이전/다음 · <kbd>↑</kbd> <kbd>↓</kbd> 카테고리
     </div>
@@ -270,6 +321,7 @@
 
   <div id="bottom">
     <div id="ctrl">
+      <button type="button" class="px-btn lbl-sm" id="play" aria-pressed="false">들어가기</button>
       <div class="grp">
         <button type="button" class="px-btn ico" id="rl" aria-label="왼쪽으로 45도 회전">&lt;</button>
         <button type="button" class="px-btn ico" id="rr" aria-label="오른쪽으로 45도 회전">&gt;</button>
@@ -311,6 +363,17 @@
           <rect x="5" y="5" width="1" height="1" fill="#ece4d4"/>
         </g>
       </svg>
+    </div>
+  </div>
+
+  <button type="button" id="prompt" class="px-box" hidden></button>
+  <div id="toast" class="px-box" role="status" hidden></div>
+  <div id="touchpad">
+    <div id="joy" aria-label="이동 조이스틱"><span id="joy-k"></span></div>
+    <div id="tbtns">
+      <button type="button" class="px-btn" id="bjump">점프</button>
+      <button type="button" class="px-btn" id="bact" disabled>상호작용</button>
+      <button type="button" class="px-btn" id="bview" aria-pressed="false">시점</button>
     </div>
   </div>
 

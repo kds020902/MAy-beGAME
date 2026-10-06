@@ -239,6 +239,7 @@
     const sh = Math.max(W, D) * 0.75, sc = sun.shadow.camera;
     if (sc.right !== sh) { sc.left = -sh; sc.right = sh; sc.top = sh; sc.bottom = -sh; sc.far = 300 + sh * 1.3; sc.updateProjectionMatrix(); }
     if (cur) scene.remove(cur.group);
+    const fromId = cur && cur !== m ? cur.def.id : null;
     cur = m;
     state.idx = i;
     scene.add(m.group);
@@ -253,6 +254,7 @@
     if (!def.sub) state.lastInCat[def.cat] = i;
     renderInfo();
     hideTip();
+    if (play.on) spawnPlayer(fromId);
   }
 
   // ───── 낮과 밤 ─────
@@ -375,7 +377,8 @@
     if (a.busy || !cur) return;
     const map = cur;
     a.busy = true; syncActs();
-    showAct(a, map, fromList);
+    // 놀이 모드에선 카메라가 정령을 따라가므로 동작 카메라는 쓰지 않는다
+    if (!play.on) showAct(a, map, fromList);
     try { await a.run(A); } catch (e) { /* 지도를 바꾸면 중단 */ }
     a.busy = false; if (cur === map) syncActs();
     if (a.goto && cur === map) travel(a.goto);
@@ -386,11 +389,13 @@
     if (i < 0) return;
     const fade = $('#fade');
     fade.classList.add('on');
+    play.lock = true;
     await A.wait(0.4);
     show(i);
     const t0 = performance.now();
     while (state.idx !== i && performance.now() - t0 < 9000) await A.wait(0.05);
     await A.wait(0.15);
+    play.lock = false;
     fade.classList.remove('on');
   }
 
@@ -662,6 +667,7 @@
     $('#info-en').textContent = info.en;
     $('#mobs').innerHTML = info.rows.map(([k, v, tone]) => `<li><span class="mk ${tone || ''}">${k}</span><span>${v}</span></li>`).join('');
     syncActs();
+    syncDisc();
   }
   function syncActs() {
     if (!cur) return;
@@ -717,11 +723,15 @@
     if (open && isSheet()) closeSheet();
   });
   function resetView() {
+    if (play.on) { respawn(); return; }
     const def = cur.def;
     state.targetT.set(0, def.camY != null ? def.camY : 6, 0); state.zoomT = def.zoom || 1; state.pitchT = def.pitch || 0.6;
   }
   window.addEventListener('keydown', e => {
     if (e.target.closest && e.target.closest('input,textarea')) return;
+    // 한글 입력 상태에서도 되도록 놀이 키는 e.code로 본다
+    if (e.code === 'KeyG' && !e.ctrlKey && !e.metaKey && !e.altKey) { setPlay(!play.on); e.preventDefault(); return; }
+    if (play.on) { if (playKey(e, true)) e.preventDefault(); return; }
     const k = e.key.toLowerCase(), list = catMaps(state.cat);
     if (k === 'q') state.yawT -= Math.PI / 4;
     else if (k === 'e') state.yawT += Math.PI / 4;
@@ -762,17 +772,18 @@
   stage.addEventListener('contextmenu', e => e.preventDefault());
   stage.addEventListener('pointerdown', e => {
     if (e.target.closest('.pin, .actpin')) return;
+    if (e.pointerType === 'touch') setTouch();
     closeOpts(); if (isSheet()) closeSheet();
     stage.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    dragMode = (e.button === 2 || e.shiftKey || ptrs.size === 2) ? 'pan' : 'rot';
+    dragMode = play.on ? (ptrs.size === 2 ? 'pinch' : 'rot') : (e.button === 2 || e.shiftKey || ptrs.size === 2) ? 'pan' : 'rot';
     downAt = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); }
   });
   stage.addEventListener('pointermove', e => {
     const p = ptrs.get(e.pointerId);
     if (!p) {
-      if (e.pointerType === 'mouse') {
+      if (e.pointerType === 'mouse' && !play.on) {
         hover = pick(e.clientX, e.clientY);
         stage.classList.toggle('can-act', !!hover);
         if (hover) showTip(hover, e.clientX, e.clientY); else hideTip();
@@ -785,15 +796,16 @@
     if (downAt && downAt.moved > 4) { stage.classList.add('grab'); hideTip(); }
     if (ptrs.size === 2) {
       const [a, b] = [...ptrs.values()], dist = Math.hypot(a.x - b.x, a.y - b.y);
-      if (lastPinch) state.zoomT = Math.max(0.6, Math.min(6, state.zoomT * dist / lastPinch));
-      lastPinch = dist; pan(dx * 0.5, dy * 0.5);
+      if (lastPinch) { if (play.on) zoomPlay(lastPinch / dist); else state.zoomT = Math.max(0.6, Math.min(6, state.zoomT * dist / lastPinch)); }
+      lastPinch = dist; if (!play.on) pan(dx * 0.5, dy * 0.5);
       return;
     }
     if (dragMode === 'pan') pan(dx, dy);
     else {
       state.yawT -= dx * 0.008;
-      state.pitchT = Math.max(0.3, Math.min(1.2, state.pitchT + dy * 0.005));
-      if (Math.abs(dx) > 1) { state.auto = false; syncToggles(); }
+      const pl = play.on && play.tp ? [-0.35, 1.3] : [0.3, 1.2];
+      state.pitchT = Math.max(pl[0], Math.min(pl[1], state.pitchT + dy * 0.005));
+      if (Math.abs(dx) > 1 && !play.on) { state.auto = false; syncToggles(); }
     }
   });
   const up = e => {
@@ -801,7 +813,7 @@
     ptrs.delete(e.pointerId);
     if (!ptrs.size) { dragMode = null; stage.classList.remove('grab'); }
     lastPinch = 0;
-    if (wasClick && e.type === 'pointerup') { const a = pick(e.clientX, e.clientY); if (a) runAct(a); }
+    if (wasClick && e.type === 'pointerup' && !play.on) { const a = pick(e.clientX, e.clientY); if (a) runAct(a); }
     downAt = null;
   };
   stage.addEventListener('pointerup', up);
@@ -809,7 +821,8 @@
   stage.addEventListener('pointerleave', () => { if (!ptrs.size) { hideTip(); stage.classList.remove('can-act'); } });
   stage.addEventListener('wheel', e => {
     e.preventDefault();
-    state.zoomT = Math.max(0.6, Math.min(6, state.zoomT * Math.exp(-e.deltaY * 0.0012)));
+    if (play.on) zoomPlay(Math.exp(e.deltaY * 0.0012));
+    else state.zoomT = Math.max(0.6, Math.min(6, state.zoomT * Math.exp(-e.deltaY * 0.0012)));
   }, { passive: false });
   function pan(dx, dy) {
     const s = (2 * viewHalf() / state.zoom) / state.cssH;
@@ -818,6 +831,401 @@
     state.targetT.addScaledVector(right, -dx * s).addScaledVector(fwd, dy * s / Math.sin(state.pitch));
     state.targetT.x = Math.max(-W / 2, Math.min(W / 2, state.targetT.x));
     state.targetT.z = Math.max(-D / 2, Math.min(D / 2, state.targetT.z));
+  }
+
+  // ───── 놀이 모드: 도깨비불 정령이 되어 지도 안을 걸어 다닌다 ─────
+  // 좌표는 복셀 단위(p = 발 위치). 충돌은 지도 점유 배열(cur.occ)을 한 칸씩 바로 읽는다
+  const PL = { r: 0.42, h: 1.5, walk: 5.2, run: 9, jump: 8.6, grav: 24 };
+  const play = {
+    on: false, tp: false, lock: false, p: [0, 0, 0], v: [0, 0, 0], ground: false, swim: false, face: 0, faceT: 0, stepVis: 0,
+    keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 7, tpCur: 7, saved: null, spawns: {},
+    disc: store.get('disc', {}), toastT: 0, cut: 1e5,
+  };
+  const app = $('#app'), promptEl = $('#prompt'), toastEl = $('#toast'), playBtn = $('#play');
+  // 정령 모양: 둥근 몸통(발광) + 점 두 개 눈 + 머리 위 작은 불꽃. 복셀 메셔를 그대로 써서 지도와 같은 결로 만든다
+  const avatar = new THREE.Group(), avBody = new THREE.Group(), avFlame = new THREE.Group();
+  (function makeAvatar() {
+    const S = 0.3;
+    const mesh = (grp, defs, sz, fill, off) => {
+      const w = new VX.World(defs, 3, null, sz);
+      w.base = 0; fill(w, w.id);
+      const g = VX.buildGeometry(w);
+      [[g.lit, litMat], [g.glow, glowMat]].forEach(([geo, mat]) => {
+        if (!geo || !geo.attributes.position.count) return;
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(off[0], off[1], off[2]); m.castShadow = true;
+        grp.add(m);
+      });
+    };
+    mesh(avBody, {
+      body: { c: '#ffd468', top: '#fff4c4', bot: '#ffb050', glow: true, v: 0.04 }, low: { c: '#ffa04a', top: '#ffc060', bot: '#e0702e', glow: true, v: 0.04 },
+      eye: { c: '#24141e', v: 0 }, cheek: { c: '#ff9a86', glow: true, v: 0 },
+    }, [7, 7, 7], (w, B) => {
+      w.ellipsoid(3, 3, 3, 2.7, 2.5, 2.7, B.body);
+      w.box(0, 0, 0, 6, 2, 6, 0); w.ellipsoid(3, 3, 3, 2.7, 2.5, 2.7, B.low, (x, y) => y < 0);
+      w.set(3, 0, 3, B.low);
+      w.set(2, 3, 5, B.eye); w.set(4, 3, 5, B.eye);
+      w.set(1, 2, 4, B.cheek); w.set(5, 2, 4, B.cheek);
+    }, [-3.5, -1, -3.5]);
+    mesh(avFlame, {
+      f0: { c: '#ff6a2a', top: '#ff8a3a', glow: true, v: 0.06 }, f1: { c: '#ffa040', glow: true, v: 0.05 },
+      f2: { c: '#ffd860', glow: true, v: 0 }, f3: { c: '#fff6c8', glow: true, v: 0 },
+    }, [5, 5, 5], (w, B) => {
+      w.box(1, 0, 1, 3, 0, 3, B.f0);
+      w.set(2, 1, 1, B.f1); w.set(1, 1, 2, B.f1); w.set(3, 1, 2, B.f1); w.set(2, 1, 3, B.f1); w.set(2, 1, 2, B.f2);
+      w.set(2, 2, 2, B.f2); w.set(2, 2, 3, B.f1);
+      w.set(2, 3, 2, B.f3);
+    }, [-2.5, 0, -2.5]);
+    avFlame.position.y = 5;
+    avBody.add(avFlame);
+    avBody.scale.setScalar(S);
+    avatar.add(avBody);
+    avatar.visible = false;
+  })();
+  // 정령을 따라다니는 빛(지도 조명 수와 별개로 늘 장면에 있어 셰이더를 다시 만들지 않는다)
+  const pLight = new THREE.PointLight(0xffc070, 0, 10, 1.2);
+  scene.add(avatar, pLight);
+  // 지붕 걷어내기: 정령이 가려지면 머리 위 천장 높이에서 위쪽을 잘라 낸다(수평 절단면 하나를 늘 켜 두고 높이만 바꿔 셰이더를 다시 만들지 않는다)
+  const clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e5);
+  renderer.clippingPlanes = [clip];
+  [glowMat, niteMat].forEach(m => {
+    m.clipping = true;
+    m.vertexShader = '#include <clipping_planes_pars_vertex>\n' + m.vertexShader.replace(/gl_Position = projectionMatrix \* modelViewMatrix \* vec4\(position,1.0\);/, 'vec4 mvPosition = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mvPosition;\n#include <clipping_planes_vertex>\n');
+    m.fragmentShader = '#include <clipping_planes_pars_fragment>\n' + m.fragmentShader.replace('void main(){', 'void main(){\n#include <clipping_planes_fragment>\n');
+  });
+  const pcam = new THREE.PerspectiveCamera(62, 1, 0.2, 600);
+  const TP_RANGE = 900;   // 원근 깊이로 외곽선을 잡을 때 쓰는 배율(가까운 곳만 또렷이)
+
+  // 칸 조회: 바깥 테두리는 벽, 위아래 밖은 빈칸
+  function pSolid(x, y, z) {
+    if (x < 0 || z < 0 || x >= W || z >= D) return true;
+    if (y < 0 || y >= H) return false;
+    return cur.occ[x + W * (z + D * y)] !== 0;
+  }
+  const liqAt = (x, z) => (x < 0 || z < 0 || x >= W || z >= D) ? -1 : cur.liq[x + W * z];
+  function boxHit(x, y, z) {
+    const x0 = Math.floor(x - PL.r), x1 = Math.floor(x + PL.r), z0 = Math.floor(z - PL.r), z1 = Math.floor(z + PL.r);
+    const y0 = Math.floor(y + 1e-4), y1 = Math.floor(y + PL.h - 1e-4);
+    for (let yy = y0; yy <= y1; yy++) for (let zz = z0; zz <= z1; zz++) for (let xx = x0; xx <= x1; xx++) if (pSolid(xx, yy, zz)) return true;
+    return false;
+  }
+  const colTop = (x, z) => { for (let y = H - 1; y >= 0; y--) if (cur.occ[x + W * (z + D * y)]) return y; return -1; };
+  // (x,z) 열에서 발 높이 y 근처(가까운 순)에 설 수 있는 자리
+  function standNear(x, z, y, span) {
+    if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return -1;
+    for (let k = 0; k <= span * 2; k++) {
+      const yy = y + (k & 1 ? (k + 1) >> 1 : -(k >> 1));
+      if (yy < 1 || yy >= H - 2) continue;
+      if (pSolid(x, yy - 1, z) && !pSolid(x, yy, z) && !pSolid(x, yy + 1, z) && liqAt(x, z) < yy) return yy;
+    }
+    return -1;
+  }
+  // 기본 출발점: def.spawn, 없으면 가운데부터 나선으로 돌며 땅 높이의 평평한 바깥 자리
+  function mapSpawn(m) {
+    if (m.spawn) return m.spawn;
+    const id = m.def.id;
+    if (play.spawns[id]) return (m.spawn = play.spawns[id]);
+    let s = null;
+    if (m.def.spawn) s = [m.def.spawn[0] + 0.5, m.def.spawn[1], m.def.spawn[2] + 0.5];
+    const cx = Math.floor(W / 2), cz = Math.floor(D / 2), R = Math.max(W, D) / 2;
+    const ok = (x, z, strict) => {
+      if (x < 3 || z < 3 || x >= W - 3 || z >= D - 3 || liqAt(x, z) >= 0) return false;
+      const t = colTop(x, z);
+      if (t < 0 || t >= H - 3) return false;
+      if (!strict) return true;
+      if (t < m.base - 4 || t > m.base + 5) return false;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (liqAt(x + dx, z + dz) >= 0 || Math.abs(colTop(x + dx, z + dz) - t) > 1) return false; }
+      return true;
+    };
+    for (let pass = 0; pass < 2 && !s; pass++) {
+      for (let r = 0; r < R && !s; r++) for (let dz = -r; dz <= r && !s; dz++) for (let dx = -r; dx <= r && !s; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        const x = cx + dx, z = cz + dz;
+        if (ok(x, z, pass === 0)) s = [x + 0.5, colTop(x, z) + 1, z + 0.5];
+      }
+    }
+    s = s || [cx + 0.5, H - 4, cz + 0.5];
+    play.spawns[id] = m.spawn = s;
+    return s;
+  }
+  // 상호작용 상자 곁에 설 자리(안쪽 고리부터)
+  function besideBox(h) {
+    const cx = (h[0] + h[3] + 1) / 2, cz = (h[2] + h[5] + 1) / 2;
+    for (let d = 1; d <= 8; d++) {
+      let best = null, bs = Infinity;
+      for (let z = h[2] - d; z <= h[5] + d; z++) for (let x = h[0] - d; x <= h[3] + d; x++) {
+        if (x !== h[0] - d && x !== h[3] + d && z !== h[2] - d && z !== h[5] + d) continue;
+        const y = standNear(x, z, h[1], 6);
+        if (y < 0) continue;
+        const sc = Math.abs(y - h[1]) * 2 + Math.hypot(x + 0.5 - W / 2, z + 0.5 - D / 2) * 0.02;
+        if (sc < bs) { bs = sc; best = [x + 0.5, y, z + 0.5, Math.atan2(cx - x - 0.5, cz - z - 0.5)]; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+  function placeAt(s, face) {
+    play.p = [s[0], s[1], s[2]]; play.v = [0, 0, 0]; play.stepVis = 0; play.ground = false;
+    play.face = play.faceT = face != null ? face : Math.atan2(W / 2 - s[0], D / 2 - s[2]);
+    const w = toW(play.p);
+    state.targetT.set(w.x, w.y + 0.8, w.z); state.target.copy(state.targetT);
+    play.tpCur = play.tpDist;
+  }
+  const toW = p => new THREE.Vector3(p[0] - W / 2, p[1] - cur.base, p[2] - D / 2);
+  function spawnPlayer(fromId) {
+    let s = null;
+    if (fromId) { const a = cur.acts.find(q => q.goto === fromId); if (a) s = besideBox(a.hit); }
+    const home = mapSpawn(cur);
+    play.home = s || home;
+    placeAt(play.home, s ? s[3] : null);
+    if (!play.tp) { state.zoomT = state.zoom = playZoom(); }
+    play.near = null; syncPrompt();
+  }
+  function respawn() {
+    if (!cur || !play.home) return;
+    placeAt(play.home, play.home[3]);
+    spawnBurst([play.p[0], play.p[1] + 0.6, play.p[2]], { n: 26, colors: ['#ffe9a0', '#ffc860', '#ffffff'], speed: 2, up: 2, life: 0.9, gravity: -0.5, spread: 0.8 });
+  }
+  const playZoom = () => viewHalf() / 14;
+  function zoomPlay(f) {
+    if (play.tp) play.tpDist = Math.max(2.5, Math.min(16, play.tpDist * f));
+    else state.zoomT = Math.max(viewHalf() / 80, Math.min(viewHalf() / 7, state.zoomT / f));
+  }
+
+  function setPlay(on) {
+    if (!cur || on === play.on) return;
+    play.on = on;
+    app.classList.toggle('playing', on);
+    playBtn.textContent = on ? '지도 보기' : '들어가기';
+    playBtn.setAttribute('aria-pressed', String(on));
+    play.keys = {}; joyReset();
+    if (on) {
+      play.saved = { target: state.targetT.clone(), zoom: state.zoomT, pitch: state.pitchT };
+      state.pitchT = Math.max(0.45, Math.min(0.8, state.pitchT));
+      hideTip(); closeOpts(); if (isSheet()) closeSheet();
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      avatar.visible = true;
+      spawnPlayer(null);
+    } else {
+      setTP(false);
+      const s = play.saved;
+      if (s) { state.targetT.copy(s.target); state.zoomT = s.zoom; state.pitchT = s.pitch; }
+      avatar.visible = false; pLight.intensity = 0;
+      play.near = null; syncPrompt();
+    }
+    syncDisc();
+  }
+  function setTP(on) {
+    if (play.tp === on) return;
+    play.tp = on;
+    $('#bview').setAttribute('aria-pressed', String(on));
+    if (on) { state.pitchT = 0.32; play.tpCur = play.tpDist; }
+    else { state.pitchT = 0.6; if (play.on) state.zoomT = playZoom(); }
+  }
+  function interact() {
+    const a = play.near;
+    if (!a || a.busy || play.lock) return false;
+    runAct(a);
+    return true;
+  }
+  const MOVEKEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight']);
+  function playKey(e, down) {
+    const c = e.code;
+    if (MOVEKEYS.has(c)) { if (down) play.keys[c] = true; else delete play.keys[c]; return true; }
+    if (!down) return false;
+    if (c === 'KeyE') { if (!interact() && !play.tp) state.yawT += Math.PI / 4; }
+    else if (c === 'KeyF' || c === 'Enter') interact();
+    else if (c === 'KeyQ') state.yawT -= Math.PI / 4;
+    else if (c === 'KeyV') setTP(!play.tp);
+    else if (c === 'KeyR') respawn();
+    else if (c === 'Escape') setPlay(false);
+    else if (c === 'Equal' || c === 'NumpadAdd') zoomPlay(1 / 1.25);
+    else if (c === 'Minus' || c === 'NumpadSubtract') zoomPlay(1.25);
+    else return false;
+    return true;
+  }
+  window.addEventListener('keyup', e => { if (play.on && playKey(e, false)) e.preventDefault(); else delete play.keys[e.code]; });
+  window.addEventListener('blur', () => { play.keys = {}; });
+  playBtn.addEventListener('click', () => setPlay(!play.on));
+  promptEl.addEventListener('click', () => interact());
+
+  // 휴대폰: 왼쪽 가상 조이스틱, 오른쪽 점프·상호작용·시점 단추
+  function setTouch() { app.classList.add('touch'); }
+  if (window.matchMedia && matchMedia('(pointer: coarse)').matches) setTouch();
+  const joy = $('#joy'), knob = $('#joy-k');
+  function joyReset() { play.joy.x = play.joy.y = 0; play.joy.id = null; knob.style.transform = ''; }
+  function joyMove(e) {
+    const r = joy.getBoundingClientRect(), R = r.width / 2;
+    let dx = (e.clientX - r.left - R) / R, dy = (e.clientY - r.top - R) / R;
+    const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
+    play.joy.x = dx; play.joy.y = dy;
+    knob.style.transform = `translate(${Math.round(dx * R * 0.6)}px, ${Math.round(dy * R * 0.6)}px)`;
+  }
+  joy.addEventListener('pointerdown', e => { e.preventDefault(); setTouch(); joy.setPointerCapture(e.pointerId); play.joy.id = e.pointerId; joyMove(e); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === play.joy.id) joyMove(e); });
+  ['pointerup', 'pointercancel'].forEach(t => joy.addEventListener(t, e => { if (e.pointerId === play.joy.id) joyReset(); }));
+  const hold = (el, code) => {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); play.keys[code] = true; });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => el.addEventListener(t, () => { delete play.keys[code]; }));
+  };
+  hold($('#bjump'), 'Space');
+  $('#bact').addEventListener('click', () => interact());
+  $('#bview').addEventListener('click', () => setTP(!play.tp));
+
+  // 상호작용 안내: 가장 가까운 상호작용 상자(3칸 안)
+  function syncPrompt() {
+    const a = play.near;
+    promptEl.hidden = !a;
+    $('#bact').disabled = !a;
+    if (!a) return;
+    const txt = (a.busy ? '움직이는 중' : a.hint);
+    if (promptEl.dataset.k !== a.name + a.busy) {
+      promptEl.dataset.k = a.name + a.busy;
+      promptEl.innerHTML = `<b><kbd>E</kbd> · ${a.name}</b><span>${txt}</span>`;
+      promptEl.classList.toggle('go', !!a.goto);
+    }
+  }
+  // 발견: 처음 12칸 안에 들어온 장소
+  function found() { const id = cur.def.id; return (play.disc[id] = play.disc[id] || []); }
+  function syncDisc() {
+    if (!cur) return;
+    const f = found(), n = cur.landmarks.filter(l => f.includes(l.name)).length, all = cur.landmarks.length;
+    const el = $('#disc');
+    el.textContent = `발견 ${n}/${all}`;
+    el.hidden = !(play.on || n) || !all;
+    $('#hud-disc').textContent = all ? `발견 ${n}/${all}` : '';
+    cur.landmarks.forEach((l, k) => {
+      const has = f.includes(l.name);
+      if (l.el) l.el.classList.toggle('unfound', !has);
+      const b = document.getElementById('place-' + k); if (b) b.classList.toggle('found', has);
+    });
+  }
+  function toast(s) {
+    toastEl.textContent = s; toastEl.hidden = false; toastEl.classList.remove('out');
+    play.toastT = 2.6;
+  }
+
+  // 한 걸음: 입력 → 속도 → 축마다 나눠 움직이며 칸과 부딪힘(한 칸은 저절로 오른다)
+  function moveH(q, d) {
+    const p = play.p, old = p[q];
+    p[q] += d;
+    if (!boxHit(p[0], p[1], p[2])) return;
+    if (play.ground || play.swim) {
+      const lim = play.swim ? 1.35 : 1.05;
+      for (let ny = Math.floor(p[1] + 1e-4) + 1; ny - p[1] <= lim; ny++) {
+        if (!boxHit(p[0], ny, p[2])) { play.stepVis -= ny - p[1]; p[1] = ny; return; }
+      }
+    }
+    p[q] = old;
+  }
+  function moveV(d) {
+    const p = play.p;
+    p[1] += d;
+    if (!boxHit(p[0], p[1], p[2])) return;
+    p[1] = d < 0 ? Math.floor(p[1] + 1e-4) + 1 : Math.floor(p[1] + PL.h) - PL.h - 1e-3;
+    play.v[1] = 0;
+  }
+  function stepPlay(dt) {
+    const p = play.p, v = play.v, K = play.keys;
+    // 끼었으면 위로 빼고, 안 되면 처음 자리로
+    if (boxHit(p[0], p[1], p[2])) {
+      let k = 1; while (k <= 4 && boxHit(p[0], p[1] + k, p[2])) k++;
+      if (k <= 4) p[1] = Math.floor(p[1]) + k; else { respawn(); return; }
+    }
+    let ix = 0, iz = 0;
+    if (!play.lock) {
+      ix = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0) + play.joy.x;
+      iz = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0) - play.joy.y;
+    }
+    const il = Math.hypot(ix, iz); if (il > 1) { ix /= il; iz /= il; }
+    const sy = Math.sin(state.yaw), cy = Math.cos(state.yaw);
+    const mx = ix * cy - iz * sy, mz = -ix * sy - iz * cy;
+    const run = K.ShiftLeft || K.ShiftRight || Math.hypot(play.joy.x, play.joy.y) > 0.92;
+    // 물: 얕으면 걸어서 건너고, 깊으면 떠서 천천히 헤엄친다. 빛나는 액체(용암·쇳물)는 처음 자리로
+    const lv = liqAt(Math.floor(p[0]), Math.floor(p[2])), depth = lv >= 0 ? lv + 0.8 - p[1] : -1;
+    if (depth > 0.4 && cur.def.liqGlow) { respawn(); return; }
+    play.swim = depth > 1.0;
+    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.45 : depth > 0.1 ? 0.7 : 1);
+    const acc = Math.min(1, dt * (play.ground || play.swim ? 14 : 5));
+    v[0] += (mx * sp - v[0]) * acc; v[2] += (mz * sp - v[2]) * acc;
+    if (Math.abs(mx) + Math.abs(mz) > 0.05) play.faceT = Math.atan2(mx, mz);
+    if (K.Space && !play.lock) { if (play.ground) { v[1] = PL.jump; play.ground = false; } else if (play.swim) v[1] = Math.max(v[1], 2.6); }
+    if (play.swim) { v[1] += (-PL.grav * 0.15 + (depth - 0.9) * 7) * dt; v[1] *= Math.pow(0.15, dt); }
+    else v[1] = Math.max(-30, v[1] - PL.grav * dt);
+    const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / 0.25));
+    for (let i = 0; i < n; i++) { moveH(0, v[0] * dt / n); moveH(2, v[2] * dt / n); moveV(v[1] * dt / n); }
+    play.ground = v[1] <= 0 && boxHit(p[0], p[1] - 0.05, p[2]);
+    if (p[1] < -3) { respawn(); return; }
+    play.stepVis *= Math.pow(0.0005, dt);
+    let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    play.face += da * Math.min(1, dt * 12);
+    // 몸: 둥실 떠서 흔들리고, 달리면 앞으로 기운다. 불꽃은 일렁인다
+    const w = toW(p), bob = reduced ? 0 : Math.sin(t * 3.2) * 0.08, spd = Math.hypot(v[0], v[2]);
+    avatar.position.set(w.x, w.y + play.stepVis + 0.14 + bob, w.z);
+    avatar.rotation.y = play.face;
+    avBody.rotation.x = Math.min(0.3, spd * 0.03);
+    avFlame.scale.set(1 + Math.sin(t * 11) * 0.08, 1 + Math.sin(t * 13) * 0.16 + Math.sin(t * 7.3) * 0.1, 1);
+    avFlame.rotation.z = Math.sin(t * 5) * 0.12; avFlame.rotation.x = -Math.min(0.4, spd * 0.05);
+    pLight.position.set(w.x, w.y + play.stepVis + 1, w.z);
+    pLight.intensity = (effTime() === 'night' ? 1.7 : 0.45) * (1 + Math.sin(t * 9) * 0.06 + Math.sin(t * 23) * 0.04);
+    state.targetT.set(w.x, w.y + play.stepVis + 0.8, w.z);
+    // 가까운 상호작용
+    const cx = p[0], cyy = p[1] + 0.75, cz = p[2];
+    let best = null, bd = 3;
+    for (const a of cur.acts) {
+      const h = a.hit;
+      const dx = Math.max(h[0] - cx, 0, cx - h[3] - 1), dy = Math.max(h[1] - cyy, 0, cyy - h[4] - 1), dz = Math.max(h[2] - cz, 0, cz - h[5] - 1);
+      const d = Math.hypot(dx, dy, dz);
+      if (d <= bd) { bd = d; best = a; }
+    }
+    if (best !== play.near || (best && promptEl.dataset.k !== best.name + best.busy)) { play.near = best; syncPrompt(); }
+    // 발견
+    const f = found();
+    for (const l of cur.landmarks) {
+      if (f.includes(l.name)) continue;
+      if (Math.hypot(l.p[0] - cx, l.p[2] - cz) <= 12 && Math.abs(l.p[1] - cyy) <= 18) {
+        f.push(l.name); store.set('disc', play.disc); toast('발견: ' + l.name); syncDisc();
+      }
+    }
+    if (play.toastT > 0) { play.toastT -= dt; if (play.toastT <= 0.4) toastEl.classList.add('out'); if (play.toastT <= 0) toastEl.hidden = true; }
+  }
+  // 2.5D: 정령이 지붕·벽에 가리면 머리 위 천장(없으면 머리 위 4칸)부터 위를 잘라 안이 보이게 한다
+  function updateCut() {
+    const p = play.p, d = camDir(state.yaw, state.pitch);
+    let hid = false;
+    for (const hy of [0.5, 1.4]) { const tt = march(cur, [p[0], p[1] + hy, p[2]], d); if (tt < 120 && tt * d[1] > 1.7 - hy) hid = true; }
+    let cut = 1e5;
+    if (hid) {
+      const x = Math.floor(p[0]), z = Math.floor(p[2]), y0 = Math.floor(p[1] + 1e-4);
+      cut = y0 + 4;
+      for (let y = y0 + 2; y <= y0 + 14; y++) if (pSolid(x, y, z)) { cut = y; break; }
+      cut -= cur.base;
+    }
+    play.cut = cut;
+    clip.constant = cut;
+  }
+  // 3인칭: 정령 뒤 원근 카메라, 벽에 막히면 당겨 온다
+  function updateTP(dt) {
+    const head = state.target.clone(); head.y += 0.45;
+    const d = camDir(state.yaw, state.pitch);
+    const hv = [head.x + W / 2, head.y + cur.base, head.z + D / 2];
+    const hit = march(cur, hv, d);
+    const want = Math.max(0.5, Math.min(play.tpDist, hit - 0.4));
+    play.tpCur = want < play.tpCur ? want : play.tpCur + (want - play.tpCur) * Math.min(1, dt * 4);
+    pcam.aspect = state.rtW / state.rtH;
+    pcam.position.set(head.x + d[0] * play.tpCur, head.y + d[1] * play.tpCur, head.z + d[2] * play.tpCur);
+    pcam.lookAt(head);
+    pcam.updateProjectionMatrix(); pcam.updateMatrixWorld();
+    avatar.visible = play.tpCur > 0.9;
+  }
+  // 원근 카메라도 같은 픽셀 후처리를 거친다(깊이 배율만 바꿔서)
+  function renderView(c) {
+    if (c === cam) { post.render(scene, cam, t); return; }
+    const u = post.u;
+    u.uT.value = t; u.range.value = TP_RANGE;
+    u.invVP.value.multiplyMatrices(c.projectionMatrix, c.matrixWorldInverse).invert();
+    renderer.setRenderTarget(post.rt); renderer.render(scene, c);
+    renderer.setRenderTarget(null); renderer.render(post.scene, post.cam);
   }
 
   // ───── 크기: 도트 한 칸이 기기 픽셀 정수배가 되도록 ─────
@@ -847,12 +1255,13 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now; t += dt;
     // 상호작용이 움직이는 동안엔 자동 회전을 잠시 멈춘다
-    if (state.auto && !dragMode && !(cur && cur.acts.some(a => a.busy))) state.yawT += dt * 0.07;
+    if (state.auto && !play.on && !dragMode && !(cur && cur.acts.some(a => a.busy))) state.yawT += dt * 0.07;
+    if (play.on && cur) stepPlay(dt);
     const k = 1 - Math.pow(0.0015, dt);
     state.yaw += (state.yawT - state.yaw) * k;
     state.pitch += (state.pitchT - state.pitch) * k;
     state.zoom += (state.zoomT - state.zoom) * k;
-    state.target.lerp(state.targetT, k);
+    state.target.lerp(state.targetT, play.on ? 1 - Math.pow(play.tp ? 1e-6 : 2e-5, dt) : k);
     const aspect = state.rtW / state.rtH, vh = viewHalf();
     cam.left = -vh * aspect; cam.right = vh * aspect; cam.top = vh; cam.bottom = -vh;
     cam.zoom = state.zoom;
@@ -861,8 +1270,11 @@
       state.target.y + Math.sin(state.pitch) * 340,
       state.target.z + Math.cos(state.pitch) * Math.cos(state.yaw) * 340);
     cam.lookAt(state.target);
+    if (play.on && cur && !play.tp) updateCut(); else clip.constant = 1e5;
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld();
+    if (play.on && cur && play.tp) updateTP(dt);
+    const view = play.on && play.tp ? pcam : cam;
 
     for (let i = tweens.length - 1; i >= 0; i--) {
       const tw = tweens[i];
@@ -910,22 +1322,31 @@
       compass.style.transform = `rotate(${state.yaw}rad)`;
       if (state.labels) {
         const place = (v, el, dy) => {
-          tmp.copy(v).project(cam);
+          tmp.copy(v).project(view);
           const x = (tmp.x + 1) / 2 * state.cssW, y = (1 - tmp.y) / 2 * state.cssH;
           el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y + (dy || 0))}px)`;
-          el.style.visibility = tmp.x > -1.05 && tmp.x < 1.05 && tmp.y > -1.05 && tmp.y < 1.05 ? 'visible' : 'hidden';
+          el.style.visibility = tmp.x > -1.05 && tmp.x < 1.05 && tmp.y > -1.05 && tmp.y < 1.05 && tmp.z < 1 ? 'visible' : 'hidden';
         };
         cur.landmarks.forEach(l => place(l.world, l.el));
-        cur.acts.forEach(a => place(a.world, a.el));
+        if (!play.on) cur.acts.forEach(a => place(a.world, a.el));
       }
     }
     stepBurst(dt);
-    post.render(scene, cam, t);
+    renderView(view);
     requestAnimationFrame(frame);
   }
 
   // 디버그·검사용 손잡이
-  window.__atlas = { state, cam, show: i => show(i, true), cur: () => cur, run: k => cur && runAct(cur.acts[k]), travel: id => travel(id), MAPS, freeRect };
+  window.__atlas = {
+    state, cam, show: i => show(i, true), cur: () => cur, run: k => cur && runAct(cur.acts[k]), travel: id => travel(id), MAPS, freeRect,
+    // 놀이 모드 손잡이
+    play: on => setPlay(on !== false), tp: on => setTP(on !== false), get keys() { return play.keys; }, interact,
+    player: () => ({ on: play.on, tp: play.tp, p: play.p.slice(), v: play.v.slice(), ground: play.ground, swim: play.swim, near: play.near && play.near.name, home: play.home && play.home.slice(), disc: cur ? found().length : 0, map: cur && cur.def.id }),
+    key: (code, down) => { if (down) play.keys[code] = true; else delete play.keys[code]; },
+    tpTo: (x, y, z) => placeAt([x, y, z]), besideBox, mapSpawn: () => mapSpawn(cur),
+    // 느린 기기(소프트웨어 GL) 검사용: 물리를 1/60초씩 sec초만큼 돌린다
+    step: sec => { for (let i = 0; i < Math.round(sec * 60); i++) if (play.on && cur) stepPlay(1 / 60); },
+  };
 
   // ───── 시작 ─────
   resize();

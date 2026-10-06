@@ -120,6 +120,8 @@
       roof.cyl(CX, DZc, dTop + 1, dTop + 3, 1.6, B.mTrim); roof.cyl(CX, DZc, dTop + 2, dTop + 3, 1, B.divine); roof.box(CX, dTop + 4, DZc, CX, dTop + 6, DZc, B.gold);
       lights.push({ name: 'dome', p: [CX + 0.5, dTop + 3, DZc + 0.5], c: '#f4e0ff', i: 0.6, d: 40, flicker: 0.1, srcR: 3 });
       landmarks.push({ name: '폴크방 큰 저택', note: '신전 같은 엄숙한 저택 · 연회의 홀', p: [CX + 0.5, dTop + 10, DZc + 0.5], boss: true });
+      // 정문(금빛 문틀): 큰 홀(하위 지도)로 들어간다
+      acts.push(OR.goAct({ at: [CX, P + 1, CZ1 + 13], h: 6, name: '폴크방 큰 홀 안으로', goto: 'freya-hall', hint: '금빛 문을 열고 긴 만찬 식탁과 은빛 옥좌가 있는 큰 홀로 들어가요', hit: [CX - 4, P + 1, CZ1, CX + 4, P + 12, CZ1] }));
       acts.push({
         name: '큰 홀의 만찬', hint: '지붕과 돔이 들어 올려지고, 큰 홀 긴 식탁에 촛불이 켜지며 만찬이 시작돼요', hit: [62, TOPC + 1, 22, 130, RY + 12, 69],
         run: async a => {

@@ -222,10 +222,12 @@
       LB.dome(w, (GX0 + GX1) >> 1, gPeak - 2, (GZ0 + GZ1) >> 1, 5, B.copper, { ribs: 8, rib: B.gold, lantern: B.gTrim, tip: B.gold });
       lights.push({ name: 'guild', p: [(GX0 + GX1) / 2, G + 10, GZ1 + 2], c: '#ffd890', i: 0.4, d: 24, flicker: 0.1, srcR: 4 });
       acts.push({
-        name: '길드 본부 판테온', hint: '길드 본부의 색유리 창이 빛나며 의뢰서가 바람에 흩날려요', hit: [GX0 + 2, G + 1, GZ1 - 1, GX1 - 2, G + 20, GZ1 + 1],
+        name: '길드 본부 판테온', hint: '길드 본부의 색유리 창이 빛나며 의뢰서가 바람에 흩날려요', hit: [GX0 + 2, G + 8, GZ1 - 1, GX1 - 2, G + 20, GZ1 + 1],
         run: async a => { a.flash('guild', 6, 4); a.glow(1.6, 4); for (let k = 0; k < 8; k++) { a.burst([(GX0 + GX1) / 2 + 0.5, G + 4, GZ1 + 1.5], { n: 14, colors: ['#f4f0e8', '#e8e0c8', '#ffffff'], speed: 3, up: 3, life: 2.2, gravity: 1, spread: 2, flat: true }); await a.wait(0.3); } },
       });
       landmarks.push({ name: '길드 본부', note: '판테온 · 북서쪽 큰길', p: [(GX0 + GX1) / 2, G + 42, (GZ0 + GZ1) / 2] });
+      // 둥근 아치 정문: 길드 본부 로비(하위 지도)로 들어간다
+      { const gx = (GX0 + GX1) >> 1; acts.push(OR.goAct({ at: [gx, G + 1, GZ1 + 1], h: 6, name: '길드 본부 안으로', goto: 'babel-guild', hint: '둥근 아치 문을 지나 접수 창구와 의뢰 게시판이 있는 길드 본부 로비로 들어가요', hit: [gx - 2, G + 1, GZ1, gx + 2, G + 6, GZ1] })); }
 
       // ── 광장 가장자리 감자튀김 노점 ──
       const SX = Math.round(BX + Math.cos(Math.PI * 0.75) * 44), SZ = Math.round(BZ + Math.sin(Math.PI * 0.75) * 44);

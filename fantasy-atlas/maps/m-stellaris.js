@@ -95,6 +95,8 @@
         },
       });
       landmarks.push({ name: '대천문대', note: '옥상에서 도는 황동 대망원경', p: [SX + 0.5, tipY + 10, SZ + 0.5], tag: 'OBSERV' });
+      // 정문: 대천문대 둥근 홀(하위 지도)로 들어간다
+      acts.push(OR.goAct({ at: [SX, Y + 2, SZ + 20], h: 6, name: '대천문대 안으로', goto: 'stellaris-observatory', hint: '검은 정문을 열고 별 지도가 박힌 대천문대 둥근 홀로 들어가요', hit: [SX - 3, Y + 2, SZ + 17, SX + 3, Y + 10, SZ + 17] }));
       // ── 정상에서 광장까지 큰 계단(층계참마다 등주) ──
       const PZ = 110, py = MH.g(w, 84, PZ);
       MH.flatten(w, 58, 92, 110, 128, py, B.path, B.rock);
@@ -152,9 +154,9 @@
       landmarks.push({ name: '유성 구덩이', note: '아직 식지 않은 별 조각', p: [MXX + 0.5, my + 11, MZZ + 0.5] });
       // ── 점성술사의 집(돔 지붕)과 관측 탑 ──
       const hm = { found: B.marbleDk, wall: B.marble, frame: B.marbleDk, quoin: B.trim, win: B.win, sill: B.trim, door: B.door, roof: B.roofN, eave: B.iron, lamp: B.lamp };
-      const domes = [];
+      const domes = [], houses = [];
       for (const [x, z, face] of [[28, 100, 'e'], [32, 124, 'e'], [36, 144, 'e'], [120, 146, 'n'], [128, 90, 'w']]) {
-        const h = MH.house(w, { x, z, sx: 11, sz: 11, fh: 7, face, roof: 'flat', m: hm });
+        const h = MH.house(w, { x, z, sx: 11, sz: 11, fh: 7, face, roof: 'flat', m: hm }); houses.push(h);
         w.cyl(x + 5, z + 5, h.top + 1, h.top + 2, 4.6, B.marbleDk); w.ring(x + 5, z + 5, h.top + 2, 3.8, 4.8, B.trim);
         const dt = MH.dome(w, x + 5, h.top + 3, z + 5, 4.8, B.roofN, B.silver);
         for (let a = 0; a < 4; a++) for (let t = 0.2; t < 1.4; t += 0.1) w.set(Math.round(x + 5 + Math.cos(a * 1.57) * Math.cos(t) * 5), Math.round(h.top + 3 + Math.sin(t) * 5), Math.round(z + 5 + Math.sin(a * 1.57) * Math.cos(t) * 5), B.silver);
@@ -207,6 +209,8 @@
           await a.move('dscope', [0, -10, 0], 1.4);
         },
       });
+      // 점성술사의 집 문(북쪽): 집 안(하위 지도)으로 들어간다
+      { const [hx, hy, hz] = houses[3].door; acts.push(OR.goAct({ at: [hx, hy, hz - 2], h: 6, name: '점성술사의 집 안으로', goto: 'stellaris-astrologer', hint: '돔 지붕 집의 검은 문을 열고 수정구와 별자리 책이 있는 점성실로 들어가요', hit: [hx, hy, hz, hx + 1, hy + 3, hz] })); }
       // ── 별자리 정원: 바닥의 별이 떠올라 하늘에 큰 별자리(부품, 평소엔 숨김)를 그린다 ──
       const CGX = 68, CGZ = 115, CGY = py + 40, U = Math.SQRT1_2;
       const cst = w.prop({ name: 'cstars', pivot: [CGX + 0.5, py + 1, CGZ + 0.5], scl0: [0, 0, 0] });

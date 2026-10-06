@@ -1265,18 +1265,21 @@
 
   // ───── 놀이 모드: 도깨비불 정령이 되어 지도 안을 걸어 다닌다 ─────
   // 좌표는 복셀 단위(p = 발 위치). 충돌은 지도 점유 배열(cur.occ)을 한 칸씩 바로 읽는다
-  const PL = { r: 0.42, h: 1.5, walk: 5.2, run: 9, jump: 8.6, grav: 24 };
+  // 사람 크기: 지도는 대략 2칸 = 1m(탁자·계산대 윗면 2칸, 집 문 4칸, 한 층 5칸). 서면 3.4칸(1.7m), 낮은 문(3칸)에선 2.85칸으로 웅크린다.
+  // 폭 0.9칸(1칸 통로도 지남), 눈높이 3.15칸(≈1.6m). 걷기 2.8칸/초(1.4m/s), 달리기 8칸/초(4m/s), 점프 ≈1.1칸, 2단 점프 ≈1.3칸 더
+  const PL = { r: 0.45, h: 3.4, hStand: 3.4, hCrouch: 2.85, eyeStand: 3.15, eyeCrouch: 2.6, walk: 2.8, run: 8, jump: 7.6, jump2: 8.2, grav: 26, reach: 2.6 };
   const play = {
     on: false, tp: false, lock: false, p: [0, 0, 0], v: [0, 0, 0], ground: false, swim: false, face: 0, faceT: 0, stepVis: 0,
-    keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 7, tpCur: 7, saved: null, spawns: {}, view: 'iso', jumpQ: false, air: 0, unlockAt: 0,
+    keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 6, tpCur: 6, eyeS: 3.15, hS: 3.4, saved: null, spawns: {}, view: 'iso', jumpQ: false, air: 0, unlockAt: 0,
     disc: store.get('disc', {}), toastT: 0, cut: 1e5, props: null, ignore: [], ride: null, lastSafe: null,
     wasGround: false, wasWet: false, fallTop: 0, stepAcc: 1, swimAcc: 1,
   };
   const app = $('#app'), promptEl = $('#prompt'), toastEl = $('#toast'), playBtn = $('#play');
-  // 정령 모양: 둥근 몸통(발광) + 점 두 개 눈 + 머리 위 작은 불꽃. 복셀 메셔를 그대로 써서 지도와 같은 결로 만든다
+  // 정령 모양: 복셀 메셔를 그대로 써서 지도와 같은 결로 만든다
   const avatar = new THREE.Group(), avBody = new THREE.Group(), avFlame = new THREE.Group();
   (function makeAvatar() {
-    const S = 0.3;
+    // 사람 키(약 3.5칸)의 등불 정령: 아래는 불꽃 자락, 위로 갈수록 가늘어지는 몸, 꼭대기에 두건 쓴 얼굴(눈은 눈높이쯤), 머리 위 작은 불꽃
+    const S = 0.27;
     const mesh = (grp, defs, sz, fill, off) => {
       const w = new VX.World(defs, 3, null, sz);
       w.base = 0; fill(w, w.id);
@@ -1289,32 +1292,38 @@
       });
     };
     mesh(avBody, {
-      body: { c: '#ffd468', top: '#fff4c4', bot: '#ffb050', glow: true, v: 0.04 }, low: { c: '#ffa04a', top: '#ffc060', bot: '#e0702e', glow: true, v: 0.04 },
+      low: { c: '#ff9a44', top: '#ffc060', bot: '#e0702e', glow: true, v: 0.05 }, body: { c: '#ffd468', top: '#fff0b4', bot: '#ffb050', glow: true, v: 0.04 },
+      hood: { c: '#ffb84e', top: '#ffe08a', bot: '#ff9a44', glow: true, v: 0.04 }, face: { c: '#fff4d8', glow: true, v: 0.01 },
       eye: { c: '#24141e', v: 0 }, cheek: { c: '#ff9a86', glow: true, v: 0 },
-    }, [7, 7, 7], (w, B) => {
-      w.ellipsoid(3, 3, 3, 2.7, 2.5, 2.7, B.body);
-      w.box(0, 0, 0, 6, 2, 6, 0); w.ellipsoid(3, 3, 3, 2.7, 2.5, 2.7, B.low, (x, y) => y < 0);
-      w.set(3, 0, 3, B.low);
-      w.set(2, 3, 5, B.eye); w.set(4, 3, 5, B.eye);
-      w.set(1, 2, 4, B.cheek); w.set(5, 2, 4, B.cheek);
-    }, [-3.5, -1, -3.5]);
+    }, [7, 7, 13], (w, B) => {
+      const disc = (y, r, b, keep) => { for (let z = 0; z < 7; z++) for (let x = 0; x < 7; x++) { const dx = x - 3, dz = z - 3; if (dx * dx + dz * dz <= r * r && (!keep || keep(dx, dz))) w.set(x, y, z, b); } };
+      disc(0, 2.5, B.low, (dx, dz) => dx * dx + dz * dz < 4 || (dx + dz) % 2 !== 0);   // 자락 끝은 불꽃 혀처럼 들쭉날쭉
+      disc(1, 2.5, B.low);
+      for (let y = 2; y <= 6; y++) disc(y, 2.3 - (y - 2) * 0.12, B.body);
+      disc(7, 1.6, B.body);
+      w.ellipsoid(3, 10, 3, 2.4, 2.6, 2.4, B.hood);
+      for (let y = 9; y <= 11; y++) for (let x = 2; x <= 4; x++) w.set(x, y, 5, B.face);
+      w.box(2, 12, 5, 4, 12, 5, B.hood); w.set(1, 11, 5, B.hood); w.set(5, 11, 5, B.hood);   // 두건 챙
+      w.set(2, 10, 5, B.eye); w.set(4, 10, 5, B.eye);
+      w.set(2, 9, 5, B.cheek); w.set(4, 9, 5, B.cheek);
+    }, [-3.5, 0, -3.5]);
     mesh(avFlame, {
       f0: { c: '#ff6a2a', top: '#ff8a3a', glow: true, v: 0.06 }, f1: { c: '#ffa040', glow: true, v: 0.05 },
       f2: { c: '#ffd860', glow: true, v: 0 }, f3: { c: '#fff6c8', glow: true, v: 0 },
     }, [5, 5, 5], (w, B) => {
       w.box(1, 0, 1, 3, 0, 3, B.f0);
       w.set(2, 1, 1, B.f1); w.set(1, 1, 2, B.f1); w.set(3, 1, 2, B.f1); w.set(2, 1, 3, B.f1); w.set(2, 1, 2, B.f2);
-      w.set(2, 2, 2, B.f2); w.set(2, 2, 3, B.f1);
-      w.set(2, 3, 2, B.f3);
+      w.set(2, 2, 2, B.f2); w.set(2, 2, 1, B.f1);
+      w.set(2, 3, 1, B.f3);
     }, [-2.5, 0, -2.5]);
-    avFlame.position.y = 5;
+    avFlame.position.set(0, 12.6, -0.3);
     avBody.add(avFlame);
     avBody.scale.setScalar(S);
     avatar.add(avBody);
     avatar.visible = false;
   })();
   // 정령을 따라다니는 빛(지도 조명 수와 별개로 늘 장면에 있어 셰이더를 다시 만들지 않는다)
-  const pLight = new THREE.PointLight(0xffc070, 0, 10, 1.2);
+  const pLight = new THREE.PointLight(0xffc070, 0, 14, 1.2);
   scene.add(avatar, pLight);
   // 지붕 걷어내기: 정령이 가려지면 머리 위 천장 높이에서 위쪽을 잘라 낸다(수평 절단면 하나를 늘 켜 두고 높이만 바꿔 셰이더를 다시 만들지 않는다)
   const clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e5);
@@ -1406,7 +1415,10 @@
     for (const fy of ys) for (const fx of SX) for (const fz of SX) if (propPt(u, x + fx * PL.r, y + fy, z + fz * PL.r)) return true;
     return false;
   }
-  const BODY_Y = [0.05, PL.h / 2, PL.h - 0.05], FEET_Y = [-0.08];
+  // 몸 표본 높이(칸보다 촘촘하게 5단) — 웅크리면 다시 잰다
+  const BODY_Y = [0.05, 0, 0, 0, 0], FEET_Y = [-0.08];
+  function setH(h) { PL.h = h; for (let k = 1; k < 4; k++) BODY_Y[k] = h * k / 4; BODY_Y[4] = h - 0.05; }
+  setH(PL.hStand);
   function propHit(x, y, z) {
     if (!play.props) return null;
     for (const pv of play.props) if (!play.ignore.includes(pv) && propBox(pv, x, y, z, BODY_Y)) return pv;
@@ -1455,7 +1467,7 @@
     for (let k = 0; k <= span * 2; k++) {
       const yy = y + (k & 1 ? (k + 1) >> 1 : -(k >> 1));
       if (yy < 1 || yy >= H - 2) continue;
-      if (pSolid(x, yy - 1, z) && !pSolid(x, yy, z) && !pSolid(x, yy + 1, z) && liqAt(x, z) < yy) return yy;
+      if (pSolid(x, yy - 1, z) && !pSolid(x, yy, z) && !pSolid(x, yy + 1, z) && !pSolid(x, yy + 2, z) && liqAt(x, z) < yy) return yy;
     }
     return -1;
   }
@@ -1519,7 +1531,8 @@
     play.fallTop = s[1]; play.wasGround = true; play.wasWet = false;
     play.face = play.faceT = face != null ? face : Math.atan2(W / 2 - s[0], D / 2 - s[2]);
     const w = toW(play.p);
-    state.targetT.set(w.x, w.y + 0.8, w.z); state.target.copy(state.targetT);
+    setH(PL.hStand); play.eyeS = PL.eyeStand; play.hS = PL.hStand;
+    state.targetT.set(w.x, w.y + play.eyeS, w.z); state.target.copy(state.targetT);
     play.tpCur = play.tpDist;
   }
   const toW = p => new THREE.Vector3(p[0] - W / 2, p[1] - cur.base, p[2] - D / 2);
@@ -1538,9 +1551,9 @@
     placeAt(play.home, play.home[3]);
     spawnBurst([play.p[0], play.p[1] + 0.6, play.p[2]], { n: 26, colors: ['#ffe9a0', '#ffc860', '#ffffff'], speed: 2, up: 2, life: 0.9, gravity: -0.5, spread: 0.8 });
   }
-  const playZoom = () => viewHalf() / 14;
+  const playZoom = () => viewHalf() / 11;
   function zoomPlay(f) {
-    if (play.tp) play.tpDist = Math.max(2.5, Math.min(16, play.tpDist * f));
+    if (play.tp) play.tpDist = Math.max(2.5, Math.min(14, play.tpDist * f));
     else state.zoomT = Math.max(viewHalf() / 80, Math.min(viewHalf() / 7, state.zoomT / f));
   }
 
@@ -1691,12 +1704,20 @@
     const p = play.p, old = p[q];
     p[q] += d;
     if (!boxHit(p[0], p[1], p[2])) return;
-    if (play.ground || play.swim) {
+    // 낮은 문틀: 웅크려서 지나간다
+    const h0 = PL.h;
+    if (h0 > PL.hCrouch) { setH(PL.hCrouch); if (!boxHit(p[0], p[1], p[2])) return; }
+    // 한 칸 오르기(땅·물에서, 그리고 점프 중에도 — 점프 + 한 칸으로 두 칸 턱을 오른다)
+    if (play.ground || play.swim || play.v[1] > -4) {
       const lim = play.swim ? 1.35 : 1.05;
-      for (let ny = Math.floor(p[1] + 1e-4) + 1; ny - p[1] <= lim; ny++) {
-        if (!boxHit(p[0], ny, p[2])) { play.stepVis -= ny - p[1]; p[1] = ny; return; }
+      for (const hh of h0 > PL.hCrouch ? [PL.hStand, PL.hCrouch] : [PL.hCrouch]) {
+        setH(hh);
+        for (let ny = Math.floor(p[1] + 1e-4) + 1; ny - p[1] <= lim; ny++) {
+          if (!boxHit(p[0], ny, p[2])) { play.stepVis -= ny - p[1]; p[1] = ny; return; }
+        }
       }
     }
+    setH(h0);
     p[q] = old;
   }
   function moveV(d) {
@@ -1725,6 +1746,9 @@
       let k = 0.125; while (k <= lim && propBox(pv, p[0], p[1] + k, p[2], BODY_Y)) k += 0.125;
       if (k <= lim && !worldHit(p[0], p[1] + k, p[2])) { p[1] += k; if (play.v[1] < 0) play.v[1] = 0; } else play.ignore.push(pv);
     }
+    // 웅크렸으면 일어설 수 있는지 보고, 끼었으면 먼저 웅크려 본다
+    if (PL.h < PL.hStand) { setH(PL.hStand); if (boxHit(p[0], p[1], p[2])) setH(PL.hCrouch); }
+    else if (boxHit(p[0], p[1], p[2])) { setH(PL.hCrouch); if (boxHit(p[0], p[1], p[2])) setH(PL.hStand); }
     // 끼었으면 위로 빼고, 안 되면 처음 자리로(타고 있었으면 마지막 안전한 땅으로)
     if (boxHit(p[0], p[1], p[2])) {
       let k = 1; while (k <= 4 && boxHit(p[0], p[1] + k, p[2])) k++;
@@ -1742,8 +1766,8 @@
     // 물: 얕으면 걸어서 건너고, 깊으면 떠서 천천히 헤엄친다. 빛나는 액체(용암·쇳물)는 처음 자리로
     const lv = liqAt(Math.floor(p[0]), Math.floor(p[2])), depth = lv >= 0 ? lv + 0.8 - p[1] : -1;
     if (depth > 0.4 && cur.def.liqGlow) { respawn(); return; }
-    play.swim = depth > 1.0;
-    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.45 : depth > 0.1 ? 0.7 : 1);
+    play.swim = depth > 1.9;   // 가슴 넘게 깊으면 헤엄
+    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.6 : depth > 0.3 ? 0.75 : 1);
     const acc = Math.min(1, dt * (play.ground || play.swim ? 14 : 5));
     v[0] += (mx * sp - v[0]) * acc; v[2] += (mz * sp - v[2]) * acc;
     if (play.tp) play.faceT = state.yaw + Math.PI;   // 원근 시점: 바라보는 쪽으로 몸을 돌린다
@@ -1751,15 +1775,15 @@
     if (play.ground) play.air = 0;
     if (!play.lock && (K.Space || play.jumpQ)) {
       if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; SND.sfx('jump', { vol: 0.55 }); }
-      else if (play.swim) v[1] = Math.max(v[1], 2.6);
+      else if (play.swim) v[1] = Math.max(v[1], 3);
       else if (play.jumpQ && play.air < 2) {
         // 2단 점프: 발밑에 반짝이 한 줌
-        v[1] = PL.jump * 0.92; play.air = 2; SND.sfx('djump', { vol: 0.6 });
+        v[1] = PL.jump2; play.air = 2; SND.sfx('djump', { vol: 0.6 });
         spawnBurst([p[0], p[1] + 0.1, p[2]], { n: 22, colors: ['#fff4c4', '#ffd468', '#ffffff', '#ffa04a'], speed: 2.4, up: -0.6, life: 0.6, gravity: 1.5, spread: 0.5, flat: true });
       }
     }
     play.jumpQ = false;
-    if (play.swim) { v[1] += (-PL.grav * 0.15 + (depth - 0.9) * 7) * dt; v[1] *= Math.pow(0.15, dt); }
+    if (play.swim) { v[1] += (-PL.grav * 0.15 + (depth - 2.3) * 7) * dt; v[1] *= Math.pow(0.15, dt); }
     else v[1] = Math.max(-30, v[1] - PL.grav * dt);
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / 0.25));
     for (let i = 0; i < n; i++) { moveH(0, v[0] * dt / n); moveH(2, v[2] * dt / n); moveV(v[1] * dt / n); }
@@ -1775,18 +1799,22 @@
     let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     play.face += da * Math.min(1, dt * 12);
     // 몸: 둥실 떠서 흔들리고, 달리면 앞으로 기운다. 불꽃은 일렁인다
-    const w = toW(p), bob = reduced ? 0 : Math.sin(t * 3.2) * 0.08, spd = Math.hypot(v[0], v[2]);
-    avatar.position.set(w.x, w.y + play.stepVis + 0.14 + bob, w.z);
+    const w = toW(p), bob = reduced ? 0 : Math.sin(t * 3.2) * 0.06, spd = Math.hypot(v[0], v[2]);
+    const ek = Math.min(1, dt * 10);
+    play.hS += (PL.h - play.hS) * ek; play.eyeS += ((PL.h < PL.hStand ? PL.eyeCrouch : PL.eyeStand) - play.eyeS) * ek;
+    avatar.position.set(w.x, w.y + play.stepVis + 0.08 + bob, w.z);
     avatar.rotation.y = play.face;
-    avBody.rotation.x = Math.min(0.3, spd * 0.03);
+    avatar.scale.set(1, play.hS / PL.hStand, 1);   // 웅크리면 납작
+    avBody.rotation.x = Math.min(0.12, spd * 0.012);
     avFlame.scale.set(1 + Math.sin(t * 11) * 0.08, 1 + Math.sin(t * 13) * 0.16 + Math.sin(t * 7.3) * 0.1, 1);
     avFlame.rotation.z = Math.sin(t * 5) * 0.12; avFlame.rotation.x = -Math.min(0.4, spd * 0.05);
-    pLight.position.set(w.x, w.y + play.stepVis + 1, w.z);
+    pLight.position.set(w.x, w.y + play.stepVis + play.hS * 0.6, w.z);
     pLight.intensity = (effTime() === 'night' ? 1.7 : 0.45) * (1 + Math.sin(t * 9) * 0.06 + Math.sin(t * 23) * 0.04);
-    state.targetT.set(w.x, w.y + play.stepVis + 0.8, w.z);
+    state.targetT.set(w.x, w.y + play.stepVis + play.eyeS, w.z);   // 카메라 목표 = 눈높이
     // 가까운 상호작용
-    const cx = p[0], cyy = p[1] + 0.75, cz = p[2];
-    let best = null, bd = 3;
+    // 팔 닿는 거리(가슴 높이에서 약 1.3m)
+    const cx = p[0], cyy = p[1] + PL.h * 0.6, cz = p[2];
+    let best = null, bd = PL.reach;
     for (const a of cur.acts) {
       const h = a.hit;
       const dx = Math.max(h[0] - cx, 0, cx - h[3] - 1), dy = Math.max(h[1] - cyy, 0, cyy - h[4] - 1), dz = Math.max(h[2] - cz, 0, cz - h[5] - 1);
@@ -1849,12 +1877,12 @@
   function updateCut() {
     const p = play.p, d = camDir(state.yaw, state.pitch);
     let hid = false;
-    for (const hy of [0.5, 1.4]) { const tt = march(cur, [p[0], p[1] + hy, p[2]], d); if (tt < 120 && tt * d[1] > 1.7 - hy) hid = true; }
+    for (const hy of [0.6, PL.h - 0.25]) { const tt = march(cur, [p[0], p[1] + hy, p[2]], d); if (tt < 120 && tt * d[1] > PL.h + 0.3 - hy) hid = true; }
     let cut = 1e5;
     if (hid) {
       const x = Math.floor(p[0]), z = Math.floor(p[2]), y0 = Math.floor(p[1] + 1e-4);
-      cut = y0 + 4;
-      for (let y = y0 + 2; y <= y0 + 14; y++) if (pSolid(x, y, z)) { cut = y; break; }
+      cut = y0 + 6;
+      for (let y = y0 + Math.ceil(PL.h); y <= y0 + 16; y++) if (pSolid(x, y, z)) { cut = y; break; }
       cut -= cur.base;
     }
     play.cut = cut;
@@ -1862,8 +1890,10 @@
   }
   // 원근 시점: 1인칭은 눈높이에서 앞을, 3인칭 뒤·앞은 정령을 바라보며 벽에 막히면 당겨 온다
   function updateTP(dt) {
-    const head = state.target.clone(); head.y += 0.45;
+    const head = state.target.clone();
     const c = camDir(state.yaw, state.pitch), fp = play.view === 'fp';
+    // 3인칭 뒤: 오른쪽 어깨 너머(0.8칸 옆, 머리보다 살짝 위)
+    if (play.view === 'tpb') { const sh = 0.8; head.x += Math.cos(state.yaw) * sh; head.z -= Math.sin(state.yaw) * sh; head.y += 0.25; }
     pcam.aspect = state.rtW / state.rtH;
     pcam.near = fp ? 0.1 : 0.2;
     if (fp) {
@@ -2029,6 +2059,7 @@
     // 놀이 모드 손잡이
     play: on => setPlay(on !== false), tp: on => setTP(on !== false), view: v => setView(v), cycleView, lockPointer, get keys() { return play.keys; }, interact,
     ride: () => play.ride && Object.keys(cur.props).find(n => cur.props[n] === play.ride),
+    dbg: () => ({ h: PL.h, eye: play.eyeS, hS: play.hS, PL }),
     solidProps: () => cur ? Object.keys(cur.props).filter(n => cur.props[n].userData.solid) : [],
     player: () => ({ on: play.on, tp: play.tp, view: play.view, yaw: state.yaw, pitch: state.pitch, air: play.air, locked: !!document.pointerLockElement, p: play.p.slice(), v: play.v.slice(), ground: play.ground, swim: play.swim, near: play.near && play.near.name, home: play.home && play.home.slice(), disc: cur ? found().length : 0, map: cur && cur.def.id }),
     key: (code, down) => { if (down) { if (code === 'Space' && !play.keys.Space) play.jumpQ = true; play.keys[code] = true; } else delete play.keys[code]; },

@@ -135,6 +135,32 @@
         name: '도개교', hint: '다리가 성문 쪽으로 들렸다가 다시 내려와요', hit: [GX0, P, 51, GX1, P + 2, MZ1],
         run: async a => { await a.turn('bridge', [-1.35, 0, 0], 3); await a.wait(1.6); await a.turn('bridge', [0, 0, 0], 2.6); a.burst([MIDX + 0.5, P + 1, 61], { n: 28, colors: ['#d8d4ca', '#a8a49c'], speed: 5, up: 1, life: 0.9, gravity: 3, spread: 6, flat: true }); },
       });
+      // 문루 쪽문(통로 서쪽 벽): 수비대 초소와 쇠창살 감기 방으로 드는 작은 문
+      {
+        const PX = GX0 - 1, Q0 = 39, Q1 = 40;
+        w.box(PX, P + 1, Q0, PX, P + 4, Q1, B.door); w.box(PX, P + 1, Q0, PX, P + 4, Q0, B.wood);
+        w.box(PX, P + 1, Q0 - 1, PX, P + 5, Q0 - 1, B.trim); w.box(PX, P + 1, Q1 + 1, PX, P + 5, Q1 + 1, B.trim); w.box(PX, P + 5, Q0, PX, P + 5, Q1, B.trim);
+        w.set(PX, P + 6, Q0, B.gold); w.set(PX, P + 6, Q1, B.gold); w.set(PX + 1, P + 3, Q1, B.iron);
+        w.set(PX + 1, P + 6, Q1 + 2, B.iron); w.set(PX + 1, P + 5, Q1 + 2, B.lampG);
+        acts.push({
+          name: '성문 문루 안으로', goto: 'castlegate-gatehouse', hint: '통로 옆 쪽문을 열고 수비대 초소와 쇠창살 감기 방이 있는 문루 안으로 들어가요', hit: [PX, P + 1, Q0, PX + 1, P + 5, Q1],
+          run: async a => {
+            const o = { n: 24, colors: ['#ffe9a0', '#ffffff', '#ffd060'], speed: 1.6, up: 1.5, life: 1, gravity: -0.4, spread: 1.2 };
+            a.burst([PX + 1.5, P + 4, Q0 + 1], o);
+            for (const x of [80, 95]) a.burst([x + 1, CG + 15, 53.5], o);   // 문루 창에 불빛이 번진다
+            await a.wait(0.6);
+          },
+        });
+      }
+      // 성문 문짝 너머 왕성 본관(성 내부 지도)으로: 문짝 앞과 아치 머릿돌, 본성 탑 위로 금빛이 번진다
+      acts.push({
+        name: '성 안으로', goto: 'innerkeep', hint: '큰 성문 문짝 사이로 지나 왕성 본관 안으로 들어가요', hit: [GX0 + 2, P + 1, 36, GX1 - 2, P + 10, 37],
+        run: async a => {
+          const o = { n: 30, colors: ['#ffe9a0', '#ffffff', '#ffd060'], speed: 2, up: 2, life: 1, gravity: -0.4, spread: 1.6 };
+          a.burst([MIDX + 1, P + 4, 38], o); a.burst([MIDX + 0.5, P + 21, 55], o); a.burst([MIDX + 0.5, CG + 82, 14.5], o); a.burst([MIDX + 0.5, CG + 70, 43.5], o);
+          await a.wait(0.6);
+        },
+      });
       landmarks.push({ name: '왕성 정문', note: '쌍탑 사이의 문루와 쇠창살', p: [MIDX + 0.5, Math.max(...towerTops) + 4, 47.5], tag: 'GATE' });
       landmarks.push({ name: '도개교', note: '해자 위로 내린 다리', p: [MIDX + 0.5, P + 9, 56] });
 

@@ -222,6 +222,14 @@
         },
       });
       lights.push({ p: [124.5, Y + 4, 65.5], c: '#ffe0a0', i: 1.1, d: 18, flicker: 0.15 });
+      // 북동 모서리 탑 계단문(서가 벽 x137): 나선 계단을 올라 왕의 서재로
+      {
+        const DX = 137, Q0 = 19, Q1 = 21;
+        w.box(DX, Y, Q0, DX, Y + 3, Q1, B.door); w.box(DX, Y, Q0 + 1, DX, Y + 3, Q0 + 1, B.wood); w.set(DX, Y + 1, Q1, B.gold);
+        w.box(DX, Y, Q0 - 1, DX, Y + 5, Q0 - 1, B.trim); w.box(DX, Y, Q1 + 1, DX, Y + 5, Q1 + 1, B.trim); w.box(DX, Y + 4, Q0, DX, Y + 5, Q1, B.trim); w.set(DX, Y + 5, Q0 + 1, B.gold);
+        w.set(DX - 1, Y + 4, Q1 + 1, B.iron); w.set(DX - 1, Y + 5, Q1 + 1, B.candle);
+        acts.push(OR.goAct({ at: [DX - 1, Y, Q0 + 1], h: 5, name: '왕의 서재 안으로', goto: 'innerkeep-tower', hint: '서가 사이 탑문을 열고 나선 계단을 올라 북동 모서리 탑의 왕의 서재로 들어가요', hit: [DX - 1, Y, Q0, DX, Y + 4, Q1] }));
+      }
       landmarks.push({ name: '왕실 서고', note: '왕국의 연대기가 잠든 서가', p: [124.5, Y + 15, 40.5] });
       // 보물고: 금화 더미, 보석, 뚜껑이 열리는 상자
       const CXX = 124, CZZ = 104;
@@ -369,6 +377,16 @@
           await Promise.all([a.turn('mgateL', [0, 0, 0], 2.2), a.turn('mgateR', [0, 0, 0], 2.2)]);
         },
       });
+      // 정문 밖 이정표: 성문 문루를 지나 왕성 앞 광장(castlegate)으로
+      {
+        const SX = 87, SZ = 143;
+        w.box(SX - 1, G, SZ - 1, SX + 1, G, SZ + 1, B.whiteDk);
+        w.box(SX, G + 1, SZ, SX, G + 6, SZ, B.wood);
+        for (let s = 1; s <= 4; s++) w.set(SX, G + 5, SZ + s, s === 4 ? B.gold : B.door);
+        for (let s = 1; s <= 3; s++) w.set(SX + s, G + 3, SZ, s === 3 ? B.gold : B.door);
+        w.set(SX, G + 7, SZ, B.lampG); w.set(SX, G + 8, SZ, B.iron);
+        acts.push(OR.goAct({ at: [SX, G + 1, SZ], h: 7, name: '성문 광장으로', goto: 'castlegate', hint: '정문을 나서 성문 문루를 지나 선왕 석상이 늘어선 왕성 앞 광장으로 가요' }));
+      }
       // ── 밤하늘 불꽃놀이: 익랑 벽 위에서 쏘아 올린다 ──
       acts.push({
         name: '밤하늘 불꽃', hint: '왕성 위 밤하늘에 금빛과 푸른빛 불꽃이 연달아 터져요', hit: [46, Y + 11, 122, 49, Y + 12, 128],

@@ -201,6 +201,9 @@
           await Promise.all(signs.map((s, k) => a.turn('sign' + k, [0, 0, 0], 0.4)));
         },
       });
+      // 길드 회관 정문(종탑 축의 문 x72..73): 회관 안 대회의장으로
+      w.box(71, g0 + 7, GZ1 + 1, 74, g0 + 7, GZ1 + 1, B.gold); w.set(74, g0 + 3, GZ1 + 1, B.iron); w.set(71, g0 + 3, GZ1 + 1, B.iron);
+      acts.push(OR.goAct({ at: [72, g0 + 1, GZ1 + 4], h: 3, name: '상인 길드 회관 안으로', goto: 'market-guildhall', hint: '종탑 아래 정문을 밀고 대회의장과 경매장, 금고가 있는 길드 회관 안으로 들어가요', hit: [72, g0 + 1, GZ1, 73, g0 + 5, GZ1 + 1] }));
       // ── 길드 회관 창불: 아래층부터 차례로 불이 켜진다 ──
       lights.push({ name: 'guild', p: [74.5, g0 + 11, GZ1 + 2], c: '#ffd890', i: 1.2, d: 34, flicker: 0.1 });
       acts.push({

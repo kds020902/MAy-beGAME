@@ -1075,6 +1075,17 @@
   $('#zi').addEventListener('click', () => { state.zoomT = Math.min(6, state.zoomT * 1.3); });
   $('#zo').addEventListener('click', () => { state.zoomT = Math.max(0.6, state.zoomT / 1.3); });
   $('#home').addEventListener('click', resetView);
+  // 전체 화면: 허용되지 않는 환경(일부 앱 화면 등)에선 조용히 넘어간다
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  $('#fs').addEventListener('click', () => {
+    try {
+      if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else { const r = document.documentElement, f = r.requestFullscreen || r.webkitRequestFullscreen; const q = f && f.call(r); if (q && q.catch) q.catch(() => {}); }
+    } catch (e) { /* 무시 */ }
+  });
+  const syncFs = () => { $('#fs').setAttribute('aria-pressed', String(!!fsEl())); setTimeout(resize, 60); };
+  document.addEventListener('fullscreenchange', syncFs); document.addEventListener('webkitfullscreenchange', syncFs);
+  if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) $('#fs').hidden = true;
   $('#sheet-toggle').addEventListener('click', () => {
     const open = $('#panel').classList.toggle('open');
     $('#sheet-toggle').setAttribute('aria-expanded', open);

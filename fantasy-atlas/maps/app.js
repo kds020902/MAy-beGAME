@@ -1497,7 +1497,13 @@
     for (let k = 0; k <= span * 2; k++) {
       const yy = y + (k & 1 ? (k + 1) >> 1 : -(k >> 1));
       if (yy < 1 || yy >= H - 2) continue;
-      if (pSolid(x, yy - 1, z) && liqAt(x, z) < yy) { let ok = true; for (let c = 0; c < Math.ceil(PL.hCrouch) && ok; c++) if (pSolid(x, yy + c, z)) ok = false; if (ok) return yy; }
+      if (pSolid(x, yy - 1, z) && liqAt(x, z) < yy) {
+        // 몸 폭(배율 2면 1.8칸)이 닿는 칸 모두 비어 있어야 선다
+        const r = PL.r - 0.5, x0 = Math.floor(x + 0.5 - PL.r), x1 = Math.floor(x + 0.5 + PL.r), z0 = Math.floor(z + 0.5 - PL.r), z1 = Math.floor(z + 0.5 + PL.r);
+        let ok = r < 0 || (x0 >= 0 && z0 >= 0 && x1 < W && z1 < D);
+        for (let c = 0; c < Math.ceil(PL.hCrouch) && ok; c++) for (let zz = z0; zz <= z1 && ok; zz++) for (let xx = x0; xx <= x1 && ok; xx++) if (pSolid(xx, yy + c, zz)) ok = false;
+        if (ok) return yy;
+      }
     }
     return -1;
   }

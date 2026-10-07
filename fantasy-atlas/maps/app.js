@@ -610,12 +610,15 @@
       if (VEHICLE.test(a.name) && !(a.sndKeys || []).includes('engine')) sfxAt('engine', actCenter(a), 0.8, { gap: 1.5 });
       return A.drive(n, pts, dur, o);
     };
+    // 탈것 이동(a.ride = 부품 이름): 놀이 모드면 먼저 그 부품 위에 태우고, 다 가면 화면이 어두워진 사이 부품을 제자리로 돌려 놓는다
+    const rp = a.ride && map.props[a.ride];
+    if (rp && play.on && play.ride !== rp) boardOn(rp);
     try { await a.run(AA); } catch (e) { /* 지도를 바꾸면 중단 */ }
     a.busy = false; if (cur === map) syncActs();
-    if (a.goto && cur === map) travel(a.goto);
+    if (a.goto && cur === map) travel(a.goto, rp ? () => { if (play.ride === rp) play.ride = null; A.respawn(a.ride, 0.05); } : null);
   }
   // 장소 이동: 잠깐 어두워졌다가 다른 지도로
-  async function travel(id) {
+  async function travel(id, beforeShow) {
     const i = MAPS.findIndex(m => m.id === id);
     if (i < 0) return;
     const fade = $('#fade');
@@ -623,6 +626,7 @@
     SND.sfx('travel', { vol: 0.8 });
     play.lock = true;
     await A.wait(0.4);
+    if (beforeShow) try { beforeShow(); } catch (e) { /* 무시 */ }
     show(i);
     const t0 = performance.now();
     while (state.idx !== i && performance.now() - t0 < 9000) await A.wait(0.05);
@@ -1408,7 +1412,7 @@
       }
       u.c = [(x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2, (z0 + z1 + 1) / 2];
       u.R = Math.hypot(x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1) / 2;
-      u.acts = [];
+      u.acts = []; u.name = n;
       u.solid = !o.ghost && cnt >= 4 && (!!o.solid || (!NOSOLID.test(n) && (DOOR_N.test(n) || RIDE_N.test(n))));
       u.ride = !o.ghost && cnt >= 4 && RIDE_N.test(n);   // X로 올라탈 수 있는 탈것
     }
@@ -1692,11 +1696,11 @@
     return { p: [x + 0.5, y + 1, z + 0.5], face };
   }
   // 가까운 탈것 윗면(부품 안에서 위가 몸 높이만큼 빈 칸): 세계 좌표로
-  function findRide() {
-    const p = play.p, out = { d: 6 * PS, p: null, pv: null };
+  function findRide(only) {
+    const p = play.p, out = { d: only ? Infinity : 6 * PS, p: null, pv: null };
     for (const n in cur.props) {
       const pv = cur.props[n], u = pv.userData;
-      if (!u.ride) continue;
+      if (only ? pv !== only : !u.ride) continue;
       const sc = pv.scale; if (Math.abs(sc.x * sc.y * sc.z) < 0.01) continue;
       pv.updateMatrix();
       if (!u.tops) {
@@ -1713,10 +1717,17 @@
       for (const q of u.tops) {
         tmpV3.set(q[0], q[1], q[2]).applyMatrix4(pv.matrix);
         const d = Math.hypot(tmpV3.x - p[0], (tmpV3.y - p[1]) * 0.6, tmpV3.z - p[2]);
-        if (d < out.d && !worldHit(tmpV3.x, tmpV3.y + 0.05, tmpV3.z)) { out.d = d; out.p = [tmpV3.x, tmpV3.y + 0.02, tmpV3.z]; out.pv = pv; }
+        if (d < out.d && (only || !worldHit(tmpV3.x, tmpV3.y + 0.05, tmpV3.z))) { out.d = d; out.p = [tmpV3.x, tmpV3.y + 0.02, tmpV3.z]; out.pv = pv; }
       }
     }
     return out.p ? out : null;
+  }
+  // 정해진 탈것 위에 바로 태운다(동작 a.ride)
+  function boardOn(pv) {
+    const r = findRide(pv);
+    if (!r) return false;
+    play.sit = null; play.p = r.p; play.v = [0, 0, 0]; play.ground = true; play.ride = null; play.props = null;
+    return true;
   }
   function sitOrBoard() {
     if (!play.on || play.lock) return;
@@ -1944,6 +1955,9 @@
     if (p[1] < -3) { if (play.ride || play.lastSafe) dropOff(); else respawn(); return; }
     // 발밑이 부품이면 탄다(다음 걸음에 그 부품이 움직인 만큼 따라감)
     play.ride = under;
+    // 탈것에 올라서 잠깐(0.6초) 있으면 그 탈것의 이동 동작(a.ride + goto, rideAuto가 false가 아니면)이 저절로 시작된다
+    const ra = under && !play.lock && cur.acts.find(q => q.ride && q.ride === under.userData.name && q.goto && q.rideAuto !== false);
+    if (ra && !ra.busy) { play.rideT = (play.rideT || 0) + dt; if (play.rideT > 0.6) { play.rideT = 0; runAct(ra); } } else play.rideT = 0;
     if (under) { const u = under.userData; under.updateMatrix(); u.prevM = (u.prevM || new THREE.Matrix4()).copy(under.matrix); u.ridSeen = u.respawns; }
     else if (play.ground && depth <= 0.1 && worldHit(p[0], p[1] - 0.05, p[2])) play.lastSafe = p.slice();
     footAudio(dt, depth, run);

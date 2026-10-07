@@ -607,7 +607,7 @@
       });
       landmarks.push({ name: '달샘 술 창고', note: '언덕 속에서 이슬 포도주가 익는 저장고', p: [309, vg + 36, 249] });
       acts.push({
-        name: '달샘 술 창고 안으로', hint: '문짝을 활짝 열고 언덕 속 깊은 통 저장실과 달빛 샘물 숙성 굴로 들어가요', goto: 'silverleaf-cellar', hit: [302, vg + 1, 240, 317, vg + 12, FZ0 + 2],
+        name: '달샘 술 창고 안으로', hint: '문짝을 활짝 열고 언덕 속 깊은 통 저장실과 달빛 샘물 숙성 굴로 들어가요', goto: 'silverleaf-cellar', hit: [302, vg + 1, 240, 317, vg + 12, FZ0 + 4],
         run: async a => {
           await Promise.all([a.turn('cdoorL', [0, -1.35, 0], 1), a.turn('cdoorR', [0, 1.35, 0], 1)]);
           a.flash('cellar', 2.5, 1.4);

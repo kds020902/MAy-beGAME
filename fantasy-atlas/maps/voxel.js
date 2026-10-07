@@ -417,11 +417,11 @@
 
   // ───── 액체(물·피·독·용암·얼음) ─────
   const LIQ_VS = `
-    varying vec3 vW; varying vec3 vN;
-    void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz; vN = normal;
+    attribute float dep; varying vec3 vW; varying vec3 vN; varying float vDep;
+    void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz; vN = normal; vDep = dep;
       gl_Position = projectionMatrix * viewMatrix * wp; }`;
   const LIQ_FS = `
-    uniform float uT; uniform float uSpeed; uniform float uAlpha; uniform vec3 uA; uniform vec3 uB; uniform vec3 uC;
+    uniform float uT; uniform float uSpeed; uniform float uAlpha; uniform float uOp; varying float vDep; uniform vec3 uA; uniform vec3 uB; uniform vec3 uC;
     uniform float uEnh; uniform vec4 uEye; uniform vec3 uSun; uniform vec3 uSunC; uniform vec3 uSkyC; uniform float uGlint;
     varying vec3 vW; varying vec3 vN;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
@@ -454,15 +454,19 @@
         c = mix(uA, uB, step(0.55, band));
         c = mix(c, uC, step(0.93, band));
       }
-      gl_FragColor = vec4(c, uAlpha);
+      // 물(uAlpha 1)은 반투명(uOp)으로 섞고, 빛나는 액체(0.75)는 그대로
+      // 얕은 물가는 더 맑게, 깊을수록 물빛이 진하게(그래도 반쯤 비친다)
+      float op = min(0.58, uOp * (0.62 + 0.44 * smoothstep(1.0, 14.0, vDep)));   // 0.6~0.8은 후처리의 발광 표시라 넘지 않는다
+      gl_FragColor = vec4(c, uAlpha > 0.9 ? op : uAlpha);
     }`;
   function buildLiquid(w, colors, speed, glow) {
     const W = w.W, D = w.D;
-    const pos = [], nor = [], idx = [];
+    const pos = [], nor = [], idx = [], dep = [];
+    let qd = 8;   // 지금 그리는 면의 물 깊이(칸)
     const quad = (a, b, c, d, n) => {
       const i0 = pos.length / 3;
       pos.push(...a, ...b, ...c, ...d);
-      for (let k = 0; k < 4; k++) nor.push(...n);
+      for (let k = 0; k < 4; k++) { nor.push(...n); dep.push(qd); }
       idx.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
     };
     const L = (x, z) => w.liq[x + W * z];
@@ -470,6 +474,7 @@
       const ly = w.liq[x + W * z];
       if (ly < 0) continue;
       const y = ly + 0.8;
+      qd = ly - w.top(x, z);
       quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0]);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, nz = z + dz;
@@ -479,6 +484,7 @@
         const nt = w.top(nx, nz);
         if (nl < 0 && nt >= ly) continue;
         const y0 = nl >= 0 ? nl + 0.8 : Math.max(0, nt + 1);
+        qd = 8;
         const fx = dx > 0 ? x + 1 : dx < 0 ? x : null;
         const fz = dz > 0 ? z + 1 : dz < 0 ? z : null;
         if (fx !== null) quad([fx, y0, z], [fx, y, z], [fx, y, z + 1], [fx, y0, z + 1], [dx, 0, 0]);
@@ -489,16 +495,23 @@
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('dep', new THREE.Float32BufferAttribute(dep, 1));
     g.setIndex(idx);
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uT: { value: 0 }, uSpeed: { value: speed == null ? 1 : speed }, uAlpha: { value: glow ? 0.75 : 1 },
+        uT: { value: 0 }, uSpeed: { value: speed == null ? 1 : speed }, uAlpha: { value: glow ? 0.75 : 1 }, uOp: { value: 0.54 },
         uA: { value: new THREE.Color(colors[0]) }, uB: { value: new THREE.Color(colors[1]) }, uC: { value: new THREE.Color(colors[2]) },
         // 셰이더 모드(fx.js가 매 프레임 채운다)
         uEnh: { value: 0 }, uEye: { value: new THREE.Vector4(0, 1, 0, 0) }, uSun: { value: new THREE.Vector3(0, 1, 0) },
         uSunC: { value: new THREE.Color('#fff') }, uSkyC: { value: new THREE.Color('#9ac') }, uGlint: { value: 1 },
       },
       vertexShader: LIQ_VS, fragmentShader: LIQ_FS, side: THREE.DoubleSide,
+    });
+    // 물은 반쯤 투명: 색은 알파로 섞고, 화면 알파(후처리가 하늘·발광·외곽선 표시로 씀)는 밑의 값에 더해 1에 가깝게 둔다
+    if (!glow) Object.assign(mat, {
+      transparent: true, blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor,
     });
     return new THREE.Mesh(g, mat);
   }

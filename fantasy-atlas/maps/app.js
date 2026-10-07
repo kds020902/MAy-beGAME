@@ -428,7 +428,7 @@
     };
     let verts = 0;
     disposables.forEach(d => { if (d.attributes && d.attributes.position) verts += d.attributes.position.count; });
-    const entry = { i, def, base, group, liquid, lights, particles, landmarks, props, acts, fog, disposables, occ: w.data, liq: w.liq, W, D, H, verts, stepT: stepTypes(w) };
+    const entry = { i, def, base, group, liquid, lights, particles, landmarks, props, acts, fog, disposables, occ: w.data, liq: w.liq, W, D, H, verts, stepT: stepTypes(w), pass: passSet(w), ids: w.id };
     cache.set(i, entry);
     // 캐시는 4개까지, 큰 지도가 많으면 정점 합계로도 줄인다
     const total = () => { let n = 0; cache.forEach(e => { n += e.verts; }); return n; };
@@ -774,14 +774,15 @@
     for (let k = 0; k < max; k++) out.push(all[Math.floor(k * step)]);
     return out;
   }
-  function solid(m, x, y, z) {
+  function solid(m, x, y, z, see) {
     if (x < 0 || z < 0 || y < 0 || x >= W || z >= D || y >= H) return false;
-    if (m.occ[x + W * (z + D * y)]) return true;
+    const b = m.occ[x + W * (z + D * y)];
+    if (b) return !(see && m.pass && m.pass[b]);   // see: 놀이 모드 시선은 풀·잎을 지나간다
     const lv = m.liq[x + W * z];
     return lv >= 0 && y <= lv;
   }
   // 복셀 DDA: p(복셀 좌표)에서 d 방향으로 처음 막히는 거리. 격자 밖에서 시작하면 상자 입구부터 잰다
-  function march(m, p, d) {
+  function march(m, p, d, see) {
     let t0 = 0;
     for (let q = 0; q < 3; q++) {
       const hi = [W, H, D][q];
@@ -799,7 +800,7 @@
     let t = t0;
     for (let n = 0; n < 700; n++) {
       if (x < -1 || z < -1 || y < -1 || x > W || z > D || y > H) return Infinity;
-      if (solid(m, x, y, z)) return t;
+      if (solid(m, x, y, z, see)) return t;
       if (tx < ty && tx < tz) { t = tx; x += sx; tx += dx; } else if (ty < tz) { t = ty; y += sy; ty += dy; } else { t = tz; z += sz; tz += dz; }
     }
     return Infinity;
@@ -1340,7 +1341,24 @@
   function pSolid(x, y, z) {
     if (x < 0 || z < 0 || x >= W || z >= D) return true;
     if (y < 0 || y >= H) return false;
-    return cur.occ[x + W * (z + D * y)] !== 0;
+    const b = cur.occ[x + W * (z + D * y)];
+    return b !== 0 && !cur.pass[b];
+  }
+  // 지나갈 수 있는 풀·잎·꽃 블록(지도 블록 이름으로 고른다). 땅으로 쓰는 grass*·moss, 산울타리·덤불, 큰 버섯 줄기는 단단하게 둔다
+  const PASS_K = /^(leaf|birchL|fir|pine|needle|flower|lavender|iris|lily|petal|rose|wheat|cabbage|herb|reed|fern|vine|ivy|plant$|veg$|grape|berry)/;
+  function passSet(w) {
+    const f = new Uint8Array(w.blocks.length);
+    for (const k in w.id) { const b = w.blocks[w.id[k]]; if (PASS_K.test(k) && !b.night && !(/^rose/.test(k) && b.glow)) f[w.id[k]] = 1; }
+    return f;
+  }
+  // 몸이 풀·잎 속에 있는지(조금 느려지고 사각사각)
+  function inFoliage() {
+    const p = play.p, x0 = Math.floor(p[0] - PL.r), x1 = Math.floor(p[0] + PL.r), z0 = Math.floor(p[2] - PL.r), z1 = Math.floor(p[2] + PL.r);
+    const y0 = Math.max(0, Math.floor(p[1] + 1e-4)), y1 = Math.min(H - 1, Math.floor(p[1] + PL.h - 1e-4));
+    for (let y = y0; y <= y1; y++) for (let z = Math.max(0, z0); z <= Math.min(D - 1, z1); z++) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
+      const b = cur.occ[x + W * (z + D * y)]; if (b && cur.pass[b]) return true;
+    }
+    return false;
   }
   const liqAt = (x, z) => (x < 0 || z < 0 || x >= W || z >= D) ? -1 : cur.liq[x + W * z];
   function worldHit(x, y, z) {
@@ -1460,7 +1478,7 @@
     toast('내렸어요');
     spawnBurst([s[0], s[1] + 0.5, s[2]], { n: 18, colors: ['#ffe9a0', '#ffffff'], speed: 1.8, up: 1.6, life: 0.7, gravity: -0.3, spread: 0.6 });
   }
-  const colTop = (x, z) => { for (let y = H - 1; y >= 0; y--) if (cur.occ[x + W * (z + D * y)]) return y; return -1; };
+  const colTop = (x, z) => { for (let y = H - 1; y >= 0; y--) { const b = cur.occ[x + W * (z + D * y)]; if (b && !cur.pass[b]) return y; } return -1; };
   // (x,z) 열에서 발 높이 y 근처(가까운 순)에 설 수 있는 자리
   function standNear(x, z, y, span) {
     if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return -1;
@@ -1767,7 +1785,8 @@
     const lv = liqAt(Math.floor(p[0]), Math.floor(p[2])), depth = lv >= 0 ? lv + 0.8 - p[1] : -1;
     if (depth > 0.4 && cur.def.liqGlow) { respawn(); return; }
     play.swim = depth > 1.9;   // 가슴 넘게 깊으면 헤엄
-    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.6 : depth > 0.3 ? 0.75 : 1);
+    const leafy = inFoliage();
+    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.6 : depth > 0.3 ? 0.75 : 1) * (leafy ? 0.85 : 1);
     const acc = Math.min(1, dt * (play.ground || play.swim ? 14 : 5));
     v[0] += (mx * sp - v[0]) * acc; v[2] += (mz * sp - v[2]) * acc;
     if (play.tp) play.faceT = state.yaw + Math.PI;   // 원근 시점: 바라보는 쪽으로 몸을 돌린다
@@ -1795,6 +1814,8 @@
     if (under) { const u = under.userData; under.updateMatrix(); u.prevM = (u.prevM || new THREE.Matrix4()).copy(under.matrix); u.ridSeen = u.respawns; }
     else if (play.ground && depth <= 0.1 && worldHit(p[0], p[1] - 0.05, p[2])) play.lastSafe = p.slice();
     footAudio(dt, depth, run);
+    // 풀·잎을 헤치고 가면 가끔 사각사각
+    if (leafy) { play.rustle = (play.rustle || 0) + Math.hypot(v[0], v[2]) * dt; if (play.rustle > 2.2) { play.rustle = 0; SND.sfx('step_grass', { vol: 0.22, rate: 1.15 + Math.random() * 0.2, gap: 0.3 }); } } else play.rustle = 1.6;
     play.stepVis *= Math.pow(0.0005, dt);
     let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     play.face += da * Math.min(1, dt * 12);
@@ -1902,7 +1923,7 @@
       avatar.visible = false;
     } else {
       const d = play.view === 'tpf' ? [-c[0], -c[1], -c[2]] : c;
-      const hit = march(cur, [head.x + W / 2, head.y + cur.base, head.z + D / 2], d);
+      const hit = march(cur, [head.x + W / 2, head.y + cur.base, head.z + D / 2], d, true);
       const want = Math.max(0.5, Math.min(play.tpDist, hit - 0.4));
       play.tpCur = want < play.tpCur ? want : play.tpCur + (want - play.tpCur) * Math.min(1, dt * 4);
       pcam.position.set(head.x + d[0] * play.tpCur, head.y + d[1] * play.tpCur, head.z + d[2] * play.tpCur);
@@ -1915,7 +1936,7 @@
   function aimAct() {
     const c = camDir(state.yaw, state.pitch), d = [-c[0], -c[1], -c[2]];
     const o = [pcam.position.x + W / 2, pcam.position.y + cur.base, pcam.position.z + D / 2];
-    const wall = march(cur, o, d);
+    const wall = march(cur, o, d, true);
     let best = null, bt = 6;
     for (const a of cur.acts) {
       const h = a.hit;
@@ -2060,6 +2081,16 @@
     play: on => setPlay(on !== false), tp: on => setTP(on !== false), view: v => setView(v), cycleView, lockPointer, get keys() { return play.keys; }, interact,
     ride: () => play.ride && Object.keys(cur.props).find(n => cur.props[n] === play.ride),
     dbg: () => ({ h: PL.h, eye: play.eyeS, hS: play.hS, PL }),
+    passKeys: () => cur ? Object.keys(cur.ids).filter(k => cur.pass[cur.ids[k]]) : [],
+    // 검사용: 풀·잎 통과를 잠시 끈다(예전처럼 막히는지 비교)
+    passOff: off => { if (!cur) return; if (off) { cur.pass0 = cur.pass0 || cur.pass; cur.pass = new Uint8Array(cur.pass.length); } else if (cur.pass0) cur.pass = cur.pass0; },
+    // 검사용: 바닥 바로 위(발 높이)에 key 블록이 n칸 넘게 뭉친 곳 찾기
+    findFoliage: (re, minH, maxGap) => { const m = cur, R = new RegExp(re), ids = Object.keys(m.ids).filter(k => R.test(k) && m.pass[m.ids[k]]).map(k => m.ids[k]); const out = [];
+      for (let z = 6; z < D - 6; z++) for (let x = 6; x < W - 6; x++) for (let y = H - 2; y > 1; y--) { const b = m.occ[x + W * (z + D * y)]; if (!b) continue;
+        if (ids.includes(b)) { let yy = y; while (yy > 0 && ids.includes(m.occ[x + W * (z + D * (yy - 1))])) yy--; let g = yy - 1; while (g > 0 && !m.occ[x + W * (z + D * g)]) g--;
+          const under = m.occ[x + W * (z + D * g)]; if (under && !m.pass[under] && y - yy + 1 >= (minH || 1) && yy - g - 1 <= (maxGap || 0)) out.push([x, g + 1, z, y - yy + 1, yy - g - 1]); }
+        break; }
+      return out; },
     solidProps: () => cur ? Object.keys(cur.props).filter(n => cur.props[n].userData.solid) : [],
     player: () => ({ on: play.on, tp: play.tp, view: play.view, yaw: state.yaw, pitch: state.pitch, air: play.air, locked: !!document.pointerLockElement, p: play.p.slice(), v: play.v.slice(), ground: play.ground, swim: play.swim, near: play.near && play.near.name, home: play.home && play.home.slice(), disc: cur ? found().length : 0, map: cur && cur.def.id }),
     key: (code, down) => { if (down) { if (code === 'Space' && !play.keys.Space) play.jumpQ = true; play.keys[code] = true; } else delete play.keys[code]; },

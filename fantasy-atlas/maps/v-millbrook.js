@@ -232,7 +232,7 @@
       // ── 조각보 밭, 산울타리, 붉은 헛간 ──
       const crops = [B.wheat, B.cabbage, B.lavender, B.wheat];
       const BRX0 = 49, BRX1 = 64, BRZ0 = 125, BRZ1 = 136;
-      const lavs = [];
+      const lavs = [], lavRows = [];
       for (let fz = 95; fz < 160; fz += 17) for (let fx = 8; fx < 68; fx += 19) {
         const crop = crops[((fx / 19 | 0) + (fz / 17 | 0)) % 4];
         let cnt = 0;
@@ -243,6 +243,7 @@
           if ((z - fz) % 2 === 0) { w.set(x, g + 1, z, crop); if (crop === B.wheat && hash3(x, 2, z) > 0.5) w.set(x, g + 2, z, crop); if (crop === B.lavender && hash3(x, 3, z) > 0.7) w.set(x, g + 2, z, B.lavender); }
         }
         if (crop === B.lavender && cnt > 60) lavs.push([fx + 7, fz + 6]);
+        if (crop === B.lavender) for (let z = fz; z < fz + 13; z += 2) lavRows.push([fx, fx + 14, z]);
         for (let x = fx - 1; x <= fx + 15; x++) for (const z of [fz - 1, fz + 13]) { const g = MH.g(w, x, z); if (g > 0 && !wet(x, z) && !w.get(x, g + 1, z) && MH.polyDist(x, z, westPath) > 3.5) { w.set(x, g + 1, z, B.hedge); if (hash3(x, 1, z) > 0.5) w.set(x, g + 2, z, B.hedge); } }
       }
       const barn = MH.house(w, { x: 50, z: 126, sx: 14, sz: 10, fh: 9, face: 'e', m: { found: B.found, wall: B.barnR, frame: B.sail, door: B.sail, roof: B.tile, eave: B.tileDk, ridge: B.sail } });
@@ -332,16 +333,44 @@
           }
         },
       });
-      // ── 라벤더 밭: 바람이 지나가며 보랏빛 꽃잎과 벌이 날아오른다 ──
+      // ── 라벤더 밭: 바람이 지나가며 라벤더 이랑과 둘레 들꽃이 물결치듯 눕고, 꽃잎과 벌이 날아오른다 ──
+      // 이랑·들꽃 부품(sway)은 들꽃을 뿌린 뒤 build 끝에서 만든다
       const L0 = lavs[0] || [30, 120], lg0 = MH.g(w, L0[0], L0[1]);
+      const sway = { rows: [], beds: [], trees: [] };
       acts.push({
-        name: '라벤더 바람', hint: '바람이 밭을 쓸고 지나가며 보랏빛 꽃잎이 흩날려요', hit: [L0[0] - 6, lg0 + 1, L0[1] - 5, L0[0] + 6, lg0 + 3, L0[1] + 5],
+        name: '라벤더 바람', hint: '바람이 밭을 쓸고 지나가며 라벤더와 들꽃이 물결치고 꽃잎이 흩날려요', hit: [L0[0] - 6, lg0 + 1, L0[1] - 5, L0[0] + 6, lg0 + 3, L0[1] + 5],
         run: async a => {
-          a.wind(4, 4);
-          for (let k = 0; k < 8; k++) {
-            for (const [lx, lz] of lavs) a.burst([lx + (k % 4 - 1.5) * 3, MH.g(w, lx, lz) + 2, lz + (k % 3 - 1) * 3], { n: 16, colors: ['#8a6ac8', '#b89ae8', '#e0d0ff', '#fff080'], speed: 3.5, up: 2.5, life: 2.4, gravity: -0.2, spread: 3, flat: true });
-            await a.wait(0.4);
+          a.wind(4, 6.6);
+          a.spin('blades', 2.4, 6.5);   // 언덕 풍차도 돌풍을 받는다
+          const LAV = ['#8a6ac8', '#b89ae8', '#e0d0ff', '#6a4aa8'];
+          // 물결 하나: 북쪽(z 작음)에서 남쪽으로 쓸고 지나가며 차례로 눕혔다 일으킨다
+          const swing = async (p, delay, amp, pass) => {
+            await a.wait(delay);
+            if (p.kind === 'row') {
+              a.burst(p.top, { n: pass ? 5 : 8, colors: LAV, speed: 2.2, up: 2.2, life: 2.2, gravity: -0.15, spread: p.half, flat: true });
+              await a.turn(p.name, [amp, 0, 0], 0.42);
+              await a.turn(p.name, [-amp * 0.4, 0, 0], 0.5);
+              await a.turn(p.name, [amp * 0.45, 0, 0], 0.42);
+              await a.turn(p.name, [0, 0, 0], 0.5);
+            } else {
+              a.burst(p.top, { n: pass ? 4 : 6, colors: p.colors, speed: 2, up: 2.4, life: 2, gravity: -0.1, spread: p.half, flat: true });
+              await a.move(p.name, [0, 0, amp], 0.42);
+              await a.move(p.name, [0, 0, -amp * 0.4], 0.5);
+              await a.move(p.name, [0, 0, amp * 0.4], 0.42);
+              await a.move(p.name, [0, 0, 0], 0.5);
+            }
+          };
+          const all = sway.rows.concat(sway.beds), z0 = Math.min(...all.map(p => p.z)), x0 = Math.min(...all.map(p => p.x));
+          const jobs = [];
+          for (let pass = 0; pass < 2; pass++) {
+            const t0 = pass * 3;
+            for (const p of all) jobs.push(swing(p, t0 + (p.z - z0) * 0.042 + (p.x - x0) * 0.008, (p.kind === 'row' ? 0.42 : 0.32) * (pass ? 0.7 : 1), pass));
+            // 둘레 나무에서 잎이 몇 장씩 떨어진다
+            sway.trees.forEach(t => jobs.push(a.wait(t0 + 0.3 + (t[2] - z0) * 0.042).then(() => a.burst(t, { n: pass ? 5 : 8, colors: ['#4a8a3a', '#6aaa48', '#a8c860'], speed: 2.2, up: 0.8, life: 2.6, gravity: 1, spread: 2.5, flat: true }))));
           }
+          // 처음 밭의 벌떼
+          for (let k = 0; k < 3; k++) { for (const [lx, lz] of lavs) a.burst([lx + (k - 1) * 3, MH.g(w, lx, lz) + 3, lz], { n: 5, colors: ['#ffd23a', '#2a2018', '#fff080'], speed: 2.5, up: 1.5, life: 2, gravity: -0.2, spread: 3, flat: true }); await a.wait(0.9); }
+          await Promise.all(jobs);
         },
       });
 
@@ -461,6 +490,52 @@
       landmarks.push({ name: '비둘기 탑', note: '편지를 나르는 흰 비둘기', p: [DX + 0.5, dtop + 7, DZ + 0.5] });
 
       MH.scatter(w, 2800, (x, g, z, b) => { if ((b === B.grass || b === B.grass2 || b === B.grass3) && w.chance(0.18)) w.set(x, g + 1, z, w.chance(0.7) ? B.grass3 : w.pick([B.flower, B.flower2, B.flower3])); });
+      // ── 라벤더 바람 부품: 라벤더 이랑(한 줄씩)과 밭 둘레 들꽃(몇 칸씩 묶음)을 월드에서 떼어 부품으로 옮긴다 ──
+      { const LAVC = { [B.lavender]: '#8a6ac8', [B.flower]: '#e86a8a', [B.flower2]: '#f0e060', [B.flower3]: '#ffffff' };
+        let k = 0;
+        for (const [rx0, rx1, rz] of lavRows) {
+          const vox = [];
+          for (let x = rx0; x <= rx1; x++) { const g = MH.g(w, x, rz); for (const y of [g + 1, g + 2]) if (w.get(x, y, rz) === B.lavender) vox.push([x, y]); }
+          if (vox.length < 3) continue;
+          const gy = Math.round(vox.reduce((s2, v) => s2 + MH.g(w, v[0], rz), 0) / vox.length) + 1;
+          const xs = vox.map(v => v[0]), cx = (Math.min(...xs) + Math.max(...xs) + 1) / 2;
+          const name = 'lavrow' + k++;
+          const pr = w.prop({ name, pivot: [cx, gy, rz + 0.5] });
+          for (const [x, y] of vox) { pr.set(x, y, rz, B.lavender); w.set(x, y, rz, 0); }
+          sway.rows.push({ kind: 'row', name, x: cx, z: rz, half: (Math.max(...xs) - Math.min(...xs)) / 2, top: [cx, gy + 1.5, rz + 0.5] });
+        }
+        // 밭 둘레 들꽃·꽃밭: 라벤더 밭에서 12칸 안쪽, 6칸 격자로 묶는다
+        const fx0 = Math.min(...lavRows.map(r => r[0])) - 12, fx1 = Math.max(...lavRows.map(r => r[1])) + 12;
+        const fz0 = Math.min(...lavRows.map(r => r[2])) - 12, fz1 = Math.max(...lavRows.map(r => r[2])) + 12;
+        const near = (x, z) => lavRows.some(([a0, a1, rz]) => x >= a0 - 12 && x <= a1 + 12 && Math.abs(z - rz) <= 12);
+        const cells = new Map();
+        for (let z = Math.max(1, fz0); z <= Math.min(D - 2, fz1); z++) for (let x = Math.max(1, fx0); x <= Math.min(W - 2, fx1); x++) {
+          const g = MH.g(w, x, z); if (g < 0) continue;
+          const b = w.get(x, g + 1, z);
+          if (!(b === B.flower || b === B.flower2 || b === B.flower3 || b === B.lavender) || w.get(x, g + 2, z) || !near(x, z)) continue;
+          const key = ((x / 6) | 0) + ',' + ((z / 6) | 0);
+          if (!cells.has(key)) cells.set(key, []);
+          cells.get(key).push([x, g + 1, z, b]);
+        }
+        let q = 0;
+        for (const fl of cells.values()) {
+          const n2 = fl.length, cx = fl.reduce((s2, v) => s2 + v[0], 0) / n2 + 0.5, cz = fl.reduce((s2, v) => s2 + v[2], 0) / n2 + 0.5, cy = Math.round(fl.reduce((s2, v) => s2 + v[1], 0) / n2);
+          const name = 'lavbed' + q++;
+          const pr = w.prop({ name, pivot: [cx, cy, cz] });
+          for (const [x, y, z, b] of fl) { pr.set(x, y, z, b); w.set(x, y, z, 0); }
+          const colors = [...new Set(fl.map(v => LAVC[v[3]]))];
+          if (colors.length < 2) colors.push(colors[0] === '#ffffff' ? '#fff4d0' : '#ffffff');
+          sway.beds.push({ kind: 'bed', name, x: cx, z: cz, half: Math.max(1, Math.max(...fl.map(v => Math.hypot(v[0] + 0.5 - cx, v[2] + 0.5 - cz)))), top: [cx, cy + 1.2, cz], colors });
+        }
+        // 잎을 떨굴 둘레 나무: 8칸 격자마다 가장 높은 잎 하나
+        const tops = new Map();
+        for (let z = Math.max(0, fz0 - 10); z <= Math.min(D - 1, fz1 + 4); z++) for (let x = Math.max(0, fx0 - 6); x <= Math.min(W - 1, fx1 + 8); x++) {
+          const ty = w.top(x, z), b = w.get(x, ty, z);
+          if (!(b === B.leaf || b === B.leaf2 || b === B.leafDk)) continue;
+          const key = ((x / 8) | 0) + ',' + ((z / 8) | 0), c = tops.get(key);
+          if (!c || ty > c[1]) tops.set(key, [x + 0.5, ty, z + 0.5]);
+        }
+        sway.trees = [...tops.values()].sort((p1, p2) => p2[2] - p1[2]).slice(0, 8); }
       const smoke = smokes.concat(mill.chimney ? [mill.chimney] : [], cid.chimney ? [cid.chimney] : []).map(c => ({ n: 30, colors: ['#e8e8e8', '#c8c8c8'], mode: 'rise', speed: 0.6, area: [c[0], c[2], 0.6], y0: c[1], y1: c[1] + 20, glow: false }));
       return { lights, landmarks, acts, particles: smoke };
     },

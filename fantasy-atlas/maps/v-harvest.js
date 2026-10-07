@@ -22,7 +22,9 @@
       { n: 80, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], mode: 'rise', speed: 2.6, area: [168, 158, 6], y0: 76, y1: 132 },
     ],
     blocks: {
-      grass: { c: '#6a4a30', top: '#9aa04a', v: 0.08 }, grass2: { c: '#6a4a30', top: '#b0a048', v: 0.08 }, grass3: { c: '#6a4a30', top: '#8a9a44', v: 0.08 },
+      grass: { c: '#7a7840', top: '#9aa04a', v: 0.08 }, grass2: { c: '#88803e', top: '#b0a048', v: 0.08 }, grass3: { c: '#6e7238', top: '#8a9a44', v: 0.08 },
+      sand: { c: '#a08a68', top: '#c8b48a', v: 0.1 }, mud: { c: '#54402c', top: '#6e5a40', v: 0.1 }, gravel: { c: '#6a6258', top: '#8a8274', v: 0.14 }, weedBed: { c: '#3e4a2c', top: '#4c5e34', v: 0.12 },
+      pathDk: { c: '#6a4a30', top: '#a88a60', v: 0.1 }, grassWorn: { c: '#7a7040', top: '#b4a868', v: 0.1 },
       dirt: { c: '#6a4a30', v: 0.08 }, rock: { c: '#7a7068', v: 0.06, pat: 'stone' }, rockDk: { c: '#5e564e', v: 0.06, pat: 'stone' },
       path: { c: '#6a4a30', top: '#c8a878', v: 0.1 }, pathE: { c: '#6a4a30', top: '#b0905e', v: 0.1 },
       soil: { c: '#5a3a24', top: '#6a4428', v: 0.08 }, soilDk: { c: '#4a2e1c', top: '#553420', v: 0.08 },
@@ -65,7 +67,6 @@
     },
     build(w) {
       const B = w.id, n = w.noise, base = w.base, SX = 168, SZ = 158, PX = 62, PZ = 256;
-      const dr = [[84, 242], [70, 250], [58, 260], [56, 270]];               // 오리 길
       const MX0 = 68, MZ0 = 190, MSX = 20, MSZ = 18, CHX = 96;           // 물레방앗간과 물길
       const g = (x, z) => MH.g(w, Math.round(x), Math.round(z));
       MH.terrain(w, {
@@ -78,7 +79,32 @@
         under: (x, z, y, dep, s) => dep < 5 && s < 6 ? B.dirt : B.rock,
       });
       const lvl = MH.g(w, PX, PZ) + 8;
-      MH.water(w, lvl, (x, z) => MH.dist(x, z, PX, PZ) < 36.8);
+      const dr = [[84, 242], [70, 250], [58, 260], [56, 270]];               // 오리 길
+      // 연못: 완벽한 원 대신 들쭉날쭉한 물가, 가장자리에서 서서히 깊어지는 바닥(모래·진흙·수초 무리),
+      // 물 밖은 모래·자갈·진흙 기슭에서 풀밭으로 완만하게 이어진다(물이 벽처럼 서지 않게 낮은 곳은 둑을 돋운다)
+      const pondE = (x, z) => {
+        const d = MH.dist(x, z, PX, PZ), de = d * (1 + (n.fbm(x * 0.045 + 61, z * 0.045 + 7, 2) - 0.5) * 0.55) + (hash3(x >> 2, 31, z >> 2) - 0.5) * 1.2;
+        let e = 31 - de;
+        if (MH.polyDist(x, z, dr) < 8) e = Math.max(e, 4);
+        if (MH.dist(x, z, 93, 230) < 9) e = Math.max(e, 2);
+        return e;
+      };
+      for (let z = PZ - 56; z <= PZ + 56; z++) for (let x = PX - 56; x <= PX + 56; x++) {
+        const gg = MH.g(w, x, z); if (gg < 0) continue;
+        const e = pondE(x, z), nb = n.fbm(x * 0.08 + 9, z * 0.08 + 33, 2);
+        if (e > 0) {
+          const dep = Math.max(1, Math.min(9, Math.round(1 + e * 0.42 + (nb - 0.5) * 2.5)));
+          MH.setH(w, x, z, lvl - dep, dep <= 2 ? (nb > 0.56 ? B.gravel : B.sand) : nb > 0.6 ? B.weedBed : nb > 0.42 ? B.mud : nb > 0.3 ? B.sand : B.gravel, B.dirt);
+        } else if (-e < 18) {
+          const o = -e, t = lvl + 1 + Math.floor(o * (0.4 + nb * 0.3) + (nb - 0.5) * 1.2);
+          const top = o < 1.5 + nb * 2.5 ? (nb > 0.55 ? B.gravel : B.sand) : o < 3 + nb * 2 ? B.mud : null;
+          let h = gg;
+          if (gg > t && o < 9) h = Math.max(lvl + 1, t);
+          else if (gg <= lvl) h = Math.max(lvl + 1, Math.min(t, lvl + 2));
+          if (h !== gg || top) MH.setH(w, x, z, h, top || w.get(x, gg, z), B.dirt);
+        }
+      }
+      MH.water(w, lvl, (x, z) => MH.dist(x, z, PX, PZ) < 56 && pondE(x, z) > 0);
       const wet = (x, z) => x >= 0 && z >= 0 && x < W && z < D && w.liq[x + W * z] >= 0;
       const lights = [], acts = [], landmarks = [], keep = [];   // keep: 나무를 심지 않을 사각 영역
       const roads = [[[SX, SZ], [124, 208], [112, 280], [88, 336]], [[SX, SZ], [246, 132], [336, 110]], [[SX, SZ], [178, 74], [158, 0]], [[SX, SZ], [220, 246], [246, 336]]];
@@ -464,14 +490,25 @@
           for (let k = 1; k <= ht; k++) w.set(x, gg + k, z, k === ht && hash3(x >> 2, 7, z) > 0.6 ? B.hedge2 : B.hedge);
         }
       }
-      for (const r of roads) MH.path(w, r, 5.2, B.path, B.pathE);
+      // 길: 너비가 들쭉날쭉하고, 가장자리 흙(pathE)은 끊기며 닳은 풀밭으로 번지고, 가운데는 수레바퀴 자국처럼 짙게 다져진 두 줄
+      { const NAT = new Set(['grass', 'grass2', 'grass3', 'dirt', 'path', 'pathE', 'pathDk', 'grassWorn', 'mud', 'sand', 'gravel'].map(k => B[k]));
+        for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+          let d = 1e9, r0 = null; for (const r of roads) { const q = MH.polyDist(x + 0.5, z + 0.5, r); if (q < d) { d = q; r0 = r; } }
+          if (d > 10) continue;
+          const gg = MH.g(w, x, z); if (gg < 0) continue;
+          const cur = w.get(x, gg, z), nat = NAT.has(cur), nb = n.fbm(x * 0.12 + 13, z * 0.12 + 29, 2), wd = 5.2 + (nb - 0.5) * 3.4;
+          if (d <= wd && (d <= 5.2 || nat)) w.set(x, gg, z, d > 1.6 && d < 3.4 && n.fbm(x * 0.25 + 3, z * 0.25 + 8, 1) > 0.42 ? B.pathDk : B.path);
+          else if (nat && d <= wd + 1.2 && nb > 0.3) w.set(x, gg, z, B.pathE);
+          else if (nat && cur !== B.path && d <= wd + 3.4 && nb > 0.45 && hash3(x >> 1, 9, z >> 1) > 0.35) w.set(x, gg, z, B.grassWorn);
+        } }
 
       // ───────── 수확제 광장 ─────────
       const sg = MH.g(w, SX, SZ);
       for (let z = SZ - 49; z <= SZ + 49; z++) for (let x = SX - 49; x <= SX + 49; x++) { const d = MH.dist(x, z, SX, SZ); if (d < 49) MH.setH(w, x, z, sg, d < 39.2 ? B.cobble : d < 41.2 ? B.found : B.path, B.dirt); }
       for (let z = SZ - 84; z <= SZ + 84; z++) for (let x = SX - 84; x <= SX + 84; x++) {   // 둥근 둔덕: 광장 가장자리에서 완만하게 내려간다
         const d = MH.dist(x, z, SX, SZ), gg = MH.g(w, x, z); if (d < 49 || d > 84 || gg < 0) continue;
-        const h = Math.round(sg - (d - 49) * 0.55 - Math.max(0, d - 70) * 0.4);
+        const dn = d + (n.fbm(x * 0.05 + 17, z * 0.05 + 41, 2) - 0.5) * 16 * Math.min(1, (d - 49) / 8);   // 둔덕 자락이 동심원으로 고르지 않게
+        const h = Math.round(sg - (dn - 49) * 0.55 - Math.max(0, dn - 70) * 0.4);
         if (h > gg) MH.setH(w, x, z, h, d < 51 ? B.pathE : (n.fbm(x * 0.035 + 3, z * 0.035, 2) > 0.6 ? B.grass2 : B.grass), B.dirt);
       }
       keep.push([SX - 52, SZ - 52, SX + 52, SZ + 52]);
@@ -861,8 +898,9 @@
         if (wet(x, z) || MH.dist(x, z, PX, PZ) > 44) continue;
         if (!(wet(x + 1, z) || wet(x - 1, z) || wet(x, z + 1) || wet(x, z - 1) || wet(x + 2, z) || wet(x - 2, z))) continue;
         const gg = MH.g(w, x, z), h = hash3(x, 5, z);
-        if (gg > lvl + 6 || w.get(x, gg + 1, z) || h < 0.7 || MH.dist(x, z, CHX, WZ) < 14) continue;
-        const ht = 3 + ((h - 0.7) * 22 | 0);
+        const cl = n.fbm(x * 0.09 + 77, z * 0.09 + 5, 2);   // 갈대는 울타리처럼 고르게 두르지 않고 무리 지어
+        if (gg > lvl + 6 || w.get(x, gg + 1, z) || cl < 0.47 || h < (cl > 0.6 ? 0.45 : 0.7) || MH.dist(x, z, CHX, WZ) < 14) continue;
+        const ht = 3 + (Math.min(0.29, (h - 0.45) * (cl > 0.6 ? 0.6 : 1)) * 22 | 0);
         for (let k = 1; k <= ht; k++) w.set(x, gg + k, z, k % 3 ? B.reed : B.reed2);
         if (h > 0.86) { w.set(x, gg + ht + 1, z, B.reedTop); w.set(x, gg + ht + 2, z, B.reedTop); w.set(x, gg + ht + 3, z, B.reed2); }
       }

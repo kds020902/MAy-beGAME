@@ -22,7 +22,9 @@
       { n: 60, colors: ['#ffd0e8', '#fff080'], mode: 'wisp', speed: 2, size: 2, y0: 52, glow: false },
     ],
     blocks: {
-      grass: { c: '#6b4a30', top: '#6fae4a', v: 0.08 }, grass2: { c: '#6b4a30', top: '#86bc52', v: 0.08 }, grass3: { c: '#6b4a30', top: '#5a9a40', v: 0.08 },
+      grass: { c: '#5e7c38', top: '#6fae4a', v: 0.08 }, grass2: { c: '#66863c', top: '#86bc52', v: 0.08 }, grass3: { c: '#567234', top: '#5a9a40', v: 0.08 },
+      sand: { c: '#a89470', top: '#cfbd8e', v: 0.1 }, mud: { c: '#5a4632', top: '#7a6448', v: 0.1 }, weedBed: { c: '#4a5a34', top: '#56703a', v: 0.12 },
+      pathDk: { c: '#6b4a30', top: '#ae9a72', v: 0.1 }, grassWorn: { c: '#6a7a40', top: '#98aa5c', v: 0.1 },
       dirt: { c: '#6b4a30', v: 0.08 }, rock: { c: '#7a7a80', v: 0.06, pat: 'stone' }, rockDk: { c: '#5a5a62', v: 0.06, pat: 'stone' }, rockMoss: { c: '#7a7a80', top: '#6a8a48', v: 0.08 },
       path: { c: '#6b4a30', top: '#c8b48a', v: 0.1 }, bank: { c: '#6a5038', top: '#a8946c', v: 0.1 }, gravel: { c: '#6a6660', top: '#8a8478', v: 0.14 },
       soil: { c: '#5a3a24', top: '#6a4428', v: 0.08 }, soilDk: { c: '#4a2e1c', top: '#553420', v: 0.08 },
@@ -65,6 +67,20 @@
       const g = (x, z) => MH.g(w, Math.round(x), Math.round(z));
       const lights = [], acts = [], landmarks = [], smokes = [];
       const grassAt = (x, z) => { const f = n.fbm(x * 0.045 + 7, z * 0.045, 2); return f > 0.6 ? B.grass2 : f < 0.38 ? B.grass3 : B.grass; };
+      // 길: 곧은 경계 대신 너비가 들쭉날쭉하고, 가장자리는 닳은 풀밭으로 번지며, 가운데는 많이 밟혀 짙게 다져진 자국
+      const NAT = new Set();
+      const rpath = (pts, width, b, edge, worn) => {
+        if (!NAT.size) for (const k of ['grass', 'grass2', 'grass3', 'dirt', 'mud', 'sand', 'gravel', 'path', 'pathDk', 'grassWorn']) NAT.add(B[k]);
+        for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+          const d = MH.polyDist(x + 0.5, z + 0.5, pts);
+          if (d > width + 5) continue;
+          const gg = MH.g(w, x, z); if (gg < 0) continue;
+          const cur = w.get(x, gg, z), nat = NAT.has(cur), nb = n.fbm(x * 0.13 + 13, z * 0.13 + 29, 2), wd = width + (nb - 0.5) * 3.2;
+          if (d <= wd && (d <= width || nat)) w.set(x, gg, z, worn && d < width * 0.55 && n.fbm(x * 0.2 + 3, z * 0.2 + 8, 2) > 0.5 ? B.pathDk : b);
+          else if (nat && edge && d <= width + 1) w.set(x, gg, z, edge);
+          else if (nat && cur !== b && d <= wd + 2.6 && nb > 0.42 && hash3(x >> 1, 9, z >> 1) > 0.3) w.set(x, gg, z, B.grassWorn);
+        }
+      };
 
       // ───────── 지형: 원본 높이 함수를 두 배로 ─────────
       MH.terrain(w, {
@@ -72,9 +88,12 @@
         height: (x, z) => {
           const ox = x / 2, oz = z / 2;
           const d = Math.abs(ox - rX0(oz)) / K0;
-          let hh = Math.pow(d, 1.1) * 0.1 + Math.max(0, 18 - MH.dist(ox, oz, 32, 74) * 0.5 / K0) + Math.max(0, 10 - MH.dist(ox, oz, 152, 32) * 0.4 / K0);
+          const hill = Math.max(0, 18 - MH.dist(ox, oz, 32, 74) * 0.5 / K0) + Math.max(0, 10 - MH.dist(ox, oz, 152, 32) * 0.4 / K0);
+          let hh = Math.pow(d, 1.1) * 0.1 + hill;
           hh += 2.5 * Math.max(0, Math.min(1, (94 - oz) / 31.5));
-          return base + 2 * (hh + n.fbm(ox * 0.04 / K0, oz * 0.04 / K0) * 3);
+          // 언덕 비탈의 굴곡: 등고선이 동심원으로 고르게 돌지 않도록 둔덕과 골을 얹는다(언덕에서만 세게)
+          const bump = (n.fbm(x * 0.045 + 31, z * 0.045 + 17, 3) - 0.5) * 7 + (n.fbm(x * 0.11 + 5, z * 0.11 + 9, 2) - 0.5) * 2.2;
+          return base + 2 * (hh + n.fbm(ox * 0.04 / K0, oz * 0.04 / K0) * 3) + bump * Math.min(1, 0.25 + hill / 5);
         },
         surface: (x, z, y, s) => s >= 3 ? B.rock : grassAt(x, z),
         under: (x, z, y, dep, s) => dep < 5 && s < 3 ? B.dirt : B.rock,
@@ -442,14 +461,32 @@
 
       // ───────── 강: 강기슭, 자갈 바닥, 물가 바위와 갈대 ─────────
       const RW = 13.2;
+      // 물가: 수직 벽 대신 물가에서 몇 칸에 걸쳐 완만하게 올라가는 강기슭, 모래톱과 자갈, 진흙.
+      // 물속은 가장자리에서 서서히 깊어지고 바닥은 모래·자갈·수초 무리(덩어리 단위로 섞는다)
+      const nearMill = z => Math.abs(z - 104) < 32, nearBridge = z => Math.abs(z - 232) < 14;
       for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-        const d = Math.abs(x + 0.5 - rX(z + 0.5)) * 0.99, gg = MH.g(w, x, z);
-        if (d <= RW) {
-          const depth = Math.round(4 + (1 - d / RW) * 4), by = Math.min(gg, UPL - depth);
-          MH.setH(w, x, z, by, hash3(x, 1, z) > 0.6 ? B.gravel : B.rockDk, B.rockDk);
+        const dc = x + 0.5 - rX(z + 0.5), d = Math.abs(dc) * 0.99, gg = MH.g(w, x, z), sd = dc > 0 ? 1 : 0;
+        const calm = nearMill(z) || nearBridge(z) ? 0 : 1;
+        const re = RW + calm * ((n.fbm(z * 0.05 + sd * 40, 7.3 + sd * 3, 2) - 0.5) * 7 + (hash3(z >> 2, sd, 77) - 0.5) * 1.2);
+        const e = (!sd && z > 250 && z < 296 ? Math.min(re, RW) : re) - d;   // 서쪽 라벤더 밭 쪽으로는 강을 넓히지 않는다
+        if (e > 0) {
+          const nb = n.fbm(x * 0.07 + 3, z * 0.07 + 11, 2);
+          let depth = Math.round(1 + e * 0.7 + (nb - 0.5) * 2.5);
+          if (nearMill(z)) depth = Math.max(depth, Math.round(4 + (1 - d / RW) * 4));
+          depth = Math.max(1, Math.min(8, depth));
+          const by = Math.min(gg, UPL - depth);
+          const bed = depth <= 2 ? (nb > 0.55 ? B.gravel : B.sand) : nb > 0.62 ? B.weedBed : nb > 0.44 ? B.gravel : nb > 0.3 ? B.sand : B.rockDk;
+          MH.setH(w, x, z, by, bed, B.rockDk);
           w.liquid(x, z, UPL);
           for (let y = by + 1; y <= UPL; y++) w.set(x, y, z, 0);
-        } else if (d <= RW + 4 && gg > UPL) MH.paint(w, x, z, d < RW + 2 ? B.bank : B.path);
+        } else if (-e < 44 && !(sd && nearMill(z) && x >= rX(104) + 17)) {
+          // 강기슭: 물가에서 칸당 0.5~0.8씩, 멀어질수록 조금씩 가파르게 올라가며 원래 땅과 이어진다(오목한 골짜기)
+          const o = -e, nb = n.fbm(x * 0.09 + 21, z * 0.09 + 4, 2);
+          const t = UPL + Math.floor(o * (0.5 + nb * 0.3) + Math.max(0, o - 6) ** 2 * 0.035 + (nb - 0.5) * 1.5);
+          const top = o < 1.6 + nb * 2.4 ? (nb > 0.52 ? B.gravel : B.sand) : o < 3.2 + nb * 2 ? (nb > 0.6 ? B.gravel : B.mud) : null;
+          if (gg > t) MH.setH(w, x, z, Math.max(UPL, t), top || grassAt(x, z), B.dirt);
+          else if (top && gg >= UPL) MH.paint(w, x, z, top);
+        }
       }
       const wet = (x, z) => x >= 0 && z >= 0 && x < W && z < D && w.liq[x + W * z] >= 0;
       // 물가 바위(이끼 낀 윗면)
@@ -465,8 +502,10 @@
         if (wet(x, z)) continue;
         if (!(wet(x + 1, z) || wet(x - 1, z) || wet(x, z + 1) || wet(x, z - 1) || wet(x + 2, z) || wet(x - 2, z))) continue;
         const gg = MH.g(w, x, z), h = hash3(x, 5, z);
-        if (gg > UPL + 4 || w.get(x, gg + 1, z) || h < 0.62) continue;
-        const ht = 3 + ((h - 0.62) * 14 | 0);
+        const cl = n.fbm(x * 0.07 + 77, z * 0.07 + 5, 2);   // 갈대는 고르게 두르지 않고 무리 지어
+        if (x < rX(z) && z > 256 && z < 288 && x > 126) continue;   // 강가 라벤더 밭 자리는 비워 둔다
+        if (gg > UPL + 4 || w.get(x, gg + 1, z) || cl < 0.45 || h < (cl > 0.58 ? 0.45 : 0.62)) continue;
+        const ht = 3 + (Math.min(0.38, h - 0.45) * 14 | 0);
         for (let k = 1; k <= ht; k++) w.set(x, gg + k, z, k % 3 ? B.reed : B.reed2);
         if (h > 0.86) { w.set(x, gg + ht + 1, z, B.reedTop); w.set(x, gg + ht + 2, z, B.reedTop); w.set(x, gg + ht + 3, z, B.reed2); }
       }
@@ -597,9 +636,9 @@
 
       // ───────── 마을: 동쪽 강변의 골목과 집 ─────────
       const lane = [[brx + 32, bz + 2], [252, 226], [268, 184], [258, 136], [millX + 36, mz + 8]];
-      MH.path(w, lane, 4.8, B.cobble, B.path);
+      rpath(lane, 4.8, B.cobble, B.path);
       const westPath = [[brx - 32, bz], [104, 226], [68, 204], [64, 168]];
-      MH.path(w, westPath, 4, B.path);
+      rpath(westPath, 4, B.path, null, true);
       const houses = [[216, 252, 24, 20, 'n'], [302, 244, 24, 20, 'w'], [288, 200, 24, 24, 'w'], [220, 162, 24, 20, 'e'], [284, 146, 24, 20, 'w'], [226, 288, 24, 20, 'n'], [268, 288, 24, 20, 'n']];
       const hs = [];
       houses.forEach(([x, z, sx, sz, face], k) => {
@@ -784,9 +823,17 @@
 
       // ───────── 서쪽 언덕: 풍차 ─────────
       const WX = 64, WZ = 148, wg = g(WX, WZ) + 1;
-      MH.flatten(w, WX - 18, WZ - 18, WX + 18, WZ + 22, wg - 1, B.path, B.dirt);
+      MH.flatten(w, WX - 18, WZ - 18, WX + 18, WZ + 22, wg - 1, B.grass, B.dirt);
+      // 마당: 네모난 맨땅 대신 풍차 둘레만 둥글고 들쭉날쭉하게 밟혀 드러난 흙, 바깥은 닳은 풀
+      for (let z = WZ - 24; z <= WZ + 28; z++) for (let x = WX - 24; x <= WX + 24; x++) {
+        const gg = MH.g(w, x, z); if (gg !== wg - 1) continue;
+        const nb = n.fbm(x * 0.12 + 50, z * 0.12 + 2, 2), r = 17 + (nb - 0.5) * 7, d = MH.dist(x, z, WX, WZ + 2);
+        if (d < r) w.set(x, gg, z, d > 13.5 && d < 16 && nb > 0.5 ? B.pathDk : B.path);
+        else if (d < r + 3 && hash3(x >> 1, 4, z >> 1) > 0.35) w.set(x, gg, z, B.grassWorn);
+        else w.set(x, gg, z, grassAt(x, z));
+      }
       MH.skirt(w, WX - 18, WZ - 18, WX + 18, WZ + 22, wg - 1, { R: 24, rate: 0.95, noise: (x, z) => n.fbm(x * 0.075, z * 0.075 + 5, 2) * 3.2 - 0.8, surf: (x, z) => grassAt(x, z), fill: B.dirt });
-      MH.path(w, [[68, 204], [64, 170]], 4, B.path);
+      rpath([[68, 204], [64, 170]], 4, B.path, null, true);
       const TH = 52, rAt = y => 12 - (y - wg) * 0.08;
       for (let y = wg; y < wg + TH; y++) {
         const r = rAt(y), band = (y - wg) % 12 >= 10;
@@ -985,7 +1032,7 @@
       landmarks.push({ name: '붉은 헛간', note: '건초 다락과 짐수레', p: [barn.x0 + 14, barnPeak + 8, bmid] });
 
       // ───────── 북동쪽 언덕: 사과주 저장고 · 과수원 · 벌통 · 비둘기 탑 ─────────
-      MH.path(w, [[millX + 36, mz + 8], [260, 92], [274, 72], [274, 52]], 3.2, B.path);
+      rpath([[millX + 36, mz + 8], [260, 92], [274, 72], [274, 52]], 3.2, B.path, null, true);
       const cid = house({ x: 262, z: 26, sx: 28, sz: 20, floors: 2, fh: 12, face: 's', roof: 'tile', wall: B.plaster2, shutter: B.shutter2, stone: 1, chimney: true, box: true });
       if (cid.chimney) smokes.push(cid.chimney);
       const PY = cid.y - 1;
@@ -1106,7 +1153,7 @@
       // ───────── 숲 ─────────
       for (let i = 0; i < 120; i++) {
         const x = w.ri(6, W - 7), z = w.ri(6, D - 7), gg = MH.g(w, x, z), gb = w.get(x, gg, z);
-        if (gg < base || wet(x, z) || w.get(x, gg + 1, z) || gb === B.soil || gb === B.soilDk || gb === B.cobble || gb === B.path || gb === B.bank) continue;
+        if (gg < base || wet(x, z) || w.get(x, gg + 1, z) || gb === B.soil || gb === B.soilDk || gb === B.cobble || gb === B.path || gb === B.bank || gb === B.pathDk || gb === B.mud || gb === B.sand || gb === B.gravel) continue;
         if ((x > 200 && z > 120) || (x > 232 && z < 132) || (x < 148 && z > 174) || MH.dist(x, z, WX, WZ) < 44 || MH.dist(x, z, millX + 16, mz) < 50 || MH.dist(x, z, wx - 20, mz + 20) < 44 || MH.dist(x, z, wx - 45, mz + 50) < 22 || Math.abs(x - rX(z)) < 22 || MH.dist(x, z, DX, DZ) < 16) continue;
         if (z < 104) tree(x, gg + 1, z, { kind: 'pine', h: w.ri(26, 40), trunkR: 1.6, r: 8, leaves: [B.leaf, B.leafDk, B.leafDk] });
         else { const birch = i % 4 === 0; tree(x, gg + 1, z, { h: w.ri(14, 19), r: w.r(6.4, 8.6), trunkR: w.r(1.5, 2), bark: birch ? B.birch : B.bark, barkDk: birch ? B.birchDk : B.barkDk, birch, leaves: [B.leaf2, B.leaf, B.leafDk], fruit: i % 5 === 0 ? B.apple : null }); }
@@ -1144,11 +1191,39 @@
         },
       });
 
-      // ───────── 풀과 들꽃 ─────────
+      // ───────── 언덕의 바위: 반쯤 묻힌 큰 바위와 곁의 작은 돌, 이끼 낀 윗면 ─────────
+      { const isG = b => b === B.grass || b === B.grass2 || b === B.grass3;
+        let placed = 0;
+        for (let k = 0; k < 900 && placed < 22; k++) {
+          const x = 8 + (hash3(k, 71, 3) * (W - 16) | 0), z = 8 + (hash3(k, 72, 5) * (D - 16) | 0), gg = MH.g(w, x, z);
+          if (gg < UPL + 3 || !isG(w.get(x, gg, z)) || w.slope[x + W * z] < 1 && hash3(k, 1, 1) > 0.3) continue;
+          const r = 2.2 + hash3(k, 73, 7) * 3.2, R = Math.ceil(r) + 2;
+          let ok = true;
+          for (let dz = -R; dz <= R && ok; dz += 1) for (let dx = -R; dx <= R && ok; dx += 1) {
+            const g2 = MH.g(w, x + dx, z + dz);
+            if (g2 < 0 || !isG(w.get(x + dx, g2, z + dz)) || w.get(x + dx, g2 + 1, z + dz) && w.get(x + dx, g2 + 1, z + dz) !== B.fern) ok = false;
+          }
+          if (!ok) continue;
+          placed++;
+          const parts = [[0, 0, r]];
+          for (let q = 0; q < 2; q++) { const a = hash3(k, q, 9) * 6.28; parts.push([Math.cos(a) * (r + 1.2), Math.sin(a) * (r + 1.2), r * (0.35 + hash3(q, k, 2) * 0.25)]); }
+          for (const [ox, oz, rr] of parts) {
+            const cx = Math.round(x + ox), cz = Math.round(z + oz), cy = MH.g(w, cx, cz) - Math.round(rr * 0.35);
+            w.ellipsoid(cx, cy, cz, rr * 1.15, rr * 0.75, rr, rr > 2 && hash3(cx, 1, cz) > 0.5 ? B.rockDk : B.rock, (dx, dy, dz, dd) => dd < 0.75 || hash3(cx + dx, cy + dy, cz + dz) > 0.35);
+            for (let dz = -Math.ceil(rr * 1.2); dz <= Math.ceil(rr * 1.2); dz++) for (let dx = -Math.ceil(rr * 1.2); dx <= Math.ceil(rr * 1.2); dx++) {
+              const t = w.top(cx + dx, cz + dz), bb = w.get(cx + dx, t, cz + dz);
+              if ((bb === B.rock || bb === B.rockDk) && t > cy && n.fbm((cx + dx) * 0.3, (cz + dz) * 0.3, 1) > 0.42) w.set(cx + dx, t, cz + dz, B.rockMoss);
+            }
+          }
+        }
+      }
+
+      // ───────── 풀과 들꽃: 들꽃은 무리 지어 피고, 고사리·풀포기는 그 사이에 ─────────
       MH.scatter(w, 14000, (x, gg, z, b) => {
         if (!(b === B.grass || b === B.grass2 || b === B.grass3) || !w.chance(0.2)) return;
-        if (w.chance(0.7)) { w.set(x, gg + 1, z, B.fern); if (hash3(x, gg, z) > 0.6) w.set(x, gg + 2, z, B.fern); }
-        else flowerAt(w, x, gg + 1, z, w.pick(FLW), w.chance(0.4));
+        const patch = n.fbm(x * 0.06 + 70, z * 0.06 + 12, 2);
+        if (patch > 0.58 ? w.chance(0.25) : w.chance(0.85)) { w.set(x, gg + 1, z, B.fern); if (hash3(x, gg, z) > 0.6) w.set(x, gg + 2, z, B.fern); }
+        else flowerAt(w, x, gg + 1, z, patch > 0.58 ? FLW[(n.fbm(x * 0.03 + 2, z * 0.03 + 40, 1) * 9 | 0) % 5] : w.pick(FLW), w.chance(0.4));
       });
       // 돌길 무늬 입히기
       for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { const gg = MH.g(w, x, z); if (gg > 0 && w.get(x, gg, z) === B.cobble) w.set(x, gg, z, paveAt(x, z)); }
@@ -1183,7 +1258,7 @@
         for (let z = Math.max(1, fz0); z <= Math.min(D - 2, fz1); z++) for (let x = Math.max(1, fx0); x <= Math.min(W - 2, fx1); x++) {
           const gg = MH.g(w, x, z); if (gg < 0 || !near(x, z)) continue;
           const b = w.get(x, gg, z);
-          if (!(b === B.grass || b === B.grass2 || b === B.grass3) || w.get(x, gg + 1, z) || w.get(x, gg + 2, z) || w.get(x, gg + 3, z) || hash3(x, 77, z) > 0.07) continue;
+          if (!(b === B.grass || b === B.grass2 || b === B.grass3 || b === B.grassWorn || b === B.mud) || w.get(x, gg + 1, z) || w.get(x, gg + 2, z) || w.get(x, gg + 3, z) || hash3(x, 77, z) > 0.07) continue;
           const key = ((x / 12) | 0) + ',' + ((z / 12) | 0);
           if (!cells.has(key)) cells.set(key, []);
           const hh = hash3(x, 78, z), head = [B.flower, B.flower2, B.flower3, B.lavender, B.flower5][(hh * 5) | 0];

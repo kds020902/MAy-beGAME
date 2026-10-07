@@ -9,7 +9,7 @@
   MAPS.push({
     id: 'ironhollow-mine', cat: 'village', sub: true, parent: 'ironhollow', name: '무쇠골 광산', en: 'Ironhollow · The Deep Mine', color: '#e8c040', seed: 1273, base: G, time: 'night', size: [W, D, Hh],
     playerScale: 2,
-    desc: '무쇠골 광산 입구에서 광차로 한참을 달려 들어온 산속 깊은 갱도. 바위벽을 타고 금빛·푸른빛 광맥이 흐르고, 동쪽 동굴에는 사람 키보다 큰 수정이 숨 쉬듯 빛난다. 쇠우리 승강기는 더 깊은 수직갱으로 내려가고, 골라낸 광석은 슈트를 타고 아래 용광로로 떨어진다.',
+    desc: '무쇠골 광산 입구에서 광차로 한참을 달려 들어온 산속 깊은 갱도. 바위벽을 타고 금빛·푸른빛 광맥이 흐르고, 동쪽 동굴에는 사람 키보다 큰 수정이 숨 쉬듯 빛난다. 쇠우리 승강기는 깊은 수직갱 아래 금광산으로 내려가고, 골라낸 광석은 슈트를 타고 아래 용광로로 떨어진다.',
     info: { title: '장소 정보', en: 'THE DEEP MINE', rows: [['종착장', '레일 · 완충 멈춤목 · 광차'], ['막장', '빛나는 광맥 · 곡괭이 · 수정 동굴'], ['작업장', '승강기 수직갱 · 광석 선별대 · 광석 슈트 · 지하 물웅덩이']] },
     sky: ['#20160f', '#0c0806', '#5a3a24'], stars: false,
     hemi: ['#e8d0b8', '#1a1410', 0.56], sun: ['#ffc890', 0.5, [0.4, 1, 0.6]],
@@ -256,12 +256,16 @@
       for (let k = -3; k <= 3; k++) { sheave.set(LX, G + 47 + k, LZ, B.iron); sheave.set(LX, G + 47, LZ + k, B.iron); }
       const cy0 = G, cageTop = G + 12, ropeTop = G + 41, ropeLen = ropeTop - cageTop;
       MH.rope(w, 'srope', LX, ropeTop, LZ, ropeLen, B.rope);
+      // 쇠우리: 수직갱 구멍을 꼭 메우는 13×13 바닥(틈으로 빠지지 않게), 안 높이 11칸, 서쪽(타는 곳)은 열림
       const cage = w.prop({ name: 'minelift', pivot: [LX + 0.5, cy0, LZ + 0.5] });
-      cage.box(LX - 4, cy0, LZ - 4, LX + 4, cy0, LZ + 4, B.plank);
-      for (const [x, z] of [[LX - 4, LZ - 4], [LX + 4, LZ - 4], [LX - 4, LZ + 4], [LX + 4, LZ + 4]]) cage.box(x, cy0 + 1, z, x, cageTop - 1, z, B.iron);
-      for (let k = -4; k <= 4; k += 2) { for (const z of [LZ - 4, LZ + 4]) cage.box(LX + k, cy0 + 1, z, LX + k, cy0 + 5, z, B.iron); cage.box(LX + 4, cy0 + 1, LZ + k, LX + 4, cy0 + 5, LZ + k, B.iron); }
-      for (let k = -4; k <= 4; k++) { for (const z of [LZ - 4, LZ + 4]) cage.set(LX + k, cy0 + 5, z, B.bronze); cage.set(LX + 4, cy0 + 5, LZ + k, B.bronze); }
-      cage.walls(LX - 4, cageTop, LZ - 4, LX + 4, cageTop, LZ + 4, B.iron); cage.box(LX - 1, cageTop, LZ - 1, LX + 1, cageTop, LZ + 1, B.bronze);
+      const CR = 6;
+      cage.box(LX - CR, cy0, LZ - CR, LX + CR, cy0, LZ + CR, B.plank);
+      for (let k = -CR; k <= CR; k += 3) cage.box(LX - CR, cy0, LZ + k, LX + CR, cy0, LZ + k, B.timberDk);
+      for (const [x, z] of [[LX - CR, LZ - CR], [LX + CR, LZ - CR], [LX - CR, LZ + CR], [LX + CR, LZ + CR]]) cage.box(x, cy0 + 1, z, x, cageTop - 1, z, B.iron);
+      for (let k = -CR; k <= CR; k += 2) { for (const z of [LZ - CR, LZ + CR]) cage.box(LX + k, cy0 + 1, z, LX + k, cy0 + 5, z, B.iron); cage.box(LX + CR, cy0 + 1, LZ + k, LX + CR, cy0 + 5, LZ + k, B.iron); }
+      for (let k = -CR; k <= CR; k++) { for (const z of [LZ - CR, LZ + CR]) cage.set(LX + k, cy0 + 5, z, B.bronze); cage.set(LX + CR, cy0 + 5, LZ + k, B.bronze); }
+      cage.walls(LX - CR, cageTop, LZ - CR, LX + CR, cageTop, LZ + CR, B.iron); cage.box(LX - 1, cageTop, LZ - 1, LX + 1, cageTop, LZ + 1, B.bronze);
+      for (let k = -CR + 2; k <= CR - 2; k += 4) { cage.box(LX + k, cageTop, LZ - CR, LX + k, cageTop, LZ + CR, B.iron); }
       for (const s of [-1, 1]) { S(SX0 - 3, G + 16, LZ + s * 6, B.iron); S(SX0 - 3, G + 15, LZ + s * 6, B.fireY); S(SX0 - 3, G + 14, LZ + s * 6, B.ironDk); }
       lights.push({ name: 'lift', p: [SX0 - 3, G + 15, LZ + 0.5], c: '#ffb050', i: 0.8, d: 30, flicker: 0.2, srcR: 8 });
       landmarks.push({ name: '승강기 수직갱', note: '더 깊은 갱도로 내려가는 쇠우리', p: [LX, G + 58, LZ] });
@@ -376,12 +380,15 @@
         },
       });
       acts.push({
-        name: '승강기 수직갱', hint: '쇠우리 승강기가 도르래 소리와 함께 깊은 수직갱 아래로 내려갔다 올라와요', hit: [SX0, G + 1, SZ0, SX1, G + 13, SZ1],
+        name: '승강기 타고 아래로', hint: '쇠우리 승강기에 올라타면 도르래가 끼익 돌며 깊은 수직갱 아래 금광산으로 내려가요', ride: 'minelift', goto: 'ironhollow-goldmine',
+        hit: [SX0, G + 1, SZ0, SX1, G + 13, SZ1],
         run: async a => {
-          const dn = 16;
-          await Promise.all([a.move('minelift', [0, -dn, 0], 4, t => t), a.rope('srope', ropeLen, ropeLen + dn, 4, t => t), a.turn('sheave', [-8, 0, 0], 4, t => t)]);
-          await a.wait(1.2);
-          await Promise.all([a.move('minelift', [0, 0, 0], 4, t => t), a.rope('srope', ropeLen, ropeLen, 4, t => t), a.turn('sheave', [0, 0, 0], 4, t => t)]);
+          const dn = 20;
+          a.flash('lift', 2.5, 1.2);
+          a.burst([LX + 0.5, G + 44, LZ + 0.5], { n: 18, colors: ['#8a7a70', '#b8a080'], speed: 2, up: 1, life: 1.2, gravity: 4, spread: 2 });
+          await a.wait(0.4);
+          await Promise.all([a.move('minelift', [0, -dn, 0], 4.5, t => t * t * (3 - 2 * t)), a.rope('srope', ropeLen, ropeLen + dn, 4.5, t => t * t * (3 - 2 * t)), a.turn('sheave', [-10, 0, 0], 4.5, t => t * t * (3 - 2 * t))]);
+          a.burst([LX + 0.5, G - dn + 2, LZ + 0.5], { n: 22, colors: ['#8a7a70', '#6a5c54'], speed: 3, up: 4, life: 1, gravity: 6, spread: 4 });
         },
       });
       acts.push({

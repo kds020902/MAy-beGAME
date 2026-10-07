@@ -15,6 +15,8 @@ window.AUDIO_MAP = {
   harbor: { amb: ['harbor', 'field_birds@0.3'], bgm: 'village' },
   ironhollow: { amb: ['cave', 'lava@0.6'], bgm: 'village', indoor: true },
   'ironhollow-mine': { amb: ['cave'], bgm: 'village', indoor: true },
+  'ironhollow-goldmine': { amb: ['cave'], bgm: 'village', indoor: true },
+  'ironhollow-orichalcum': { amb: ['cave'], bgm: 'village', indoor: true },
   silverleaf: { amb: ['forest', 'river@0.4', 'magic_hum@0.25'], bgm: 'village', night: ['night_insects@0.7'] },
   harvest: { amb: ['field_birds', 'town@0.4'], bgm: 'village' },
 

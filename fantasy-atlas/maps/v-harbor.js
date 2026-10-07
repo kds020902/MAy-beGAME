@@ -22,8 +22,8 @@
       { n: 40, colors: ['#ffffff'], mode: 'wisp', speed: 2, size: 2, y0: 92, glow: false },
     ],
     blocks: {
-      grass: { c: '#7a5a3a', top: '#7aa84a', v: 0.08 }, grass2: { c: '#7a5a3a', top: '#8ab85a', v: 0.08 }, grass3: { c: '#7a5a3a', top: '#6a9a42', v: 0.08 },
-      sand: { c: '#c8b080', top: '#ecd8a4', v: 0.05 }, sand2: { c: '#c0a878', top: '#e0cc98', v: 0.05 }, dirt: { c: '#7a5a3a', v: 0.08 },
+      grass: { c: '#62803a', top: '#7aa84a', v: 0.08 }, grass2: { c: '#6a8a40', top: '#8ab85a', v: 0.08 }, grass3: { c: '#587436', top: '#6a9a42', v: 0.08 },   // 옆면도 풀빛: 한 칸 턱이 흙 줄무늬로 보이지 않게
+      sand: { c: '#c8b080', top: '#ecd8a4', v: 0.05 }, sand2: { c: '#c0a878', top: '#e0cc98', v: 0.05 }, dirt: { c: '#7a5a3a', v: 0.08 }, gravel: { c: '#7e786c', top: '#9a9284', v: 0.1 }, moss: { c: '#5a7a3a', top: '#6a8a44', v: 0.1 },
       rock: { c: '#6e6e78', v: 0.06, pat: 'stone' }, rockDk: { c: '#4e4e58', v: 0.06, pat: 'stone' }, cliff: { c: '#7e7a78', v: 0.06, pat: 'big' }, weed: { c: '#3a5a40', v: 0.08 },
       cobble: { c: '#8a8680', top: '#a8a49a', v: 0.06 }, cobble2: { c: '#7e7a72', top: '#9a968c', v: 0.06 }, cobble3: { c: '#948e84', top: '#b4ae9e', v: 0.06 }, cobbleJ: { c: '#6a665e', top: '#76726a', v: 0.04 },
       quay: { c: '#8e8a84', v: 0.05, pat: 'big' }, cope: { c: '#b8b2a6', v: 0.04 }, copeJ: { c: '#8a847a', v: 0.03 },
@@ -58,24 +58,39 @@
       const g = (x, z) => MH.g(w, Math.round(x), Math.round(z));
       const lights = [], acts = [], landmarks = [];
       // ───────── 지형: 원본 높이 함수를 두 배로 ─────────
+      // 자연스럽게: 언덕에 중간 크기 굴곡(등고선이 곧은 줄무늬로 늘어서지 않게), 물가는 모래톱으로 서서히 물에 잠기고
+      // 바닥은 가장자리에서 서서히 깊어진다(얕은 곳 모래 → 자갈 → 수초 무리), 곶은 가장자리가 들쭉날쭉, 바위 속살은 휘어진 지층 띠
       const b0 = 22;
       const coastZ = ox => 94.5 + (n.fbm(ox * 0.03 / K, 5, 3) - 0.5) * 13;      // 원본 좌표
       const head = (ox, oz) => MH.segDist(ox, oz, 137, 87, 148, 131);
-      const cove = (ox, oz) => MH.dist(ox, oz, 34, 102) < 23.6;
+      const coveD = (ox, oz) => MH.dist(ox, oz, 34, 102);
+      const cove = (ox, oz) => coveD(ox, oz) < 23.6;
       const grassAt = (x, z) => { const f = n.fbm(x * 0.04 + 7, z * 0.04, 2); return f > 0.6 ? B.grass2 : f < 0.38 ? B.grass3 : B.grass; };
+      const strata = new Int8Array(W * D);
+      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) strata[x + W * z] = Math.floor(n.fbm(x * 0.025 + 31, z * 0.025, 2) * 9);
+      const bedAt = (x, z, y) => {   // 물 밑 바닥: 무리 단위로 모래·자갈·수초
+        const f = n.fbm(x * 0.045 + 50, z * 0.045, 2);
+        if (y >= sea - 1) return f > 0.58 ? B.gravel : B.sand;            // 물가 자갈띠
+        if (y < sea - 4 && f > 0.62) return B.weed;
+        if (f < 0.36) return B.gravel;
+        return f > 0.5 ? B.sand2 : B.sand;
+      };
       MH.terrain(w, {
         floor: 8,
         height: (x, z) => {
           const ox = x / 2, oz = z / 2;
           let k = coastZ(ox) - oz;
-          const hd = head(ox, oz);
-          if (hd < 10.5) k = Math.max(k, 10.5 - hd);
-          const land = b0 + 2 + Math.max(0, k) * 0.34 / K + n.fbm(ox * 0.05 / K, oz * 0.05 / K) * 2;
-          const t = cove(ox, oz) ? MH.sstep(-10.5, 10.5, k) : MH.sstep(-1.3, 3.3, k);
-          return base + 2 * (MH.lerp(b0 - 7 + n.fbm(ox * 0.08, oz * 0.08) * 2, land, t) - b0);
+          const hd = head(ox, oz), hr = 10.5 + (n.fbm(ox * 0.11 + 3, oz * 0.11, 2) - 0.5) * 6;   // 곶 가장자리 들쭉날쭉
+          if (hd < hr) k = Math.max(k, hr - hd);
+          const cv = cove(ox, oz);
+          const roll = (n.fbm(ox * 0.045 + 11, oz * 0.045 + 5, 3) - 0.5) * 2.6;             // 언덕 굴곡(둔덕과 오목한 곳)
+          const land = base + 2 * (2 + Math.max(0, k) * 0.34 / K + n.fbm(ox * 0.05 / K, oz * 0.05 / K) * 2 + roll * MH.sstep(1, 6, k));
+          if (k >= 0) return MH.lerp(sea + 0.45, land, MH.sstep(0, cv ? 8 : 3.6, k));        // 모래톱 → 풀밭
+          const depth = Math.min(11 + n.fbm(ox * 0.08, oz * 0.08) * 4, 0.7 + -k * (cv ? 0.55 : 1.15) + (n.fbm(ox * 0.12 + 9, oz * 0.12, 2) - 0.5) * 2.5);
+          return sea - Math.max(0.6, depth);
         },
-        surface: (x, z, y, s) => y <= sea + 2 ? (hash3(x >> 1, 2, z >> 1) > 0.7 ? B.sand2 : B.sand) : s >= 3 ? B.cliff : grassAt(x, z),
-        under: (x, z, y, dep, s) => dep < 4 && s < 3 && y > sea ? B.dirt : (((y >> 1) & 3) === 0 ? B.rockDk : B.cliff),
+        surface: (x, z, y, s) => y <= sea ? bedAt(x, z, y) : y <= sea + 2 ? (n.fbm(x * 0.06, z * 0.06 + 20, 2) > 0.6 ? B.sand2 : B.sand) : s >= 3 ? B.cliff : grassAt(x, z),
+        under: (x, z, y, dep, s) => dep < 4 && s < 3 && y > sea ? B.dirt : ((((y + strata[x + W * z]) >> 1) & 3) === 0 ? B.rockDk : B.cliff),
       });
 
       // ───────── 공통 도구(2배 해상도용, v-millbrook-hd.js에서 옮김) ─────────
@@ -417,7 +432,14 @@
       // ───────── 돌 안벽: 무늬 돌길 윗면, 갓돌, 낱돌 앞면, 계류 말뚝, 물로 내려가는 돌계단 ─────────
       const QZ0 = 194, QZ1 = 208, QX0 = 104, QX1 = 258;
       for (let z = QZ0 - 6; z <= QZ1; z++) for (let x = QX0; x <= QX1; x++) MH.setH(w, x, z, sea + 4, z >= QZ1 - 1 ? (x % 6 === 5 ? B.copeJ : B.cope) : B.cobble, B.quay);
-      for (let z = QZ1 + 1; z < D; z++) for (let x = 78; x <= 268; x++) if (head(x / 2, z / 2) > 13 && !cove(x / 2, z / 2) && MH.g(w, x, z) > sea - 12) MH.setH(w, x, z, sea - 12, hash3(x >> 2, 9, z >> 2) > 0.8 ? B.weed : B.sand, B.rockDk);
+      // 배가 드나드는 항구 안쪽은 깊게 판다: 바닥은 살짝 물결치고, 가장자리(곶·후미 쪽)는 비탈로 이어 붙인다
+      for (let z = QZ1 + 1; z < D; z++) for (let x = 62; x <= 284; x++) {
+        const f = Math.min(MH.sstep(62, 80, x), 1 - MH.sstep(266, 284, x)) * MH.sstep(12.5, 19, head(x / 2, z / 2)) * MH.sstep(23.6, 30, coveD(x / 2, z / 2));
+        const gg = MH.g(w, x, z), y = Math.max(sea - 13, Math.min(sea - 10, sea - 12 + Math.round((n.fbm(x * 0.05 + 70, z * 0.05, 2) - 0.5) * 4)));
+        if (f <= 0 || gg <= y) continue;
+        const yy = Math.round(MH.lerp(gg, y, f));
+        if (yy < gg) MH.setH(w, x, z, yy, bedAt(x, z, yy), B.rockDk);
+      }
       for (let x = QX0; x <= QX1; x++) for (let y = sea - 13; y <= sea + 3; y++) w.set(x, y, QZ1, stoneAt(x, y, 7) || B.mortar);
       for (let x = QX0; x <= QX1; x++) for (let y = sea - 13; y <= sea - 1; y++) if (hash3(x, y, 4) > 0.75) w.set(x, y, QZ1, B.weed);
       MH.water(w, sea);
@@ -505,7 +527,23 @@
 
       // ───────── 곶의 등대 ─────────
       const LX = 292, LZ = 248, lg = g(LX, LZ) + 1;
-      MH.flatten(w, LX - 16, LZ - 16, LX + 16, LZ + 16, lg - 1, B.cobble, B.cliff);
+      // 등대 마당: 네모난 단 대신 둥근 돌마당, 둘레는 들쭉날쭉한 바위 비탈(지층 띠·이끼·무너진 돌)로 바다까지 이어진다
+      for (let z = LZ - 34; z <= LZ + 34; z++) for (let x = LX - 34; x <= LX + 34; x++) {
+        const d = Math.hypot(x - LX, z - LZ), gg = MH.g(w, x, z); if (gg < 0) continue;
+        const rim = 17.5 + (n.fbm(x * 0.12 + 5, z * 0.12, 2) - 0.5) * 6;
+        if (d <= 16.6) { MH.setH(w, x, z, lg - 1, B.cobble, B.cliff); continue; }
+        const h = Math.round(lg - 1 - Math.max(0, d - rim) * (0.9 + n.fbm(x * 0.2, z * 0.2 + 9, 2) * 0.9) - (d > rim ? 1 : 0) * (hash3(x >> 2, 4, z >> 2) > 0.6 ? 1 : 0));
+        if (h <= gg) continue;
+        const up = n.fbm(x * 0.1 + 2, z * 0.1 + 2, 2);
+        MH.setH(w, x, z, h, d <= rim ? (up > 0.55 ? B.grass3 : B.grass) : h <= sea ? bedAt(x, z, h) : up > 0.6 ? B.moss : up < 0.4 ? B.rock : B.cliff, B.cliff);
+        for (let y = h - 1; y > Math.max(gg, h - 14); y--) if (w.get(x, y, z) === B.cliff && ((y + strata[x + W * z]) >> 1 & 3) === 0) w.set(x, y, z, B.rockDk);
+      }
+      for (let z = LZ - 34; z <= LZ + 34; z++) for (let x = LX - 34; x <= LX + 34; x++) if (x >= 0 && z >= 0 && x < W && z < D && MH.g(w, x, z) >= sea) w.liq[x + W * z] = -1;
+      for (let i = 0; i < 16; i++) {   // 곶 아래 무너진 바위
+        const a = w.r(0, 6.28), r = w.r(22, 32), x = Math.round(LX + Math.cos(a) * r), z = Math.round(LZ + Math.sin(a) * r), gg = g(x, z);
+        if (gg < sea - 6 || gg > lg - 4 || (x < LX - 8 && z < LZ)) continue;
+        MH.rock(w, x, gg, z, w.r(2, 4.5), hash3(x, 1, z) > 0.5 ? B.rock : B.cliff, gg > sea ? B.moss : null);
+      }
       for (let a = 0; a < 160; a++) {
         const t = a / 160 * Math.PI * 2, x = Math.round(LX + Math.cos(t) * 15.6), z = Math.round(LZ + Math.sin(t) * 15.6);
         if (Math.abs(x - LX) <= 3 && z > LZ) continue;
@@ -689,14 +727,37 @@
       }
       for (let i = 0; i < 14; i++) { const x = w.ri(8, 80), z = w.ri(220, 320), gg = g(x, z); if (x > 24 && x < 72) continue; if (gg >= sea - 8 && gg <= sea + 2) MH.rock(w, x, gg, z, w.r(3, 6), B.rock, null); }
       const treeAt = [];
-      for (let i = 0; i < 40 && treeAt.length < 26; i++) {
+      for (let i = 0; i < 160 && treeAt.length < 14; i++) {
         const x = w.ri(6, W - 7), z = w.ri(6, 160), gg = g(x, z);
         if (gg < sea + 6 || w.get(x, gg, z) === B.cobble || (x < 120 && z > 108)) continue;
-        let clear = true;
-        for (let dz = -9; dz <= 9 && clear; dz += 3) for (let dx = -9; dx <= 9 && clear; dx += 3) for (const dy of [1, 6, 14, 22]) if (w.get(x + dx, gg + dy, z + dz)) { clear = false; break; }
+        let clear = true;   // 이웃 칸은 그 칸의 땅 높이에서 잰다(비탈이라 같은 높이로 재면 언제나 막힌다)
+        for (let dz = -9; dz <= 9 && clear; dz += 3) for (let dx = -9; dx <= 9 && clear; dx += 3) { const h = MH.g(w, x + dx, z + dz); if (h < 0 || h > gg + 4) { clear = false; break; } for (const dy of [1, 6, 14, 22]) if (w.get(x + dx, h + dy, z + dz)) { clear = false; break; } }
         if (!clear || treeAt.some(([a, b]) => Math.hypot(a - x, b - z) < 14)) continue;
+        for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) {   // 나무 밑 그늘진 땅: 짙은 풀과 이끼
+          const d = Math.hypot(dx, dz) + (hash3(x + dx, 5, z + dz) - 0.5) * 2.5, h = MH.g(w, x + dx, z + dz), b = w.get(x + dx, h, z + dz);
+          if (d < 7.5 && (b === B.grass || b === B.grass2 || b === B.grass3)) w.set(x + dx, h, z + dz, d < 3.5 && n.fbm((x + dx) * 0.3, (z + dz) * 0.3, 1) > 0.5 ? B.moss : B.grass3);
+        }
         tree(x, gg + 1, z, { h: w.ri(12, 16), r: w.r(5.6, 7), trunkR: 1.6 });
         treeAt.push([x, z]);
+      }
+      // 비탈의 반쯤 묻힌 바위(이끼 낀 윗면)와 물가 바위 무리(자갈이 둘러싼다): 집·길·부두를 피해서
+      const freeAt = (x, z, gg, R) => { for (let dz = -R; dz <= R; dz += 2) for (let dx = -R; dx <= R; dx += 2) { const h = MH.g(w, x + dx, z + dz); if (h < 0 || Math.abs(h - gg) > 4) return false; for (const dy of [1, 3, 6]) if (w.get(x + dx, h + dy, z + dz)) return false; } return true; };
+      const isPave = b => b === B.cobble || b === B.sill || b === B.mortar || b === B.cope;
+      for (let i = 0, placed = 0; i < 260 && placed < 18; i++) {
+        const x = w.ri(10, W - 11), z = w.ri(10, 170), gg = g(x, z);
+        if (gg < sea + 6 || isPave(w.get(x, gg, z)) || !freeAt(x, z, gg, 6) || n.fbm(x * 0.05 + 11, z * 0.05 + 5, 2) < 0.45) continue;
+        const r = w.r(2.2, 4.2);
+        MH.rock(w, x, gg - Math.round(r * 0.35), z, r, hash3(x, 2, z) > 0.5 ? B.rock : B.cliff, B.moss, B.rockDk);
+        for (let q = 0; q < 3; q++) { const a = w.r(0, 6.28), dd = r + w.r(1, 3), sx = Math.round(x + Math.cos(a) * dd), sz = Math.round(z + Math.sin(a) * dd), sg = g(sx, sz); if (sg > sea && !w.get(sx, sg + 1, sz) && !isPave(w.get(sx, sg, sz))) MH.rock(w, sx, sg, sz, w.r(0.9, 1.6), B.rock, null); }
+        placed++;
+      }
+      for (let i = 0, placed = 0; i < 400 && placed < 22; i++) {
+        const x = w.ri(6, W - 7), z = w.ri(120, D - 7), gg = g(x, z);
+        if (gg < sea - 3 || gg > sea + 1 || (x > 100 && x < 262 && z > 180) || (x > 30 && x < 66) || isPave(w.get(x, gg, z)) || !freeAt(x, z, gg, 7)) continue;
+        if (MH.dist(x, z, 86, 183) < 16) continue;   // 생선 건조대
+        for (let q = 0; q < 3; q++) { const sx = x + w.ri(-5, 5), sz = z + w.ri(-5, 5), sg = g(sx, sz); if (sg >= sea - 4) MH.rock(w, sx, sg, sz, w.r(1.4, q ? 2.6 : 4), q === 1 ? B.rockDk : B.rock, sg > sea ? B.moss : null); }
+        for (let dz = -7; dz <= 7; dz++) for (let dx = -7; dx <= 7; dx++) { const sx = x + dx, sz = z + dz, sg = g(sx, sz); if (dx * dx + dz * dz < 40 && sg >= sea - 3 && sg <= sea + 2 && w.get(sx, sg, sz) === B.sand && hash3(sx >> 1, 6, sz >> 1) > 0.45) w.set(sx, sg, sz, B.gravel); }
+        placed++;
       }
       for (const [lx, lz] of [[132, 200], [184, 200], [252, 202]]) lights.push({ p: lampPost(lx, lz, 10), c: '#ffe0a0', i: 1, d: 24, flicker: 0.1, night: true });
 

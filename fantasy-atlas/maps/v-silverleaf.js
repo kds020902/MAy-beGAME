@@ -126,7 +126,7 @@
           w.fill(x, y, z, b);
         }
       };
-      const LEAVES = [B.leafS, B.leafT, B.leafD];
+      const LEAVES = [B.leafW, B.leafS, B.leafD];   // 은빛잎: 위는 은백색, 가운데 은녹색, 아래 짙은 녹색
       // 작은 나무: 밑동이 넓은 줄기, 가지 서넛, 가지 끝 잎뭉치
       const oak = (x, y, z, h, r) => {
         for (let i = 0; i < h; i++) {
@@ -249,7 +249,7 @@
         }
         ends.forEach(([ex, ey, ez, k], q) => {
           const rc = 20 * k;
-          clump(ex, ey + 2, ez, rc, q % 3 === 1 ? [B.leafS, B.leafS, B.leafD] : LEAVES);
+          clump(ex, ey + 2, ez, rc, q % 3 === 1 ? [B.leafW, B.leafT, B.leafD] : LEAVES);
           if (k > 0.6) { const a = hash3(q, ti, 5) * 6.28; clump(ex + Math.cos(a) * rc * 0.7, ey + 2 - rc * 0.15, ez + Math.sin(a) * rc * 0.7, rc * 0.55, LEAVES); }
         });
       };

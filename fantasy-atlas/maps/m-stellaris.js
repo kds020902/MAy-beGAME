@@ -23,8 +23,8 @@
       { n: 30, colors: ['#fff8d0', '#8ab8ff'], mode: 'rise', speed: 0.6, area: [169, 295, 28], y0: 64, y1: 120 },
     ],
     blocks: {
-      grass: { c: '#3a3a44', top: '#3a5a5a', v: 0.1 }, grass2: { c: '#3a3a44', top: '#34504e', v: 0.1 },
-      dirt: { c: '#3a3a44', v: 0.08 }, rock: { c: '#4a5068', v: 0.06, pat: 'big' }, rockDk: { c: '#2e3246', v: 0.06, pat: 'stone' }, rockM: { c: '#4a3a3a', v: 0.1 },
+      grass: { c: '#33464a', top: '#3a5a5a', v: 0.1 }, grass2: { c: '#304246', top: '#34504e', v: 0.1 },
+      dirt: { c: '#3e3c46', v: 0.08 }, rock: { c: '#4a5068', v: 0.06, pat: 'big' }, rockDk: { c: '#2e3246', v: 0.06, pat: 'stone' }, rockM: { c: '#4a3a3a', v: 0.1 },
       path: { c: '#3a3a44', top: '#6a7088', v: 0.08, pat: 'stone' }, marble: { c: '#c8d0e0', v: 0.04, pat: 'big' }, marbleDk: { c: '#8a94a8', v: 0.05, pat: 'brick' }, trim: { c: '#e4eaf4', v: 0.03 },
       marble2: { c: '#bcc4d6', v: 0.04, pat: 'big' }, marbleJ: { c: '#9aa2b6', v: 0.03 },
       pave: { c: '#5a6078', top: '#727890', v: 0.05 }, pave2: { c: '#565c74', top: '#686e86', v: 0.05 }, paveJ: { c: '#3e4256', top: '#4a4e62', v: 0.03 },
@@ -38,16 +38,39 @@
     build(w) {
       const B = w.id, n = w.noise, base = w.base, SX = 168, SZ = 104;
       const g = (x, z) => MH.g(w, Math.round(x), Math.round(z));
-      const terr = oz => oz < 81 ? 39 : oz < 131 ? 24 : 8;
-      // ───────── 지형: 원본 높이 함수를 두 배로 ─────────
+      // ───────── 지형: 세 단(정상·광장·시장)을 들쭉날쭉한 벼랑으로 잇는다 ─────────
+      // 벼랑 선은 x를 따라 노이즈로 휘고(광장·시장·큰 계단 자리 근처에서는 덜 휜다), 벼랑은 3~4칸 폭의 가파른 비탈 + 중간 바위 선반으로 내려간다.
+      const nearX = (x, a, b, m) => MH.sstep(a - m, a, x) * (1 - MH.sstep(b, b + m, x));   // x가 [a,b] 안이면 1
+      // 벼랑 k의 [중심 z, 폭]. 비탈은 중심-폭/2 ~ 중심+폭 사이에 놓인다.
+      // 1단: 정상 대지(z≤150)·탑(z≤143)과 광장(z≥184)·점성술사의 집(z≥178) 사이. 2단: 광장(≤257)과 시장(≥272) 사이.
+      // 서쪽 점성술사의 집 둘(64,248 / 72,288)은 원래 벼랑에 걸쳐 높은 받침 위에 떠 있었으므로, 그 구간은 벼랑을 북쪽(z≈233)으로 당겨 둘 다 아랫단에 앉힌다
+      const cliff = (x, k) => {
+        const tame = nearX(x, 110, 228, 16), west = k === 2 ? nearX(x, 48, 100, 12) : 0, calm = Math.max(tame, west);
+        const wob = (n.fbm(x * 0.022, k * 9.3, 3) - 0.5) * 2 * MH.lerp(9, 2.5, calm) + (n.vn(x * 0.11, k * 5.1) - 0.5) * MH.lerp(4, 1.5, calm);
+        const wid = MH.lerp(9 + n.vn(x * 0.05, k * 1.7) * 4, 8, calm);
+        if (k === 1) return [Math.max(150, Math.min(MH.lerp(160, 169, tame), MH.lerp(157, 166, tame) + wob)), wid];
+        return [MH.lerp(Math.max(250, Math.min(MH.lerp(276, 264, tame), MH.lerp(264, 263, tame) + wob)), 232 + wob, west), wid];
+      };
+      const cliffP = (z, c, x, k) => {          // 0(위) → 1(아래): 가파른 비탈 + 노이즈 폭 선반
+        const t = (z - c[0]) / c[1], ledge = 0.25 + n.vn(x * 0.07, k * 3.3) * 0.3;
+        return MH.lerp(MH.sstep(-0.5, 0.05, t) * ledge, ledge + (1 - ledge) * MH.sstep(0.35, 1, t), MH.sstep(-0.1, 0.4, t));
+      };
+      const tier = (x, z) => 39 - 15 * cliffP(z, cliff(x, 1), x, 1) - 16 * cliffP(z, cliff(x, 2), x, 2);
+      // 지층: 낮은 노이즈로 기울고 굵기가 바뀌는 띠(덩어리째 바뀌어 면 합치기가 깨지지 않게)
+      const stOff = new Float32Array(W * D).fill(NaN);
+      const strata = (x, z, y) => {
+        const i = x + W * z; if (stOff[i] !== stOff[i]) stOff[i] = n.fbm(x * 0.03, z * 0.03, 2) * 9 + n.vn(x * 0.09, z * 0.09) * 2;
+        const yy = y + stOff[i], k = ((Math.floor(yy / 7) % 5) + 5) % 5;
+        return k === 1 ? B.rockDk : k === 3 && hash3(x >> 4, Math.floor(yy / 7), z >> 4) > 0.45 ? B.rockM : B.rock;
+      };
       MH.terrain(w, {
         floor: 8,
         height: (x, z) => {
-          const ox = x / 2, oz = z / 2, d = Math.hypot((ox - 84) * 0.9, oz - 84);
-          return base + 2 * (Math.max(0, MH.sstep(79, 52, d) * terr(oz)) + n.fbm(ox * 0.038, oz * 0.038) * 4 + n.ridge(ox * 0.03, oz * 0.03, 3) * 4);
+          const ox = x / 2, oz = z / 2, d = Math.hypot((ox - 84) * 0.9, oz - 84) + (n.fbm(ox * 0.06 + 5, oz * 0.06, 3) - 0.5) * 14;
+          return base + 2 * (Math.max(0, MH.sstep(79, 52, d) * tier(x, z)) + n.fbm(ox * 0.038, oz * 0.038) * 4 + n.ridge(ox * 0.03, oz * 0.03, 3) * 4) + (n.vn(x * 0.13, z * 0.13) - 0.5) * 1.6;
         },
-        surface: (x, z, y, s) => s >= 3 ? B.rock : n.fbm(x * 0.0425, z * 0.0425, 2) > 0.55 ? B.grass2 : B.grass,
-        under: (x, z, y, dep, s) => dep < 4 && s < 3 ? B.dirt : ((y % 10) < 2 ? B.rockDk : B.rock),
+        surface: (x, z, y, s) => s >= 4 ? strata(x, z, y) : s >= 2 && n.fbm(x * 0.05 + 3, z * 0.05, 2) > 0.58 ? B.rock : s >= 2 && n.vn(x * 0.09, z * 0.09) > 0.62 ? B.dirt : n.fbm(x * 0.0425, z * 0.0425, 2) > 0.55 ? B.grass2 : B.grass,
+        under: (x, z, y, dep, s) => dep < 3 && s < 4 ? B.dirt : strata(x, z, y),
       });
       const lights = [], acts = [], landmarks = [];
 
@@ -430,7 +453,22 @@
         return { Y: Yh, top: Tp, dome: [fx, dt + 3, fz], door: [Math.min(p0[0], p1[0]), Yh + 2, Math.min(p0[1], p1[1]), Math.max(p0[0], p1[0]), Yh + 10, Math.max(p0[1], p1[1])], front: [pf[0], Yh + 2, pf[1]] };
       };
       const domes = [], houses = [];
+      // 집터 고르기: 집 자리(둘레 2칸 포함)는 평균 높이로 깎고 메워 평평하게, 바깥 12칸은 본래 비탈로 서서히 잇는다(높은 받침 위에 뜨지 않게)
+      const natural = new Set([B.grass, B.grass2, B.dirt, B.rock, B.rockDk, B.rockM]);
+      const pad = (x0, z0, x1, z1) => {
+        let s = 0, c = 0; for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { s += MH.g(w, x, z); c++; }
+        const lv = Math.round(s / c), M = 12;
+        for (let z = z0 - M; z <= z1 + M; z++) for (let x = x0 - M; x <= x1 + M; x++) {
+          const gg = MH.g(w, x, z); if (gg < 0) continue;
+          const inR = x >= x0 && x <= x1 && z >= z0 && z <= z1;
+          if (!inR && (!natural.has(w.get(x, gg, z)) || w.get(x, gg + 1, z))) continue;
+          const dd = Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(z0 - z, 0, z - z1)) + (n.vn(x * 0.2, z * 0.2) - 0.5) * 3;
+          const h = Math.round(MH.lerp(lv, gg, MH.sstep(0, M, dd)));
+          if (h !== gg) MH.setH(w, x, z, h, inR ? B.dirt : Math.abs(h - gg) > 3 && hash3(x >> 2, 7, z >> 2) > 0.5 ? B.dirt : (hash3(x >> 1, 3, z >> 1) > 0.5 ? B.grass2 : B.grass), B.dirt);
+        }
+      };
       for (const [x, z, face] of [[56, 200, 'e'], [64, 248, 'e'], [72, 288, 'e'], [240, 292, 'n'], [256, 180, 'w']]) {
+        pad(x - 2, z - 2, x + 23, z + 23);
         const h = domeHouse(x, z, face); houses.push(h); domes.push(h.dome);
         if (domes.length <= 3) lights.push({ p: [h.front[0] + 0.5, h.Y + 8, h.front[2] + 0.5], c: '#d0e0ff', i: 0.8, d: 22, flicker: 0.05, night: true, srcR: 6 });
       }
@@ -480,6 +518,21 @@
         const x = w.ri(16, 320), z = w.ri(16, 320), gg = MH.g(w, x, z);
         if (gg > base + 2 && w.slope[x + W * z] < 2 && !w.get(x, gg + 1, z) && w.get(x, gg, z) !== B.path && w.get(x, gg, z) !== B.marbleDk && MH.dist(x, z, SX, SZ) > 52 && MH.dist(x, z, MXX, MZZ) > 30 && MH.dist(x, z, 168, PZ) > 42 && !(z > 268 && x > 112 && x < 232))
           pine(x, gg + 1, z, w.ri(22, 36), 7.6);
+      }
+      // 벼랑 발치의 무너진 돌무더기: 바로 위로 높은 벼랑이 선 자리에 크고 작은 바위 무리
+      for (let i = 0, made = 0; i < 2400 && made < 46; i++) {
+        const x = w.ri(12, W - 13), z = w.ri(12, D - 13), gg = MH.g(w, x, z);
+        if (gg < 0 || w.get(x, gg + 1, z) || !natural.has(w.get(x, gg, z)) || w.slope[x + W * z] > 2) continue;
+        if (MH.dist(x, z, MXX, MZZ) < 30 || (x > 150 && x < 186 && z > 140 && z < 290)) continue;
+        let up = 0; for (const [dx, dz] of [[0, -5], [0, 5], [-5, 0], [5, 0], [0, -8], [0, 8]]) up = Math.max(up, MH.g(w, x + dx, z + dz) - gg);
+        if (up < 9) continue;
+        made++;
+        const k = 1 + (hash3(x, 9, z) * 3 | 0);
+        for (let j = 0; j < k; j++) {
+          const rx = x + w.ri(-3, 3), rz = z + w.ri(-3, 3), rg = MH.g(w, rx, rz);
+          if (rg < 0 || Math.abs(rg - gg) > 2 || w.get(rx, rg + 1, rz)) continue;
+          MH.rock(w, rx, rg + 1, rz, j ? w.r(1.1, 1.8) : w.r(1.8, 3.2), hash3(rx, 2, rz) > 0.6 ? B.rockDk : B.rock, j ? 0 : B.grass2);
+        }
       }
       for (let i = 0; i < 520; i++) {
         const x = w.ri(4, W - 5), z = w.ri(4, D - 5), gg = MH.g(w, x, z);

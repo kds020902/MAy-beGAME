@@ -6,16 +6,44 @@
   'use strict';
   const { hash3 } = VX;
   const W = 336, D = 336, Hh = 300;
-  // 떠 있는 섬: 윗면 높이 top, 가운데로 갈수록 깊은 바위 뿌리(2배 해상도: 줄무늬·뿌리는 2칸 단위)
+  // 떠 있는 섬: 윗면 높이 top(평평, 둘레선은 그대로), 그 밑은 자연스러운 바위 덩어리.
+  // 흙켜 두께가 굽이치고(2~6칸), 바위 속은 기울어 휘는 지층 띠(낮은 노이즈라 덩어리째 바뀐다), 가장자리 바위는 풍화된 밝은 돌,
+  // 밑면은 큰 혹(낮은 주파수) 몇 개가 처진 거꾸로 된 산 모양, 그 끝에 굵기가 줄어드는 바위 고드름이 드문드문 매달린다.
   function island(w, B, cx, cz, R, top, depth, surf) {
-    const n = w.noise, WW = w.W, DD = w.D;
+    const n = w.noise, WW = w.W, DD = w.D, bot = new Map();
     for (let z = Math.max(0, Math.floor(cz - R - 12)); z <= Math.min(DD - 1, cz + R + 12); z++) for (let x = Math.max(0, Math.floor(cx - R - 12)); x <= Math.min(WW - 1, cx + R + 12); x++) {
       const d = Math.hypot(x - cx, z - cz) + (n.fbm(x * 0.04 + cx, z * 0.04, 3) - 0.5) * R * 0.35;
       if (d > R) continue;
-      const k = 1 - d / R, bottom = Math.max(1, top - 4 - Math.floor(Math.pow(k, 0.6) * depth + n.fbm(x * 0.1, z * 0.1, 2) * 8));
-      for (let y = bottom; y <= top; y++) w.set(x, y, z, y === top ? surf(x, z) : y >= top - 4 ? B.dirt : y < bottom + 6 ? B.deep : ((y + (hash3(x >> 3, 0, z >> 3) * 6 | 0)) % 10 < 2 ? B.band : B.stone));
+      const k = 1 - d / R, dirtT = 2 + Math.floor(n.fbm(x * 0.05 + 3, z * 0.05, 2) * 5);
+      const lump = (n.fbm(x * 0.03 + cz * 0.1, z * 0.03 + cx * 0.1, 3) - 0.5) * depth * 0.55 * Math.min(1, k * 3.5);
+      const shape = Math.pow(k, 0.95) * depth * (0.7 + 0.3 * Math.min(1, k * 3));
+      const bottom = Math.max(1, Math.round(top - dirtT - 2 - Math.max(0, shape + lump) - n.vn(x * 0.16, z * 0.16) * 2.5));
+      const so = n.fbm(x * 0.025, z * 0.025, 2) * 14 + n.vn(x * 0.07, z * 0.07) * 3;
+      const rim = d > R - 2.5 - n.vn(x * 0.12, z * 0.12) * 3;
+      for (let y = bottom; y <= top; y++) {
+        let b;
+        if (y === top) b = surf(x, z);
+        else if (y > top - dirtT) b = B.dirt;
+        else if (y < bottom + 4 + (so | 0) % 4) b = B.deep;
+        else { const yy = y + so, q = ((Math.floor(yy / 8) % 4) + 4) % 4; b = q === 1 ? B.band : q === 3 && rim ? B.band : B.stone; }
+        w.set(x, y, z, b);
+      }
       w.hm[x + WW * z] = top;
-      if (k < 0.2 && !(x & 1) && !(z & 1) && hash3(x >> 1, 7, z >> 1) > 0.8) { const L = 4 + (hash3(x, 8, z) * 14 | 0); for (let q = 1; q <= L; q++) for (const [ox, oz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (q < L - 2 || (ox + oz) === 0) w.set(x + ox, bottom - q, z + oz, B.root); }
+      bot.set(x + WW * z, bottom);
+    }
+    // 바위 고드름: 8칸 격자마다 하나씩 뽑아, 밑면에서 굵게 시작해 가늘어진다(가장자리 쪽은 짧게)
+    const G = 8;
+    for (let gz = Math.floor((cz - R) / G); gz <= Math.ceil((cz + R) / G); gz++) for (let gx = Math.floor((cx - R) / G); gx <= Math.ceil((cx + R) / G); gx++) {
+      if (hash3(gx, 31, gz) > 0.42) continue;
+      const x = gx * G + (hash3(gx, 32, gz) * G | 0), z = gz * G + (hash3(gx, 33, gz) * G | 0), b0 = bot.get(x + WW * z);
+      if (b0 == null) continue;
+      const k = 1 - Math.hypot(x - cx, z - cz) / R;
+      const L = Math.round((4 + hash3(gx, 34, gz) * 14) * (0.4 + Math.min(1, Math.max(0, k) * 2) * 0.6)), r0 = 1.4 + hash3(gx, 35, gz) * 1.8;
+      for (let q = 0; q <= L; q++) {
+        const rr = r0 * Math.pow(1 - q / (L + 1), 0.75), RR = Math.ceil(rr), y = b0 - q, ox = q * (hash3(gx, 36, gz) - 0.5) * 0.15;
+        if (y < 1) break;
+        for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) if (dx * dx + dz * dz <= rr * rr + 0.3) w.set(Math.round(x + dx + ox), y, z + dz, q > L * 0.55 ? B.root : B.deep);
+      }
     }
   }
   window.ARCANA = { island };
@@ -37,7 +65,7 @@
     ],
     blocks: {
       grass: { c: '#4a3a3a', top: '#5a8a5a', v: 0.08 }, grass2: { c: '#4a3a3a', top: '#4a7a58', v: 0.08 },
-      dirt: { c: '#4a3a3a', v: 0.08 }, stone: { c: '#6a6a8a', v: 0.07, pat: 'stone' }, deep: { c: '#3a3a52', v: 0.06, pat: 'stone' }, band: { c: '#7a7a9a', v: 0.05 }, root: { c: '#4a4060', v: 0.05 },
+      dirt: { c: '#4a3a3a', v: 0.08 }, stone: { c: '#6a6a8a', v: 0.07, pat: 'stone' }, deep: { c: '#3a3a52', v: 0.06, pat: 'stone' }, band: { c: '#86809c', v: 0.05 }, root: { c: '#4a4060', v: 0.05 },
       path: { c: '#4a3a3a', top: '#a8a0b8', v: 0.06 }, path2: { c: '#4a3a3a', top: '#9a92ac', v: 0.06 }, path3: { c: '#4a3a3a', top: '#b6aec4', v: 0.06 }, pathJ: { c: '#4a3a3a', top: '#7a7290', v: 0.04 },
       pale: { c: '#c8c0d8', v: 0.04, pat: 'brick' }, paleDk: { c: '#9a92b0', v: 0.05, pat: 'brick' }, trim: { c: '#e4deee', v: 0.03 },
       st1: { c: '#c8c0d8', v: 0.04 }, st2: { c: '#b8b0cc', v: 0.04 }, st3: { c: '#d4cee2', v: 0.04 }, st4: { c: '#bcb4d0', v: 0.04 }, mortar: { c: '#9a92b0', v: 0.03 }, sill: { c: '#d8d0e4', v: 0.03 },

@@ -25,6 +25,8 @@
     blocks: {
       rock: { c: '#5a504a', top: '#6a605a', v: 0.1, pat: 'stone' }, gravel: { c: '#5a504a', top: '#7a7068', v: 0.12 },
       cliff: { c: '#6e6660', v: 0.07, pat: 'big' }, cliffDk: { c: '#4a4440', v: 0.07, pat: 'big' }, basalt: { c: '#2e2826', v: 0.06, pat: 'stone' },
+      cliffR: { c: '#76584a', v: 0.07, pat: 'big' }, cliffL: { c: '#867c72', v: 0.07, pat: 'big' },
+      scree: { c: '#5a504a', top: '#6c625a', v: 0.14 }, lichen: { c: '#5a504a', top: '#6a6a52', v: 0.1 }, grit: { c: '#443c38', top: '#544b44', v: 0.12 }, dirt: { c: '#5a4a3e', top: '#6a5a4a', v: 0.1 },
       granite: { c: '#8a8078', v: 0.05, pat: 'big' }, graniteDk: { c: '#5e564e', v: 0.05, pat: 'brick' }, slate: { c: '#3a3a44', v: 0.04 }, slate2: { c: '#444452', v: 0.04 }, slateDk: { c: '#2a2a32', v: 0.03 },
       gr1: { c: '#8a8078', v: 0.04 }, gr2: { c: '#7c736b', v: 0.04 }, gr3: { c: '#968c82', v: 0.04 }, gr4: { c: '#827a70', v: 0.04 }, grJ: { c: '#4a433d', v: 0.03 },
       sd1: { c: '#5e564e', v: 0.04 }, sd2: { c: '#544c45', v: 0.04 }, sd3: { c: '#686058', v: 0.04 }, cap: { c: '#a49a8e', v: 0.04 },
@@ -41,28 +43,107 @@
     build(w) {
       const B = w.id, n = w.noise, base = w.base, L = base + 16;
       const CL = ox => 52.5 + (n.fbm(ox * 0.045 / K0, 3, 2) - 0.5) * 13;
-      const ZP = 107.6, ZS = 139;                                  // 고원 남쪽 끝, 협곡 남쪽 끝(원본 좌표)
+      const ZP = 107.6, ZS = 139, MXo = 71.25;                     // 고원 남쪽 끝, 협곡 남쪽 끝, 철교 자리(원본 좌표)
       const g = (x, z) => MH.g(w, Math.round(x), Math.round(z));
+      const cl01 = v => Math.max(0, Math.min(1, v));
+      // 협곡 바닥에 바위섬을 두지 않을 곳(용암 조명·분출·용암 폭포 자리, 원본 좌표)
+      const NOISL = [[52, 123, 7], [121, 123, 7], [96, 118, 11], [136, 110, 9]];
 
-      // ───────── 지형: 원본 높이 함수를 두 배로 ─────────
+      // ───────── 지형 ─────────
+      // 산벽: 비탈 아래로 길쭉한 능선과 골, 곳곳에 어긋난 바위 선반, 잔 굴곡. 협곡: 들쭉날쭉한 가장자리,
+      // 중턱 선반, 벽 밑 너덜 기슭과 용암 위 바위섬. 바위 속살은 비스듬히 기운 지층 띠(두께·색이 제각각)
+      let sx_ = -1, sz_ = -1, so_ = 0, sb_ = 0;
+      const strata = (x, z, y) => {
+        if (x !== sx_ || z !== sz_) { sx_ = x; sz_ = z; so_ = x * 0.11 - z * 0.035 + n.fbm(x * 0.013, z * 0.013, 2) * 26; sb_ = base - 12 + n.vn(x * 0.05, z * 0.05) * 10; }
+        if (y < sb_) return B.basalt;
+        const r = hash3(Math.floor((y + so_) / 5), 17, 3);
+        return r < 0.46 ? B.cliff : r < 0.68 ? B.cliffDk : r < 0.84 ? B.cliffR : B.cliffL;
+      };
       MH.terrain(w, {
         floor: 4,
         height: (x, z) => {
-          const ox = x / 2, oz = z / 2, cz = CL(ox);
+          const ox = x / 2, oz = z / 2, cz = CL(ox), q = ox / K0, r = oz / K0;
           let hh;
-          if (oz < cz) hh = 8 + Math.min(56, (cz - oz) * 2.4) + n.ridge(ox * 0.045 / K0, oz * 0.045 / K0, 4) * 9;
-          else if (oz < ZP) hh = 8 + n.fbm(ox * 0.06 / K0, oz * 0.06 / K0) * 1.5;
-          else if (oz < ZS) hh = MH.lerp(8, -16, MH.sstep(ZP, ZP + 5, oz)) + MH.lerp(0, 22, MH.sstep(ZS - 5, ZS, oz));
-          else hh = 6 + n.fbm(ox * 0.06 / K0, oz * 0.06 / K0) * 3;
+          if (oz < cz) {
+            const d = cz - oz;
+            let rise = Math.min(56, d * 2.4 * (0.74 + 0.5 * n.fbm(q * 0.11, r * 0.022 + 7, 3)));
+            const sh = 10 + n.fbm(q * 0.03, 3.3, 2) * 8, ph = n.fbm(q * 0.05, 9.1, 2) * sh, t = (rise + ph) / sh;
+            const terr = Math.min(56, (Math.floor(t) + MH.sstep(0.4, 1, t - Math.floor(t))) * sh - ph);
+            rise = MH.lerp(rise, Math.max(0, terr), 0.85 * MH.sstep(0.48, 0.62, n.fbm(q * 0.07, r * 0.07 + 4, 2)));
+            hh = 8 + rise + n.ridge(q * 0.045, r * 0.045, 4) * 9 + (n.fbm(q * 0.32, r * 0.32, 2) - 0.5) * 2.6;
+          } else {
+            const k = MH.sstep(5, 11, Math.abs(ox - MXo));         // 철교 곁은 원래 모양 그대로
+            const e1 = ZP + k * (0.3 + n.fbm(q * 0.07, 21.7, 3) * 4), e2 = ZS - k * n.fbm(q * 0.07, 33.1, 3) * 4.5;
+            const tS = 6 + n.fbm(q * 0.06, r * 0.06) * 3;
+            if (oz < e1) hh = 8 + n.fbm(q * 0.06, r * 0.06) * 1.5;
+            else if (oz >= e2) hh = tS;
+            else {
+              const wN = MH.lerp(5, 3.5 + n.fbm(q * 0.1, 5.5, 2) * 3.5, k), wS = MH.lerp(5, 3.5 + n.fbm(q * 0.1, 8.5, 2) * 3, k);
+              const u1 = cl01((oz - e1) / wN), u2 = cl01((e2 - oz) / wS);
+              const sf = 0.3 + n.fbm(q * 0.08, 14.1, 2) * 0.35;
+              const prof = (u, mm) => (1 - mm) * MH.sstep(0, 1, u) + mm * (sf * MH.sstep(0, 0.38, u) + (1 - sf) * MH.sstep(0.62, 1, u));
+              const mN = k * MH.sstep(0.45, 0.6, n.fbm(q * 0.05, 12.3, 2)), mS = k * MH.sstep(0.45, 0.6, n.fbm(q * 0.05, 18.9, 2));
+              hh = Math.max(-16 + 24 * (1 - prof(u1, mN)), -16 + (tS + 16) * (1 - prof(u2, mS)));
+              hh += (n.fbm(q * 0.3, r * 0.3, 2) - 0.5) * 3.2 * k * Math.max(Math.sin(Math.PI * u1), Math.sin(Math.PI * u2));
+              // 벽 밑 너덜 기슭(용암보다 살짝 높은 마른 기슭)과 바위섬
+              const dn = oz - e1 - wN, ds = e2 - wS - oz;
+              if (dn > -1 && ds > -1) {
+                const tl = Math.max(0, 1 - Math.max(0, Math.min(dn, ds)) / (2.5 + n.fbm(q * 0.15, r * 0.15 + 2, 2) * 3));
+                hh += tl * tl * 4.4 * k * (0.6 + 0.8 * n.fbm(q * 0.12, r * 0.12 + 3, 2));
+                let av = k;
+                for (const [ax, az, ar] of NOISL) av *= MH.sstep(ar, ar + 4, Math.hypot(ox - ax, oz - az));
+                hh += MH.sstep(0.64, 0.76, n.fbm(q * 0.09, r * 0.09 + 40, 3)) * 5.2 * av;
+              }
+            }
+          }
           return base + 2 * hh;
         },
-        surface: (x, z, y, s) => s >= 3 ? (y < base ? B.basalt : B.cliff) : y > L + 8 ? B.rock : B.gravel,
-        under: (x, z, y, dep, s) => y < base - 8 ? B.basalt : ((((y >> 1) + (hash3(x >> 4, 0, z >> 4) * 3 | 0)) % 6 === 0) ? B.cliffDk : B.cliff),
+        surface: (x, z, y, s) => {
+          if (s >= 3) return strata(x, z, y);
+          if (y > L + 8) { const v = n.fbm(x * 0.09, z * 0.09, 2); return v > 0.58 ? B.scree : v < 0.36 ? B.lichen : B.rock; }
+          if (y < base) return hash3(x >> 2, 6, z >> 2) > 0.5 ? B.slag : B.basalt;
+          return B.gravel;
+        },
+        under: (x, z, y) => strata(x, z, y),
       });
       const LAVA = base - 26;
       MH.water(w, LAVA, (x, z) => z > 210 && z < 284);
       MH.flatten(w, 10, 116, 326, 212, L, B.gravel, B.rock);
       MH.flatten(w, 6, 290, 330, D - 1, L, B.gravel, B.rock);
+      // 고원 바닥: 덩어리 단위로 섞은 자갈·맨바위·검은 자갈·밝은 너덜
+      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+        const gg = MH.g(w, x, z);
+        if (gg < L - 2 || gg > L + 4 || w.get(x, gg, z) !== B.gravel) continue;
+        const v = n.fbm(x * 0.06, z * 0.06 + 50, 3), u = n.fbm(x * 0.11 + 30, z * 0.11, 2);
+        const b = v > 0.64 ? B.rock : v < 0.31 ? B.grit : u > 0.64 ? B.scree : 0;
+        if (b) w.set(x, gg, z, b);
+      }
+      // 절벽 발치의 너덜(무너져 쌓인 돌무더기)과 굴러 내린 바위. 건물·계단·광산 앞·수로·승강기 곁은 비운다
+      const KEEP = [[20, 126, 56, 158], [56, 100, 112, 150], [108, 96, 176, 176], [170, 126, 250, 172], [252, 60, 290, 214], [290, 60, 326, 160]];
+      const keepF = (x, z) => { let f = 1; for (const [a, b, c, d] of KEEP) f = Math.min(f, MH.sstep(0, 6, Math.hypot(Math.max(a - x, 0, x - c), Math.max(b - z, 0, z - d)))); return f; };
+      const rocks = [];
+      for (let x = 10; x <= 326; x++) {
+        let zb = 60; while (zb < 212 && MH.g(w, x, zb) > L) zb++;
+        if (zb >= 200) continue;
+        const R = 6 + n.fbm(x * 0.05, 2.2, 2) * 12, amp = (2 + n.fbm(x * 0.04, 6.6, 2) * 9) * MH.sstep(0.36, 0.58, n.fbm(x * 0.03, 9.9, 2));
+        if (amp < 0.6) continue;
+        for (let z = zb; z < zb + R; z++) {
+          const kf = keepF(x, z), h = Math.round(amp * Math.pow(1 - (z - zb) / R, 1.6) * kf + (hash3(x >> 1, 3, z >> 1) - 0.5) * 1.2 * kf);
+          if (h <= 0) continue;
+          MH.setH(w, x, z, L + h, h > 3 && hash3(x >> 2, 4, z >> 2) > 0.5 ? B.scree : B.gravel, B.rock);
+        }
+        if (amp > 3 && hash3(x, 7, 1) > 0.9 && keepF(x, zb + R * 0.5) > 0.9) rocks.push([x, Math.round(zb + R * (0.3 + hash3(x, 8, 1) * 0.5))]);
+      }
+      // 협곡 가장자리와 용암 기슭의 바위(일부는 땅에 묻힌 채)
+      for (let i = 0; i < 260 && rocks.length < 90; i++) {
+        const x = w.ri(8, W - 9), z = w.ri(213, 286), gg = MH.g(w, x, z);
+        if (Math.abs(x - 142) < 16 || (x > 250 && x < 292)) continue;
+        if ((gg >= L - 2 && gg <= L + 4) || (gg > LAVA && gg <= LAVA + 7)) rocks.push([x, z]);
+      }
+      for (const [x, z] of rocks) {
+        const gg = MH.g(w, x, z), r = w.r(1.6, 3.4), dark = gg < base;
+        MH.rock(w, x, gg + 1 - Math.round(r * w.r(0.2, 0.6)), z, r, dark ? B.basalt : (hash3(x, 1, z) > 0.5 ? B.cliffDk : B.cliff), dark ? 0 : B.lichen);
+      }
       // 절벽의 광맥: 금빛·푸른 광석 덩이
       for (let i = 0; i < 220; i++) {
         const x = w.ri(4, W - 6), z = w.ri(4, 100), gg = MH.g(w, x, z);
@@ -269,9 +350,19 @@
         return out;
       };
 
-      // ───────── 고원 길: 넓적돌 포장 ─────────
-      MH.path(w, [[40, 164], [120, 164], [200, 172], [256, 172], [300, 144]], 4.4, B.pave);
-      MH.path(w, [[90, 148], [90, 164]], 3.2, B.pave);
+      // ───────── 고원 길: 넓적돌 포장. 가장자리는 들쭉날쭉, 밖으로 닳은 흙과 떨어져 나온 돌 ─────────
+      const road = (pts, width, b) => {
+        const xs = pts.map(p => p[0]), zs = pts.map(p => p[1]), m = Math.ceil(width + 4);
+        for (let z = Math.max(0, Math.min(...zs) - m); z <= Math.min(D - 1, Math.max(...zs) + m); z++) for (let x = Math.max(0, Math.min(...xs) - m); x <= Math.min(W - 1, Math.max(...xs) + m); x++) {
+          const d = MH.polyDist(x + 0.5, z + 0.5, pts), e = width + (n.vn(x * 0.3, z * 0.3) - 0.5) * 1.8;
+          if (d <= e) { MH.paint(w, x, z, b); continue; }
+          if (d > e + 2.6) continue;
+          const hs = hash3(x >> 1, 5, z >> 1);
+          if (hs > 0.35 + (d - e) * 0.22) MH.paint(w, x, z, hs > 0.86 ? b : B.dirt);
+        }
+      };
+      road([[40, 164], [120, 164], [200, 172], [256, 172], [300, 144]], 4.4, B.pave);
+      road([[90, 148], [90, 164]], 3.2, B.pave);
       const ROAD = [[40, 164], [120, 164], [200, 172], [256, 172], [300, 144]];
 
       // ═════════ 광산 입구 ═════════
@@ -282,13 +373,16 @@
       for (let z = T0; z <= cz + 3; z++) for (let x = MX - 9; x <= MX + 9; x++) for (let y = L + 1; y <= L + 22; y++) if (inT(x - MX, y)) w.set(x, y, z, 0);
       for (let x = MX - 9; x <= MX + 9; x++) for (let y = L + 1; y <= L + 22; y++) if (inT(x - MX, y)) w.set(x, y, T0, B.coal);
       w.box(MX - 8, L, T0, MX + 8, L, cz + 3, B.graniteDk);
-      // 갱목 틀: 두께 2칸 기둥과 들보, 까치발, 걸린 등
+      // 갱목 틀: 두께 2칸 기둥과 들보(광차 위에 선 키보다 높게), 까치발. 등은 입구 가까이에만 걸어 안쪽은 어둠 속으로
       for (let z = T0 + 4; z <= cz - 3; z += 10) {
-        for (const x of [MX - 8, MX - 7, MX + 7, MX + 8]) w.box(x, L + 1, z, x, L + 16, z + 1, B.timber);
-        w.box(MX - 8, L + 17, z, MX + 8, L + 18, z + 1, B.timber);
-        for (const s of [-1, 1]) { w.set(MX + s * 6, L + 16, z, B.timberDk); w.set(MX + s * 6, L + 16, z + 1, B.timberDk); }
-        if (((z - T0 - 4) / 10) % 2 === 0) { w.set(MX - 6, L + 15, z + 2, B.iron); w.set(MX - 6, L + 14, z + 2, B.fireY); w.set(MX - 6, L + 13, z + 2, B.ironDk); }
+        for (const x of [MX - 8, MX - 7, MX + 7, MX + 8]) w.box(x, L + 1, z, x, L + 18, z + 1, B.timber);
+        w.box(MX - 8, L + 19, z, MX + 8, L + 20, z + 1, B.timber);
+        for (const s of [-1, 1]) { w.box(MX + s * 6, L + 17, z, MX + s * 6, L + 18, z + 1, B.timberDk); w.box(MX + s * 5, L + 19, z, MX + s * 5, L + 19, z + 1, B.timberDk); }
+        if (z >= cz - 34 && ((z - T0 - 4) / 10) % 2 === 0) { w.set(MX - 6, L + 15, z + 2, B.iron); w.set(MX - 6, L + 14, z + 2, B.fireY); w.set(MX - 6, L + 13, z + 2, B.ironDk); }
       }
+      // 갱도 바닥: 안쪽으로 갈수록 석탄 가루로 검어지고, 막장 벽 앞엔 석탄 더미
+      for (let z = T0 + 1; z <= cz; z++) for (let x = MX - 8; x <= MX + 8; x++) if (hash3(x >> 1, 2, z >> 1) < 0.85 - (z - T0) / (cz - T0)) w.set(x, L, z, B.coal2);
+      w.ellipsoid(MX - 6, L + 1, T0 + 3, 3, 3, 3, B.coal, (dx, dy) => dy >= 0);
       // 정문 벽: 낱돌, 2칸 두께, 뒤는 산까지 메운다
       const FW = 20, FT = L + 36;
       for (let x = MX - FW; x <= MX + FW; x++) for (let y = L + 1; y <= FT; y++) {
@@ -344,8 +438,13 @@
       w.ellipsoid(MX - 40, L + 1, cz + 14, 6, 4, 6, B.gravel, (dx, dy) => dy >= 0);
       for (let q = 0; q < 14; q++) { const x = MX - 43 + (q % 5) + (q >> 2), z = cz + 12 + ((q * 3) % 5); w.set(x, w.top(x, z) + 1, z, q % 3 ? B.ore : B.oreB); }
       w.ellipsoid(MX + 40, L + 1, cz + 14, 6, 4, 5, B.coal, (dx, dy, dz) => dy >= 0 && hash3(MX + dx, dy, dz) > 0.08);
-      // 선로: 갱도 안에서 협곡 철교 너머 남쪽 제련소를 지나 지도 밖까지(침목 위 레일)
+      // 선로: 광산 입구 갱도 깊숙한 곳에서 나와 협곡 철교 너머 남쪽 제련소를 지나 지도 밖까지(침목 위 레일, 바닥은 검은 자갈)
       for (let z = 280; z < D; z++) for (let x = MX - 8; x <= MX + 8; x++) MH.setH(w, x, z, L, B.gravel, B.rock);
+      for (let z = cz + 4; z < D; z++) for (let x = MX - 8; x <= MX + 8; x++) {
+        if (z >= 212 && z <= 284) continue;
+        const gg = MH.g(w, x, z);
+        if (gg === L && (Math.abs(x - MX) <= 6 || hash3(x >> 1, 6, z >> 1) > 0.5)) w.set(x, L, z, B.grit);
+      }
       for (let z = T0 + 1; z < D; z++) {
         if (z % 4 < 2) w.box(MX - 6, L, z, MX + 6, L, z, B.sleeper);
         w.set(MX - 4, L + 1, z, B.rail); w.set(MX + 4, L + 1, z, B.rail);
@@ -376,18 +475,23 @@
       for (const x of [MX - 5, MX + 5]) for (const z of [CZ0 - 6, CZ0 + 6]) cart.box(x, L + 5, z, x, L + 10, z, B.bronze);
       for (let z = CZ0 - 6; z <= CZ0 + 6; z++) { cart.set(MX - 5, L + 10, z, B.bronze); cart.set(MX + 5, L + 10, z, B.bronze); }
       for (let x = MX - 5; x <= MX + 5; x++) { cart.set(x, L + 10, CZ0 - 6, B.bronze); cart.set(x, L + 10, CZ0 + 6, B.bronze); }
+      // 짐: 차체 테두리 높이까지 고르게 채운 광석(올라설 수 있게 윗면은 평평, 금빛·푸른 덩이는 두 칸씩 무리 지어)
       for (let z = CZ0 - 5; z <= CZ0 + 5; z++) for (let x = MX - 4; x <= MX + 4; x++) {
-        const hgt = Math.round(4.5 - Math.hypot((x - MX) * 0.8, (z - CZ0) * 0.55) * 0.9 + hash3(x, 9, z));
-        for (let y = L + 6; y <= L + 6 + hgt; y++) cart.set(x, y, z, y === L + 6 + hgt ? ((hash3(x, y, z) > 0.75) ? B.oreB : B.ore) : B.gravel);
+        const hq = hash3(x >> 1, 9, z >> 1);
+        for (let y = L + 6; y <= L + 9; y++) cart.set(x, y, z, y === L + 9 ? (hq > 0.72 ? B.oreB : hq > 0.3 ? B.ore : B.gravel) : B.gravel);
       }
       for (const z of [CZ0 - 7, CZ0 + 7]) { cart.set(MX, L + 4, z, B.iron); cart.set(MX, L + 4, z + (z < CZ0 ? -1 : 1), B.ironDk); }
-      const cartRoute = [20, 40, 60, 80, 100, 120, 140, 160, 180, D + 24 - CZ0].map(dz => [0, 0, dz]);
+      // 광차 타고 광산으로: 레일을 따라 광산 입구 갱도 깊숙이(지도 안 갱도 속에서 멈춤) 들어가면 광산 안 지도로.
+      // 탈것 이동(ride) — 엔진이 정령을 태우고, 다 가면 어두워진 사이 광차를 제자리로 되돌린다
+      const CZ1 = T0 + 26;
+      const cartRoute = [-6, -12, -18, -24, -30, -36, -42, -60, -80, CZ1 - CZ0].map(dz => [0, 0, dz]);
       acts.push({
-        name: '광차', hint: '광석을 가득 실은 광차가 철교를 건너 제련소 너머로 달려가요', hit: [MX - 5, L + 2, CZ0 - 7, MX + 5, L + 12, CZ0 + 7],
+        name: '광차 타고 광산으로', hint: '광석을 가득 실은 광차에 올라타 레일을 따라 광산 입구 갱도 깊숙이 들어가요', ride: 'cart', goto: 'ironhollow-mine',
+        hit: [MX - 5, L + 2, CZ0 - 7, MX + 5, L + 12, CZ0 + 7],
         run: async a => {
           a.flash('mine', 2, 3);
           a.burst([MX + 0.5, L + 12, CZ0 + 0.5], { n: 28, colors: ['#e8c040', '#ffe090'], speed: 8, up: 8, life: 1.2, gravity: 16, spread: 4 });
-          await a.drive('cart', cartRoute, 18, { fwd: '+z', back: 1.0 });
+          await a.drive('cart', cartRoute, 9, { fwd: '-z' });
         },
       });
       landmarks.push({ name: '광산 입구', note: '산속 깊이 이어진 갱도', p: [MX + 0.5, L + 48, cz + 0.5], tag: 'MINE' });
@@ -684,8 +788,8 @@
       // ═════════ 협곡 남쪽 제련소와 보석 세공소 ═════════
       const FCX = 212, FCZ = 312, FH = 44;
       MH.flatten(w, FCX - 48, FCZ - 18, FCX + 44, D - 1, L, B.gravel, B.rock);
-      MH.path(w, [[MX + 10, 300], [192, 300], [236, 312]], 4, B.pave);
-      MH.path(w, [[MX - 10, 304], [104, 312], [80, 314]], 3.2, B.pave);
+      road([[MX + 10, 300], [192, 300], [236, 312]], 4, B.pave);
+      road([[MX - 10, 304], [104, 312], [80, 314]], 3.2, B.pave);
       // 용광로: 낱돌 받침, 벽돌 몸통에 청동 띠·쇠 띠, 꼭대기에서 불이 넘실댄다
       for (let y = L + 1; y <= L + 4; y++) for (let dz = -15; dz <= 15; dz++) for (let dx = -15; dx <= 15; dx++) { const r = Math.hypot(dx, dz); if (r <= 14.4) w.set(FCX + dx, y, FCZ + dz, r > 13.4 ? (y === L + 4 ? B.cap : ash(Math.round(Math.atan2(dz, dx) * 14), y, 71, SD)) : B.sd2); }
       for (let y = L + 5; y <= L + FH; y++) {

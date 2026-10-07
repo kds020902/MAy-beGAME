@@ -430,9 +430,10 @@
     disposables.forEach(d => { if (d.attributes && d.attributes.position) verts += d.attributes.position.count; });
     const entry = { i, def, base, group, liquid, lights, particles, landmarks, props, acts, fog, disposables, occ: w.data, liq: w.liq, W, D, H, verts, stepT: stepTypes(w), pass: passSet(w), ids: w.id };
     cache.set(i, entry);
-    // 캐시는 4개까지, 큰 지도가 많으면 정점 합계로도 줄인다
+    // 캐시는 4개까지, 큰 지도가 많으면 정점 합계와 칸 수(고해상도 지도 1개 ≈ 2,500만 칸)로도 줄인다
     const total = () => { let n = 0; cache.forEach(e => { n += e.verts; }); return n; };
-    while (cache.size > 4 || (cache.size > 2 && total() > 4.2e6)) {
+    const cells = () => { let n = 0; cache.forEach(e => { n += e.W * e.D * e.H; }); return n; };
+    while (cache.size > 4 || (cache.size > 2 && (total() > 4.2e6 || cells() > 6e7))) {
       const [oldI, old] = cache.entries().next().value;
       if (cur && old === cur) { cache.delete(oldI); cache.set(oldI, old); break; }
       old.disposables.forEach(d => d.dispose && d.dispose());

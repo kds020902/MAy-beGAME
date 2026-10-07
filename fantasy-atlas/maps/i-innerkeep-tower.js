@@ -3,22 +3,128 @@
 (function () {
   'use strict';
   const { hash3 } = VX;
-  const { KP } = window.KINGDOM;
+  const KP = Object.assign({}, window.KINGDOM.KP); delete KP.banner; delete KP.bannerR;   // 깃발·휘장 블록은 쓰지 않는다
+  // ── 2배 해상도 도우미(이 파일 전용 복사본) ──
+  // 1배 좌표로 쓴 설계를 2배 칸(1칸 ≈ 25cm)에 그린다. 정수 좌표 c는 실제 칸 2c..2c+1, 0.5 좌표(c = n + 0.5)는 실제 칸 2n+1 하나.
+  // 그래서 세부(가는 창살·줄눈·널판 틈 등)는 0.5 단위 좌표로 바로 그릴 수 있다. 원·고리·구는 실제 해상도로 매끄럽게 그린다.
+  const HD = (function () {
+    const rng = c => { const q = c * 2; if (Number.isInteger(q) && (q & 1)) return [q, q]; const f = Math.floor(c) * 2; return [f, f + 1]; };
+    const ctr = c => { const r = rng(c); return (r[0] + r[1] + 1) / 2; };
+    const sc = v => v && v.map((c, i) => (i < 3 ? c * 2 : c));
+    function face(T, root) {
+      const S = {
+        W: T.W >> 1, D: T.D >> 1, H: T.H >> 1, id: T.id, blocks: T.blocks, base: T.base / 2, R: T, hm: null, slope: null,
+        liq: root ? new Int16Array((T.W >> 1) * (T.D >> 1)).fill(-1) : null,
+        rand: () => T.rand(), noise: T.noise,
+        r: (a, b) => T.r(a, b), ri: (a, b) => T.ri(a, b), pick: a => T.pick(a), chance: p => T.chance(p),
+        get: (x, y, z) => T.get(rng(x)[0], rng(y)[0], rng(z)[0]),
+        set(x, y, z, b) {
+          const X = rng(x), Y = rng(y), Z = rng(z);
+          for (let yy = Y[0]; yy <= Y[1]; yy++) for (let zz = Z[0]; zz <= Z[1]; zz++) for (let xx = X[0]; xx <= X[1]; xx++) T.set(xx, yy, zz, b);
+        },
+        fill(x, y, z, b) { if (!S.get(x, y, z)) S.set(x, y, z, b); },
+        box(x0, y0, z0, x1, y1, z1, b) {
+          const X0 = rng(Math.min(x0, x1))[0], X1 = rng(Math.max(x0, x1))[1], Y0 = rng(Math.min(y0, y1))[0], Y1 = rng(Math.max(y0, y1))[1], Z0 = rng(Math.min(z0, z1))[0], Z1 = rng(Math.max(z0, z1))[1];
+          for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) for (let x = X0; x <= X1; x++) T.set(x, y, z, b);
+        },
+        walls(x0, y0, z0, x1, y1, z1, b) {
+          const a = rng(x0), c = rng(x1), d = rng(z0), e = rng(z1), Y0 = rng(y0)[0], Y1 = rng(y1)[1];
+          for (let y = Y0; y <= Y1; y++) for (let z = d[0]; z <= e[1]; z++) for (let x = a[0]; x <= c[1]; x++)
+            if (x <= a[1] || x >= c[0] || z <= d[1] || z >= e[0]) T.set(x, y, z, b);
+        },
+        cyl(cx, cz, y0, y1, r, b) {
+          if (r < 1.5) { const R = Math.ceil(r); for (let y = y0; y <= y1; y++) for (let z = -R; z <= R; z++) for (let x = -R; x <= R; x++) if (x * x + z * z <= r * r) S.set(cx + x, y, cz + z, b); return; }
+          const X = ctr(cx), Z = ctr(cz), RR = 2 * r + 0.5, K = Math.ceil(RR), Y0 = rng(y0)[0], Y1 = rng(y1)[1];
+          for (let z = Math.floor(Z - K); z <= Z + K; z++) for (let x = Math.floor(X - K); x <= X + K; x++) {
+            const dx = x + 0.5 - X, dz = z + 0.5 - Z; if (dx * dx + dz * dz > RR * RR) continue;
+            for (let y = Y0; y <= Y1; y++) T.set(x, y, z, b);
+          }
+        },
+        ring(cx, cz, y, r0, r1, b) {
+          if (r1 < 1.5) { const R = Math.ceil(r1); for (let z = -R; z <= R; z++) for (let x = -R; x <= R; x++) { const d = x * x + z * z; if (d <= r1 * r1 && d > r0 * r0) S.set(cx + x, y, cz + z, b); } return; }
+          const X = ctr(cx), Z = ctr(cz), A = r0 > 0 ? 2 * r0 + 0.5 : 0, Bb = 2 * r1 + 0.5, K = Math.ceil(Bb), Y = rng(y);
+          for (let z = Math.floor(Z - K); z <= Z + K; z++) for (let x = Math.floor(X - K); x <= X + K; x++) {
+            const dx = x + 0.5 - X, dz = z + 0.5 - Z, d = dx * dx + dz * dz; if (d > Bb * Bb || d <= A * A) continue;
+            for (let yy = Y[0]; yy <= Y[1]; yy++) T.set(x, yy, z, b);
+          }
+        },
+        sphere(cx, cy, cz, r, b, keep) { S.ellipsoid(cx, cy, cz, r, r, r, b, keep && ((x, y, z) => keep(x, y, z))); },
+        ellipsoid(cx, cy, cz, rx, ry, rz, b, keep) {
+          if (Math.min(rx, ry, rz) < 1.5) {
+            const X = Math.ceil(rx), Y = Math.ceil(ry), Z = Math.ceil(rz);
+            for (let y = -Y; y <= Y; y++) for (let z = -Z; z <= Z; z++) for (let x = -X; x <= X; x++) { const d = x * x / (rx * rx) + y * y / (ry * ry) + z * z / (rz * rz); if (d > 1 || (keep && !keep(x, y, z, d))) continue; S.set(cx + x, cy + y, cz + z, b); }
+            return;
+          }
+          const X = ctr(cx), Y = ctr(cy), Z = ctr(cz), ax = 2 * rx + 0.5, ay = 2 * ry + 0.5, az = 2 * rz + 0.5;
+          for (let y = Math.floor(Y - ay); y <= Y + ay; y++) for (let z = Math.floor(Z - az); z <= Z + az; z++) for (let x = Math.floor(X - ax); x <= X + ax; x++) {
+            const dx = x + 0.5 - X, dy = y + 0.5 - Y, dz = z + 0.5 - Z, d = dx * dx / (ax * ax) + dy * dy / (ay * ay) + dz * dz / (az * az);
+            if (d > 1 || (keep && !keep(dx / 2, dy / 2, dz / 2, d))) continue;
+            T.set(x, y, z, b);
+          }
+        },
+        line(x0, y0, z0, x1, y1, z1, b, th) {
+          if (th) { const n = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0)) * 1.5) + 1; for (let i = 0; i <= n; i++) { const t = i / n; S.sphere(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), Math.round(z0 + (z1 - z0) * t), typeof th === 'function' ? th(t) : th, b); } return; }
+          const a = [ctr(x0) - 0.5, ctr(y0) - 0.5, ctr(z0) - 0.5], c = [ctr(x1) - 0.5, ctr(y1) - 0.5, ctr(z1) - 0.5];
+          const n = Math.ceil(Math.max(Math.abs(c[0] - a[0]), Math.abs(c[1] - a[1]), Math.abs(c[2] - a[2])) * 1.5) + 1;
+          for (let i = 0; i <= n; i++) { const t = i / n; T.set(Math.round(a[0] + (c[0] - a[0]) * t), Math.round(a[1] + (c[1] - a[1]) * t), Math.round(a[2] + (c[2] - a[2]) * t), b); }
+        },
+        top(x, z) { const y = T.top(rng(x)[0], rng(z)[0]); return y < 0 ? -1 : y >> 1; },
+        liquid(x, z, y) {
+          const X = rng(x), Z = rng(z), Y = rng(y)[1];
+          for (let zz = Z[0]; zz <= Z[1]; zz++) for (let xx = X[0]; xx <= X[1]; xx++) T.liquid(xx, zz, Y);
+          if (S.liq && x >= 0 && z >= 0 && x < S.W && z < S.D) S.liq[Math.floor(x) + S.W * Math.floor(z)] = y;
+        },
+        prop(o) {
+          const q = Object.assign({}, o);
+          if (q.pivot) q.pivot = sc(q.pivot); if (q.off0) q.off0 = sc(q.off0); if (q.bob) q.bob *= 2;
+          return face(T.prop(q), false);
+        },
+      };
+      return S;
+    }
+    // 1배 높이지도를 실제 칸 높이지도로(2h+1)
+    function syncHM(S) {
+      const T = S.R, W = T.W, D = T.D;
+      if (!T.hm || T.hm.length !== W * D) T.hm = new Int16Array(W * D);
+      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { const h = S.hm[(x >> 1) + S.W * (z >> 1)]; T.hm[x + W * z] = h * 2 + 1; }
+    }
+    const hit2 = h => [rng(Math.min(h[0], h[3]))[0], rng(Math.min(h[1], h[4]))[0], rng(Math.min(h[2], h[5]))[0], rng(Math.max(h[0], h[3]))[1], rng(Math.max(h[1], h[4]))[1], rng(Math.max(h[2], h[5]))[1]];
+    const burst2 = o => o && Object.assign({}, o, { speed: (o.speed || 4) * 2, up: (o.up != null ? o.up : 3) * 2, gravity: (o.gravity != null ? o.gravity : 3) * 2, spread: (o.spread || 1) * 2, h: o.h ? o.h * 2 : o.h });
+    function actor(a) {
+      const over = {
+        move: (n, off, d, e) => a.move(n, sc(off), d, e),
+        tween: (n, to, d, e) => a.tween(n, to && to.off ? Object.assign({}, to, { off: sc(to.off) }) : to, d, e),
+        burst: (p, o) => a.burst(sc(p), burst2(o)),
+        drive: (n, pts, d, o) => a.drive(n, pts.map(sc), d, o),
+        path: (n, pts, d) => a.path(n, pts.map(sc), d),
+      };
+      return new Proxy(a, { get(t, k) { if (over[k]) return over[k]; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+    }
+    // 설계(1배)로 만든 조명·랜드마크·상호작용을 실제 칸 좌표로
+    function out(res) {
+      return {
+        lights: res.lights.map(l => Object.assign({}, l, { p: sc(l.p), d: l.d ? l.d * 2 : l.d, srcR: (l.srcR || 4) * 2 })),
+        landmarks: res.landmarks.map(m => Object.assign({}, m, { p: sc(m.p) })),
+        acts: res.acts.map(q => Object.assign({}, q, { hit: hit2(q.hit), run: q.run && (a => q.run(actor(a))) })),
+      };
+    }
+    return { face, syncHM, out, rng, sc };
+  })();
   const W = 80, D = 80, Hh = 72;
   MAPS.push({
-    id: 'innerkeep-tower', cat: 'kingdom', sub: true, parent: 'innerkeep', name: '왕의 서재', en: 'King\'s Study · NE Tower', color: '#e8c04a', seed: 2512, base: 34, time: 'night', size: [W, D, Hh],
+    id: 'innerkeep-tower', cat: 'kingdom', sub: true, parent: 'innerkeep', name: '왕의 서재', en: 'King\'s Study · NE Tower', color: '#e8c04a', seed: 2512, base: 68, time: 'night', size: [W * 2, D * 2, Hh * 2], playerScale: 2,
     desc: '성 내부 북동 모서리 탑, 나선 계단 꼭대기의 둥근 방. 벽을 따라 휘어진 서가가 둘러서 있고 왕이 밤늦게 편지에 봉인을 찍는 큰 책상, 왕국 지도를 펼치는 탁자, 지구본과 천구의가 놓여 있다. 남동쪽 문을 나서면 별을 보는 천문 발코니에 망원경이 서 있다.',
     info: { title: '장소 정보', en: 'KING\'S STUDY', rows: [['위치', '성 내부 북동 모서리 탑 꼭대기'], ['방', '나선 계단 · 왕의 서재 · 천문 발코니'], ['명물', '왕국 지도 탁자 · 봉인 도장 · 망원경'], ['소문', '북쪽 서가 한 칸은 책이 아니라 문이다']] },
     sky: ['#2a2238', '#0a0a18', '#5a4468'], stars: true,
     hemi: ['#d8c8e8', '#2a2030', 0.5], sun: ['#c8c0f0', 0.42, [0.5, 1, 0.55]],
     day: { sky: ['#d8ecf8', '#5a90d0', '#fff8e0'], stars: false, hemi: ['#ffffff', '#5a5a60', 0.62], sun: ['#fff4e0', 0.8, [0.5, 1, 0.55]] },
     liquid: ['#2a5a8a', '#4a8ac0', '#e0f4ff'], liqSpeed: 0.6,
-    fog: { start: 0.9, floor: 22, depth: 10 },
-    camY: -3, zoom: 2.2,
+    fog: { start: 0.9, floor: 44, depth: 20 },
+    camY: -6, zoom: 2.2,
     particles: [
-      { n: 90, colors: ['#ffe8c0', '#fff4e0'], mode: 'drift', speed: 0.12, area: [40, 40, 15], y0: 36, y1: 48, glow: false },
-      { n: 40, colors: ['#ffb04a', '#ff7a2a'], mode: 'rise', speed: 0.5, area: [48, 25, 2], y0: 38, y1: 56, glow: true },
-      { n: 30, colors: ['#e8f0ff', '#c8d8ff'], mode: 'drift', speed: 0.2, area: [56, 56, 8], y0: 40, y1: 60, glow: true },
+      { n: 110, colors: ['#ffe8c0', '#fff4e0'], mode: 'drift', speed: 0.24, area: [80, 80, 30], y0: 72, y1: 96, glow: false },
+      { n: 50, colors: ['#ffb04a', '#ff7a2a'], mode: 'rise', speed: 1, area: [97, 49, 4], y0: 76, y1: 112, glow: true },
+      { n: 40, colors: ['#e8f0ff', '#c8d8ff'], mode: 'drift', speed: 0.4, area: [112, 112, 16], y0: 80, y1: 120, glow: true },
     ],
     blocks: Object.assign({}, KP, {
       plankF: { c: '#7a5434', top: '#946a44', v: 0.06, pat: 'plank' }, plankF2: { c: '#6a4428', top: '#80583a', v: 0.06, pat: 'plank' },
@@ -30,10 +136,11 @@
       hearth: { c: '#5a5660', v: 0.06, pat: 'brick' }, coal: { c: '#2a2a30', v: 0.06 }, fire: { c: '#ff9a3a', glow: true }, ember: { c: '#ff6a1a', glow: true },
       candle: { c: '#ffe2a0', glow: true }, coin: { c: '#ffd860', glow: true }, gemR: { c: '#ff3a5a', glow: true }, gemB: { c: '#5ac8ff', glow: true }, sunO: { c: '#ffd070', glow: true },
       glassN: { c: '#8ab8ff', night: true, day: '#a8c8e0' }, slate: { c: '#3a4258', v: 0.04 }, cut: { c: '#32303c', v: 0.02 },
-      tile: { c: '#9a9aa4', top: '#c4c0cc', v: 0.04, pat: 'check', alt: '#8a8694' }, kfloor: { c: '#8a8680', top: '#a09a90', v: 0.08, pat: 'stone' }, dark: { c: '#16141a', v: 0 },
+      book5: { c: '#5a2a5a', v: 0.05 }, book6: { c: '#2a5a5a', v: 0.05 }, tile: { c: '#9a9aa4', top: '#c4c0cc', v: 0.04, pat: 'check', alt: '#8a8694' }, kfloor: { c: '#8a8680', top: '#a09a90', v: 0.08, pat: 'stone' }, dark: { c: '#16141a', v: 0 },
       chest: { c: '#6a4428', v: 0.05, pat: 'plank' }, wine: { c: '#6a1a2a', v: 0.03 },
     }),
-    build(w) {
+    build(R) {
+      const w = HD.face(R, true);   // 설계는 1배 좌표(0.5 단위까지), 그리기는 2배 칸
       const B = w.id, G = w.base, GB = G - 14;
       const CX = 40, CZ = 40, RI = 16, RO = 18.3, TALL = G + 15, LOW = G + 2;
       MH.terrain(w, { floor: 2, height: () => GB, surface: (x, z) => ((x >> 2) + (z >> 2)) % 2 ? B.slab : B.tile, under: (x, z, y, dep) => dep < 2 ? B.found : B.rock });
@@ -44,8 +151,9 @@
       const atP = (deg, r) => [Math.round(CX + Math.cos(deg * Math.PI / 180) * r), Math.round(CZ + Math.sin(deg * Math.PI / 180) * r)];
 
       // ── 탑 몸통(아래)과 둥근 바닥, 둘레벽 ──
-      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-        const { dx, dz, r, t } = pol(x, z);
+      // (2배 칸) 0.5 간격으로 돌며 실제 칸마다 둥글게 — 정수 칸이 먼저 두 칸을 칠하고 .5 칸이 오른쪽 반을 덮는다
+      for (let z = 0; z < D; z += 0.5) for (let x = 0; x < W; x += 0.5) {
+        const { dx, dz, r, t } = pol(x - 0.25, z - 0.25);
         if (r >= RO) continue;
         for (let y = GB + 1; y < G; y++) w.set(x, y, z, (y - GB) % 6 === 0 ? B.whiteDk : B.white);
         if (r < RI) {
@@ -56,7 +164,7 @@
           const top = wallTop(dx, dz);
           for (let y = G + 1; y <= top; y++) w.set(x, y, z, y === G + 1 || y === top || (y - G) % 7 === 0 ? B.whiteDk : B.white);
           if (top >= G + 6 && ((Math.floor(t) % 12) + 12) % 12 < 6) w.set(x, top + 1, z, B.trim);
-          else if (top < G + 6 && (x + z) % 2 === 0) w.set(x, top + 1, z, B.trim);
+          else if (top < G + 6 && (((Math.floor(t / 7) % 2) + 2) % 2) === 0) w.set(x, top + 1, z, B.trim);
         }
       }
       // 탑 몸통 바깥 띠와 좁은 창(아래층 계단 창)
@@ -68,20 +176,32 @@
       }
 
       // ── 바닥 가운데 둥근 융단(나침 장미 무늬) ──
-      for (let z = CZ - 8; z <= CZ + 8; z++) for (let x = CX - 8; x <= CX + 8; x++) {
-        const { dx, dz, r } = pol(x, z); if (r > 8) continue;
-        const star = (Math.abs(dx) <= 0 || Math.abs(dz) <= 0) && r > 2 && r < 7.5;
+      for (let z = CZ - 8; z <= CZ + 8; z += 0.5) for (let x = CX - 8; x <= CX + 8; x += 0.5) {
+        const { dx, dz, r } = pol(x - 0.25, z - 0.25); if (r > 8.2) continue;
+        const star = (Math.abs(dx) * 2.4 < Math.max(0, 7.5 - r) * 0.5 || Math.abs(dz) * 2.4 < Math.max(0, 7.5 - r) * 0.5) && r > 1.6 && r < 7.5;
         w.set(x, G, z, r > 7.2 ? B.rugB : star ? B.rugB : r < 1.5 ? B.rugR : (Math.floor(r) % 3 === 0 ? B.rugR : B.rug));
       }
 
       // ── 휘어진 서가(북서쪽 벽): 계단 우물·비밀 서가·벽난로 자리는 비운다 ──
-      const books = [B.book1, B.book2, B.book3, B.book4];
-      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-        const { r, t } = pol(x, z);
+      const books = [B.book1, B.book2, B.book3, B.book4, B.book5, B.book6];
+      // (2배 칸) 서가: 칸판 사이로 높이·색이 제각각인 책등, 뒤판, 군데군데 빈 틈과 기울어진 책
+      for (let Z = 0; Z < D * 2; Z++) for (let X = 0; X < W * 2; X++) {
+        const x1 = X >> 1, z1 = Z >> 1, { r, t } = pol(X / 2 - 0.25, Z / 2 - 0.25);
         if (r < 14.6 || r >= RI) continue;
-        const ok = (angIn(t, 192, 262) || angIn(t, 278, 292) || angIn(t, 118, 150)) && !(x >= 23 && x <= 29 && z >= 34 && z <= 46);
+        const ok = (angIn(t, 192, 262) || angIn(t, 278, 292) || angIn(t, 118, 150)) && !(x1 >= 23 && x1 <= 29 && z1 >= 34 && z1 <= 46);
         if (!ok) continue;
-        for (let y = G + 1; y <= G + 8; y++) w.set(x, y, z, (y - G) % 2 === 0 || y === G + 8 ? B.shelf : books[(hash3(x, y, z) * 4) | 0]);
+        const col = Math.floor((t + 360) * Math.PI / 180 * 15.3 * 2), back = r > 15.45;
+        for (let Y = (G + 1) * 2; Y <= (G + 8) * 2 + 1; Y++) {
+          const ry = Y - (G + 1) * 2, sr = ry >> 2, q = ry & 3;
+          let b;
+          if (q === 3 || ry === 15 || back) b = B.shelf;
+          else {
+            const h = hash3(col, sr, 3), hh = 1 + (hash3(col, sr, 9) > 0.35 ? 1 : 0) + (hash3(col, sr, 11) > 0.8 ? 1 : 0);
+            b = h > 0.94 || q >= hh ? 0 : books[(hash3(col, sr, 5) * 6) | 0];
+            if (q === hh - 1 && hash3(col, sr, 13) > 0.85) b = B.paper;
+          }
+          R.set(X, Y, Z, b);
+        }
       }
       // 서가 사다리
       for (const deg of [215, 245]) { const [x, z] = atP(deg, 14); for (let y = G + 1; y <= G + 8; y++) w.set(x, y, z, y % 2 ? B.wood : 0); w.set(x, G + 9, z, B.wood); }
@@ -151,7 +271,7 @@
 
       // ── 지구본(동쪽) ──
       w.box(52, G + 1, 36, 52, G + 2, 36, B.wood); w.box(51, G + 1, 35, 53, G + 1, 37, B.wood);
-      const globe = w.prop({ name: 'globe', pivot: [52.5, G + 4.5, 36.5], speed: 0.25 });
+      const globe = w.prop({ name: 'globe', pivot: [52.5, G + 4.5, 36.5], speed: 0.25, clipOK: 12 });
       globe.sphere(52, G + 4, 36, 1.6, B.globe);
       for (const [x, y, z] of [[51, G + 4, 35], [53, G + 5, 36], [52, G + 3, 37], [51, G + 5, 37], [53, G + 4, 35]]) globe.set(x, y, z, B.mapG);
       w.box(54, G + 3, 36, 54, G + 6, 36, B.brass);
@@ -242,7 +362,8 @@
         name: '서재 벽난로', hint: '벽난로에 장작을 넣자 불길이 확 일며 불티가 굴뚝으로 날아올라요', hit: [45, G + 1, 23, 52, G + 8, 27],
         run: async a => { a.flash('hearth', 2.6, 3); for (let k = 0; k < 7; k++) { a.burst([48.5, G + 3, 26.5], { n: 26, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], speed: 2.5, up: 4, life: 1.2, gravity: 2, spread: 1.8 }); a.burst([48.5, TALL + 5, 24.5], { n: 8, colors: ['#ff7a2a', '#ffe08a'], speed: 1, up: 3, life: 1.4, gravity: -0.5, spread: 1 }); await a.wait(0.4); } },
       });
-      return { lights, landmarks, acts };
+      HD.syncHM(w);
+      return HD.out({ lights, landmarks, acts });
     },
   });
 })();

@@ -3,25 +3,131 @@
 (function () {
   'use strict';
   const { hash3 } = VX;
-  const { KP } = window.KINGDOM;
+  const KP = Object.assign({}, window.KINGDOM.KP); delete KP.banner; delete KP.bannerR;   // 깃발·휘장 블록은 쓰지 않는다
+  // ── 2배 해상도 도우미(이 파일 전용 복사본) ──
+  // 1배 좌표로 쓴 설계를 2배 칸(1칸 ≈ 25cm)에 그린다. 정수 좌표 c는 실제 칸 2c..2c+1, 0.5 좌표(c = n + 0.5)는 실제 칸 2n+1 하나.
+  // 그래서 세부(가는 창살·줄눈·널판 틈 등)는 0.5 단위 좌표로 바로 그릴 수 있다. 원·고리·구는 실제 해상도로 매끄럽게 그린다.
+  const HD = (function () {
+    const rng = c => { const q = c * 2; if (Number.isInteger(q) && (q & 1)) return [q, q]; const f = Math.floor(c) * 2; return [f, f + 1]; };
+    const ctr = c => { const r = rng(c); return (r[0] + r[1] + 1) / 2; };
+    const sc = v => v && v.map((c, i) => (i < 3 ? c * 2 : c));
+    function face(T, root) {
+      const S = {
+        W: T.W >> 1, D: T.D >> 1, H: T.H >> 1, id: T.id, blocks: T.blocks, base: T.base / 2, R: T, hm: null, slope: null,
+        liq: root ? new Int16Array((T.W >> 1) * (T.D >> 1)).fill(-1) : null,
+        rand: () => T.rand(), noise: T.noise,
+        r: (a, b) => T.r(a, b), ri: (a, b) => T.ri(a, b), pick: a => T.pick(a), chance: p => T.chance(p),
+        get: (x, y, z) => T.get(rng(x)[0], rng(y)[0], rng(z)[0]),
+        set(x, y, z, b) {
+          const X = rng(x), Y = rng(y), Z = rng(z);
+          for (let yy = Y[0]; yy <= Y[1]; yy++) for (let zz = Z[0]; zz <= Z[1]; zz++) for (let xx = X[0]; xx <= X[1]; xx++) T.set(xx, yy, zz, b);
+        },
+        fill(x, y, z, b) { if (!S.get(x, y, z)) S.set(x, y, z, b); },
+        box(x0, y0, z0, x1, y1, z1, b) {
+          const X0 = rng(Math.min(x0, x1))[0], X1 = rng(Math.max(x0, x1))[1], Y0 = rng(Math.min(y0, y1))[0], Y1 = rng(Math.max(y0, y1))[1], Z0 = rng(Math.min(z0, z1))[0], Z1 = rng(Math.max(z0, z1))[1];
+          for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) for (let x = X0; x <= X1; x++) T.set(x, y, z, b);
+        },
+        walls(x0, y0, z0, x1, y1, z1, b) {
+          const a = rng(x0), c = rng(x1), d = rng(z0), e = rng(z1), Y0 = rng(y0)[0], Y1 = rng(y1)[1];
+          for (let y = Y0; y <= Y1; y++) for (let z = d[0]; z <= e[1]; z++) for (let x = a[0]; x <= c[1]; x++)
+            if (x <= a[1] || x >= c[0] || z <= d[1] || z >= e[0]) T.set(x, y, z, b);
+        },
+        cyl(cx, cz, y0, y1, r, b) {
+          if (r < 1.5) { const R = Math.ceil(r); for (let y = y0; y <= y1; y++) for (let z = -R; z <= R; z++) for (let x = -R; x <= R; x++) if (x * x + z * z <= r * r) S.set(cx + x, y, cz + z, b); return; }
+          const X = ctr(cx), Z = ctr(cz), RR = 2 * r + 0.5, K = Math.ceil(RR), Y0 = rng(y0)[0], Y1 = rng(y1)[1];
+          for (let z = Math.floor(Z - K); z <= Z + K; z++) for (let x = Math.floor(X - K); x <= X + K; x++) {
+            const dx = x + 0.5 - X, dz = z + 0.5 - Z; if (dx * dx + dz * dz > RR * RR) continue;
+            for (let y = Y0; y <= Y1; y++) T.set(x, y, z, b);
+          }
+        },
+        ring(cx, cz, y, r0, r1, b) {
+          if (r1 < 1.5) { const R = Math.ceil(r1); for (let z = -R; z <= R; z++) for (let x = -R; x <= R; x++) { const d = x * x + z * z; if (d <= r1 * r1 && d > r0 * r0) S.set(cx + x, y, cz + z, b); } return; }
+          const X = ctr(cx), Z = ctr(cz), A = r0 > 0 ? 2 * r0 + 0.5 : 0, Bb = 2 * r1 + 0.5, K = Math.ceil(Bb), Y = rng(y);
+          for (let z = Math.floor(Z - K); z <= Z + K; z++) for (let x = Math.floor(X - K); x <= X + K; x++) {
+            const dx = x + 0.5 - X, dz = z + 0.5 - Z, d = dx * dx + dz * dz; if (d > Bb * Bb || d <= A * A) continue;
+            for (let yy = Y[0]; yy <= Y[1]; yy++) T.set(x, yy, z, b);
+          }
+        },
+        sphere(cx, cy, cz, r, b, keep) { S.ellipsoid(cx, cy, cz, r, r, r, b, keep && ((x, y, z) => keep(x, y, z))); },
+        ellipsoid(cx, cy, cz, rx, ry, rz, b, keep) {
+          if (Math.min(rx, ry, rz) < 1.5) {
+            const X = Math.ceil(rx), Y = Math.ceil(ry), Z = Math.ceil(rz);
+            for (let y = -Y; y <= Y; y++) for (let z = -Z; z <= Z; z++) for (let x = -X; x <= X; x++) { const d = x * x / (rx * rx) + y * y / (ry * ry) + z * z / (rz * rz); if (d > 1 || (keep && !keep(x, y, z, d))) continue; S.set(cx + x, cy + y, cz + z, b); }
+            return;
+          }
+          const X = ctr(cx), Y = ctr(cy), Z = ctr(cz), ax = 2 * rx + 0.5, ay = 2 * ry + 0.5, az = 2 * rz + 0.5;
+          for (let y = Math.floor(Y - ay); y <= Y + ay; y++) for (let z = Math.floor(Z - az); z <= Z + az; z++) for (let x = Math.floor(X - ax); x <= X + ax; x++) {
+            const dx = x + 0.5 - X, dy = y + 0.5 - Y, dz = z + 0.5 - Z, d = dx * dx / (ax * ax) + dy * dy / (ay * ay) + dz * dz / (az * az);
+            if (d > 1 || (keep && !keep(dx / 2, dy / 2, dz / 2, d))) continue;
+            T.set(x, y, z, b);
+          }
+        },
+        line(x0, y0, z0, x1, y1, z1, b, th) {
+          if (th) { const n = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0)) * 1.5) + 1; for (let i = 0; i <= n; i++) { const t = i / n; S.sphere(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), Math.round(z0 + (z1 - z0) * t), typeof th === 'function' ? th(t) : th, b); } return; }
+          const a = [ctr(x0) - 0.5, ctr(y0) - 0.5, ctr(z0) - 0.5], c = [ctr(x1) - 0.5, ctr(y1) - 0.5, ctr(z1) - 0.5];
+          const n = Math.ceil(Math.max(Math.abs(c[0] - a[0]), Math.abs(c[1] - a[1]), Math.abs(c[2] - a[2])) * 1.5) + 1;
+          for (let i = 0; i <= n; i++) { const t = i / n; T.set(Math.round(a[0] + (c[0] - a[0]) * t), Math.round(a[1] + (c[1] - a[1]) * t), Math.round(a[2] + (c[2] - a[2]) * t), b); }
+        },
+        top(x, z) { const y = T.top(rng(x)[0], rng(z)[0]); return y < 0 ? -1 : y >> 1; },
+        liquid(x, z, y) {
+          const X = rng(x), Z = rng(z), Y = rng(y)[1];
+          for (let zz = Z[0]; zz <= Z[1]; zz++) for (let xx = X[0]; xx <= X[1]; xx++) T.liquid(xx, zz, Y);
+          if (S.liq && x >= 0 && z >= 0 && x < S.W && z < S.D) S.liq[Math.floor(x) + S.W * Math.floor(z)] = y;
+        },
+        prop(o) {
+          const q = Object.assign({}, o);
+          if (q.pivot) q.pivot = sc(q.pivot); if (q.off0) q.off0 = sc(q.off0); if (q.bob) q.bob *= 2;
+          return face(T.prop(q), false);
+        },
+      };
+      return S;
+    }
+    // 1배 높이지도를 실제 칸 높이지도로(2h+1)
+    function syncHM(S) {
+      const T = S.R, W = T.W, D = T.D;
+      if (!T.hm || T.hm.length !== W * D) T.hm = new Int16Array(W * D);
+      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { const h = S.hm[(x >> 1) + S.W * (z >> 1)]; T.hm[x + W * z] = h * 2 + 1; }
+    }
+    const hit2 = h => [rng(Math.min(h[0], h[3]))[0], rng(Math.min(h[1], h[4]))[0], rng(Math.min(h[2], h[5]))[0], rng(Math.max(h[0], h[3]))[1], rng(Math.max(h[1], h[4]))[1], rng(Math.max(h[2], h[5]))[1]];
+    const burst2 = o => o && Object.assign({}, o, { speed: (o.speed || 4) * 2, up: (o.up != null ? o.up : 3) * 2, gravity: (o.gravity != null ? o.gravity : 3) * 2, spread: (o.spread || 1) * 2, h: o.h ? o.h * 2 : o.h });
+    function actor(a) {
+      const over = {
+        move: (n, off, d, e) => a.move(n, sc(off), d, e),
+        tween: (n, to, d, e) => a.tween(n, to && to.off ? Object.assign({}, to, { off: sc(to.off) }) : to, d, e),
+        burst: (p, o) => a.burst(sc(p), burst2(o)),
+        drive: (n, pts, d, o) => a.drive(n, pts.map(sc), d, o),
+        path: (n, pts, d) => a.path(n, pts.map(sc), d),
+      };
+      return new Proxy(a, { get(t, k) { if (over[k]) return over[k]; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+    }
+    // 설계(1배)로 만든 조명·랜드마크·상호작용을 실제 칸 좌표로
+    function out(res) {
+      return {
+        lights: res.lights.map(l => Object.assign({}, l, { p: sc(l.p), d: l.d ? l.d * 2 : l.d, srcR: (l.srcR || 4) * 2 })),
+        landmarks: res.landmarks.map(m => Object.assign({}, m, { p: sc(m.p) })),
+        acts: res.acts.map(q => Object.assign({}, q, { hit: hit2(q.hit), run: q.run && (a => q.run(actor(a))) })),
+      };
+    }
+    return { face, syncHM, out, rng, sc };
+  })();
   const W = 96, D = 96, Hh = 72;
   MAPS.push({
-    id: 'castlegate-gatehouse', cat: 'kingdom', sub: true, parent: 'castlegate', name: '성문 문루', en: 'Castle Gatehouse', color: '#c8d4ee', seed: 2391, base: 20, time: 'night', size: [W, D, Hh],
+    id: 'castlegate-gatehouse', cat: 'kingdom', sub: true, parent: 'castlegate', name: '성문 문루', en: 'Castle Gatehouse', color: '#c8d4ee', seed: 2391, base: 40, time: 'night', size: [W * 2, D * 2, Hh * 2], playerScale: 2,
     desc: '왕성 정문 쌍탑 사이 문루의 속. 가운데로 성문 통로가 지나고 머리 위에 쇠창살이 걸려 있다. 서쪽은 화로가 타는 수비대 초소, 동쪽은 쇠창살과 도개교를 감는 큰 윈치 방이고, 계단을 오르면 화살구멍과 봉화 화로가 있는 망루 통로가 북쪽 벽을 따라 이어진다.',
     info: { title: '장소 정보', en: 'GATEHOUSE', rows: [['위치', '왕성 앞 광장 정문 문루'], ['아래층', '성문 통로 · 수비대 초소 · 쇠창살 감기 방'], ['위층', '망루 통로 · 화살구멍 · 봉화 화로'], ['소문', '쇠창살 윈치는 근위대 셋이 함께 돌려야 겨우 움직인다']] },
     sky: ['#26304a', '#0c0e1a', '#6a5a78'], stars: true,
     hemi: ['#d8d0e8', '#2a2430', 0.52], sun: ['#c8d0f8', 0.4, [0.5, 1, 0.55]],
     day: { sky: ['#d8ecf8', '#5a90d0', '#fff8e0'], stars: false, hemi: ['#ffffff', '#5a5a60', 0.6], sun: ['#fff4e0', 0.74, [0.5, 1, 0.55]] },
     liquid: ['#2a5a8a', '#4a8ac0', '#e0f4ff'], liqSpeed: 0.6,
-    fog: { start: 0.9, floor: 6, depth: 6 },
-    camY: -6, zoom: 1.65,
+    fog: { start: 0.9, floor: 12, depth: 12 },
+    camY: -12, zoom: 1.65,
     particles: [
-      { n: 70, colors: ['#ffe8c0', '#fff4e0'], mode: 'drift', speed: 0.15, area: [48, 48, 30], y0: 22, y1: 36, glow: false },
-      { n: 40, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], mode: 'rise', speed: 0.8, area: [71, 25, 3], y0: 32, y1: 46, glow: true },
-      { n: 24, colors: ['#ffb04a', '#ff7a2a'], mode: 'rise', speed: 0.5, area: [22, 51, 2], y0: 22, y1: 30, glow: true },
+      { n: 90, colors: ['#ffe8c0', '#fff4e0'], mode: 'drift', speed: 0.3, area: [96, 96, 60], y0: 44, y1: 72, glow: false },
+      { n: 50, colors: ['#ffb04a', '#ff7a2a', '#ffe08a'], mode: 'rise', speed: 1.6, area: [143, 51, 6], y0: 64, y1: 92, glow: true },
+      { n: 30, colors: ['#ffb04a', '#ff7a2a'], mode: 'rise', speed: 1, area: [45, 103, 4], y0: 44, y1: 60, glow: true },
     ],
     blocks: Object.assign({}, KP, {
-      slabD: { c: '#9a968e', top: '#b4b0a6', v: 0.05, pat: 'check', alt: '#a8a49a' }, flag: { c: '#8a867e', top: '#a29e94', v: 0.08, pat: 'stone' },
+      slabD: { c: '#9a968e', top: '#b4b0a6', v: 0.05, pat: 'check', alt: '#a8a49a' }, flagst: { c: '#8a867e', top: '#a29e94', v: 0.08, pat: 'stone' },
       dark: { c: '#16141a', v: 0 }, chain: { c: '#3a3a44', v: 0.03 }, steel: { c: '#aab0bc', v: 0.04 }, brass: { c: '#d8a84a', v: 0.05 },
       hearth: { c: '#5a5660', v: 0.06, pat: 'brick' }, fire: { c: '#ff9a3a', glow: true }, ember: { c: '#ff6a1a', glow: true }, candle: { c: '#ffe2a0', glow: true },
       table: { c: '#7a4a2a', v: 0.05, pat: 'plank' }, bench: { c: '#5a3a24', v: 0.04 }, mug: { c: '#c8b8a0', v: 0.03 }, ale: { c: '#d89a3a', v: 0.03 },
@@ -29,7 +135,8 @@
       rug: { c: '#2a4a9a', top: '#30509e', v: 0.03 }, coal: { c: '#2a2a30', v: 0.06 }, shield: { c: '#2a4a9a', v: 0.03 }, leather: { c: '#7a4a2a', v: 0.05 },
       chest: { c: '#6a4428', v: 0.05, pat: 'plank' }, waterB: { c: '#5aa0d8', v: 0.03 },
     }),
-    build(w) {
+    build(R) {
+      const w = HD.face(R, true);   // 설계는 1배 좌표(0.5 단위까지), 그리기는 2배 칸
       const B = w.id, G = w.base;
       MH.terrain(w, { floor: 2, height: () => G, surface: (x, z) => hash3(x, 2, z) > 0.8 ? B.cobble2 : B.cobble, under: (x, z, y, dep) => dep < 2 ? B.found : B.rock });
       const lights = [], acts = [], landmarks = [];
@@ -41,10 +148,10 @@
       // ── 바닥: 초소·윈치 방은 체크 석판, 통로는 자갈과 푸른 행렬 길 ──
       for (let z = Z0; z <= Z1; z++) for (let x = X0; x <= X1; x++) {
         let b = ((x >> 1) + (z >> 1)) % 2 ? B.slab : B.slabD;
-        if (x >= PX0 && x <= PX1) b = (x === PX0 || x === PX1) ? B.gold : (x === MIDX ? B.carpet : B.flag);
+        if (x >= PX0 && x <= PX1) b = (x === PX0 || x === PX1) ? B.gold : (x === MIDX ? B.carpet : B.flagst);
         w.set(x, G, z, b);
       }
-      for (let z = Z1 + 1; z < D - 4; z++) for (let x = PX0 - 1; x <= PX1 + 1; x++) w.set(x, G, z, (x === PX0 - 1 || x === PX1 + 1) ? B.whiteDk : (x === MIDX ? B.carpet : B.flag));
+      for (let z = Z1 + 1; z < D - 4; z++) for (let x = PX0 - 1; x <= PX1 + 1; x++) w.set(x, G, z, (x === PX0 - 1 || x === PX1 + 1) ? B.whiteDk : (x === MIDX ? B.carpet : B.flagst));
 
       // ── 바깥벽: 북·서는 높고(화살구멍), 남·동은 낮게 잘라 속을 보인다 ──
       w.box(X0, G + 1, Z0, X1, TALL, Z0 + 1, B.white);
@@ -86,8 +193,12 @@
       w.box(PX0 - 2, GH + 2, 44, PX1 + 2, GH + 2, 46, B.trim);
       // 쇠창살(부품): 처음엔 들보 위로 걷혀 있다
       const port = w.prop({ name: 'port', pivot: [MIDX + 0.5, G + 1, 45.5], off0: [0, 9, 0] });
-      for (let x = PX0; x <= PX1; x++) for (let y = G + 1; y <= GH - 3; y++) if (x % 2 === 0 || (y - G) % 3 === 1) port.set(x, y, 45, B.iron);
-      for (let x = PX0; x <= PX1; x += 2) port.set(x, G + 1, 45, B.gold);
+      // (2배 칸) 가는 세로살(앞)과 가로살(뒤)을 엮고, 아래 끝은 금 창끝
+      for (let X = PX0 * 2; X <= PX1 * 2 + 1; X++) for (let Y = (G + 1) * 2; Y <= (GH - 3) * 2 + 1; Y++) {
+        const ry = Y - (G + 1) * 2, side = X === PX0 * 2 || X === PX1 * 2 + 1, vb = (X - PX0 * 2) % 3 === 1 || side, hb = ry % 5 === 4 || Y >= (GH - 3) * 2;
+        if (vb) port.R.set(X, Y, 91, ry < 2 && !side ? B.gold : B.iron);
+        if (hb && ry > 2) port.R.set(X, Y, 90, B.iron);
+      }
       // 통로 벽 등잔
       for (const [x, z] of [[PX0, 34], [PX1, 34], [PX0, 66], [PX1, 66]]) { w.set(x, G + 6, z, B.iron); w.set(x, G + 7, z, B.candle); }
       lights.push({ p: [PX0 + 1.5, G + 7, 34.5], c: '#ffd890', i: 0.9, d: 18, flicker: 0.15 });
@@ -124,7 +235,7 @@
       for (const [x, z] of [[29, 50], [33, 54], [30, 54]]) { w.set(x, G + 3, z, B.mug); }
       w.set(33, G + 3, 50, B.ale); w.box(31, G + 3, 50, 32, G + 3, 50, B.card); w.set(29, G + 3, 53, B.card);
       w.box(31, G + 3, 55, 31, G + 4, 55, B.gold); w.set(31, G + 5, 55, B.candle);
-      lights.push({ p: [31.5, G + 6, 52.5], c: '#ffd890', i: 0.9, d: 14, flicker: 0.2 });
+      lights.push({ p: [31.5, G + 6, 54.5], c: '#ffd890', i: 0.9, d: 14, flicker: 0.2 });
       // 주사위(부품 셋)
       const dice = [[30, 52], [32, 52], [31, 53]];
       dice.forEach(([x, z], k) => { const p = w.prop({ name: 'die' + k, pivot: [x + 0.5, G + 3.5, z + 0.5] }); p.set(x, G + 3, z, B.die); });
@@ -157,15 +268,26 @@
       const WZ = 46, WY = G + 4;
       for (const x of [58, 73]) { w.box(x, G + 1, WZ - 1, x, WY + 1, WZ + 1, B.wood); w.box(x, G + 1, WZ - 2, x, G + 1, WZ + 2, B.whiteDk); w.set(x, WY + 2, WZ, B.iron); }
       const winch = w.prop({ name: 'winch', pivot: [65.5, WY + 0.5, WZ + 0.5], axis: 'x' });
-      for (let x = 60; x <= 71; x++) for (let dz = -2; dz <= 2; dz++) for (let dy = -2; dy <= 2; dy++) {
-        const r = Math.hypot(dz, dy); if (r > 2.3) continue;
-        winch.set(x, WY + dy, WZ + dz, r < 1.2 ? B.wood : ((x + Math.round(Math.atan2(dy, dz) * 2)) % 2 ? B.chain : B.iron));
+      // (2배 칸) 윈치 북: 나무 심, 감긴 쇠사슬 고리(한 줄씩 엇갈림), 양끝 쇠테 / 큰 바퀴: 테·바퀴살 여덟·손잡이 말뚝
+      {
+        const cy = WY * 2 + 1, cz = WZ * 2 + 1, WR = winch.R;
+        for (let X = 120; X <= 143; X++) for (let Y = cy - 6; Y <= cy + 6; Y++) for (let Z = cz - 6; Z <= cz + 6; Z++) {
+          const dy = Y + 0.5 - cy, dz = Z + 0.5 - cz, r = Math.hypot(dy, dz); if (r > 4.9) continue;
+          const end = X <= 121 || X >= 142, link = ((X >> 1) + Math.round((Math.atan2(dy, dz) + Math.PI) * 3)) & 1;
+          WR.set(X, Y, Z, end ? (r > 3.4 ? B.iron : B.wood) : r < 3 ? B.wood : link ? B.chain : B.iron);
+        }
+        for (const X0 of [118, 144]) for (let Y = cy - 10; Y <= cy + 10; Y++) for (let Z = cz - 10; Z <= cz + 10; Z++) {
+          if (Y < (G + 1) * 2) continue;
+          const dy = Y + 0.5 - cy, dz = Z + 0.5 - cz, r = Math.hypot(dy, dz), a = Math.atan2(dy, dz);
+          const spoke = r < 7 && Math.abs(Math.sin(a * 4)) * r < 0.8, rim = r > 7 && r <= 9, hub = r < 1.8;
+          if (!(spoke || rim || hub)) continue;
+          WR.set(X0, Y, Z, rim ? ((Math.round(a * 8) & 1) ? B.wood : B.plank) : hub ? B.iron : B.plank); WR.set(X0 + 1, Y, Z, rim ? B.wood : hub ? B.iron : B.plank);
+        }
+        for (const X0 of [118, 145]) for (const [dz, dy] of [[0, 9.5], [9.5, 0], [0, -9.5], [-9.5, 0], [6.7, 6.7], [-6.7, 6.7], [6.7, -6.7], [-6.7, -6.7]]) {
+          const Y = Math.floor(cy + dy), Z = Math.floor(cz + dz); if (Y < (G + 1) * 2) continue;
+          const o = X0 < 130 ? -1 : 1; WR.set(X0 + o, Y, Z, B.wood); WR.set(X0 + 2 * o, Y, Z, B.iron);
+        }
       }
-      for (const x of [59, 72]) for (let dz = -4; dz <= 4; dz++) for (let dy = -4; dy <= 4; dy++) {
-        const r = Math.hypot(dz, dy); if (r > 4.3 || WY + dy < G + 1) continue;
-        if (r > 3.3 || dz === 0 || dy === 0) winch.set(x, WY + dy, WZ + dz, r > 3.3 ? B.wood : B.plank);
-      }
-      for (const x of [59, 72]) for (const [dz, dy] of [[0, 5], [5, 0], [0, -5], [-5, 0]]) if (WY + dy >= G + 1) winch.set(x, WY + dy, WZ + dz, B.wood);
       // 쇠사슬: 북에서 들보를 넘어 쇠창살로
       w.line(65, WY + 3, WZ, 60, GH + 3, WZ, B.chain); w.box(PX1 + 1, GH + 3, WZ, 59, GH + 3, WZ, B.chain); w.box(PX0, GH + 3, WZ - 1, PX1, GH + 3, WZ - 1, B.chain);
       w.box(PX1 + 1, GH, WZ, PX1 + 2, GH + 2, WZ, B.iron);
@@ -262,7 +384,8 @@
           a.flash('hearth', 1.8, 1);
         },
       });
-      return { lights, landmarks, acts };
+      HD.syncHM(w);
+      return HD.out({ lights, landmarks, acts });
     },
   });
 })();

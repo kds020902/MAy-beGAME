@@ -178,18 +178,147 @@
     push6(p, q, r, s, t, u) { this.grow(6); const a = this.a, n = this.length; a[n] = p; a[n + 1] = q; a[n + 2] = r; a[n + 3] = s; a[n + 4] = t; a[n + 5] = u; this.length = n + 6; }
     view() { return this.a.subarray(0, this.length); }
   }
-  function newBuf() { return { pos: new Grow(Float32Array), nor: new Grow(Float32Array), col: new Grow(Float32Array), col2: new Grow(Float32Array), idx: new Grow(Uint32Array) }; }
+  function newBuf() { return { pos: new Grow(Float32Array), nor: new Grow(Float32Array), col: new Grow(Float32Array), col2: new Grow(Float32Array), jit: new Grow(Float32Array), idx: new Grow(Uint32Array) }; }
   function toGeometry(buf) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(buf.pos.view(), 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(buf.nor.view(), 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(buf.col.view(), 3));
     if (buf.col2.length) g.setAttribute('color2', new THREE.Float32BufferAttribute(buf.col2.view(), 3));
+    if (buf.jit.length) g.setAttribute('jit', new THREE.Float32BufferAttribute(buf.jit.view(), 2));
     g.setIndex(new THREE.BufferAttribute(buf.idx.view(), 1));
     if (buf.pos.length) g.computeBoundingSphere();
     return g;
   }
   const CS_POS = [[0, 0], [1, 0], [1, 1], [0, 1]], CS_NEG = [[0, 0], [0, 1], [1, 1], [1, 0]];
+  // ───── 큰 지도용 면 합치기(그리디 메싱) ─────
+  // 밝은(lit) 면 중 네 꼭짓점 색이 같은 면은 같은 색 이웃과 직사각형으로 합친다.
+  // 복셀마다의 밝기 흔들림과 돌 무늬는 꼭짓점 색 대신 셰이더(VX.litMaterial)가 칸 좌표로 계산한다 → 합쳐도 결이 그대로 보인다.
+  // 1) 한 번 훑어 보이는 면만 방향별로 모으고 2) 면(슬라이스)별로 나눠 3) 같은 키끼리 직사각형으로 묶는다.
+  function greedy(w, lit, glow, nite, emit, solid) {
+    const W = w.W, D = w.D, H = w.H, dat = w.data, blocks = w.blocks, WD = W * D;
+    const SZ = [W, H, D], ST = [1, WD, W];
+    const flatJ = new Float32Array(blocks.length), patC = new Uint8Array(blocks.length), special = new Uint8Array(blocks.length);
+    for (let k = 1; k < blocks.length; k++) {
+      const b = blocks[k];
+      flatJ[k] = b.v || 0;
+      patC[k] = b.pat === 'stone' ? 1 : b.pat === 'big' ? 2 : 0;   // 1=stone, 2=big (셰이더가 계산)
+      special[k] = b.glow || b.night ? 1 : 0;                      // 발광·밤 블록은 예전 방식(면마다)
+    }
+    // 1) 보이는 면 모으기: 방향 k = d*2 + (s<0)
+    const lists = [0, 1, 2, 3, 4, 5].map(() => new Grow(Int32Array, 1 << 16));
+    for (let y = 0; y < H; y++) for (let z = 0; z < D; z++) {
+      const row = W * (z + D * y);
+      for (let x = 0; x < W; x++) {
+        const i = row + x, id = dat[i];
+        if (!id) continue;
+        if (special[id]) { emit(x, y, z, id); continue; }
+        if (x === W - 1 || !dat[i + 1]) { const L = lists[0]; L.grow(1); L.a[L.length++] = i; }
+        if (x === 0 || !dat[i - 1]) { const L = lists[1]; L.grow(1); L.a[L.length++] = i; }
+        if (y === H - 1 || !dat[i + WD]) { const L = lists[2]; L.grow(1); L.a[L.length++] = i; }
+        if (y === 0 || !dat[i - WD]) { const L = lists[3]; L.grow(1); L.a[L.length++] = i; }
+        if (z === D - 1 || !dat[i + W]) { const L = lists[4]; L.grow(1); L.a[L.length++] = i; }
+        if (z === 0 || !dat[i - W]) { const L = lists[5]; L.grow(1); L.a[L.length++] = i; }
+      }
+    }
+    const t = [0, 0, 0], vtx = [0, 0, 0], ao = [3, 3, 3, 3], c3 = [0, 0, 0];
+    let mask = new Int32Array(0), mj = new Float32Array(0), sorted = new Int32Array(0);
+    for (let k6 = 0; k6 < 6; k6++) {
+      const d = k6 >> 1, s = (k6 & 1) ? -1 : 1, u = (d + 1) % 3, v = (d + 2) % 3;
+      const cs = s > 0 ? CS_POS : CS_NEG, nx = d === 0 ? s : 0, ny = d === 1 ? s : 0, nz = d === 2 ? s : 0;
+      const Sd = SZ[d];
+      // 마스크는 메모리 순서(보폭 큰 축 = 바깥) → 모은 순서가 곧 래스터 순서
+      const innerU = ST[u] < ST[v], In = innerU ? u : v, Ou = innerU ? v : u, Sn = SZ[In], So = SZ[Ou];
+      if (mask.length < Sn * So) { mask = new Int32Array(Sn * So); mj = new Float32Array(Sn * So); }
+      // 2) 슬라이스별로 안정 정렬(계수 정렬)
+      const L = lists[k6], n = L.length, A = L.a;
+      if (!n) continue;
+      if (sorted.length < n) sorted = new Int32Array(n);
+      const cnt = new Int32Array(Sd + 1);
+      const coord = d === 0 ? (i => i % W) : d === 1 ? (i => (i / WD) | 0) : (i => ((i / W) | 0) % D);
+      for (let j = 0; j < n; j++) cnt[coord(A[j]) + 1]++;
+      for (let c = 0; c < Sd; c++) cnt[c + 1] += cnt[c];
+      const startAt = cnt.slice();
+      for (let j = 0; j < n; j++) sorted[startAt[coord(A[j])]++] = A[j];
+      for (let c = 0; c < Sd; c++) {
+        const j0 = cnt[c], j1 = cnt[c + 1];
+        if (j0 === j1) continue;
+        // 키 채우기(그늘진 면은 바로 한 칸짜리로)
+        for (let j = j0; j < j1; j++) {
+          const i = sorted[j], id = dat[i], bl = blocks[id];
+          const x = i % W, y = (i / WD) | 0, z = ((i / W) | 0) % D;
+          c3[0] = x; c3[1] = y; c3[2] = z;
+          const m = c3[In] + c3[Ou] * Sn;
+          const under = y < w.base - 2 ? 0.5 + 0.5 * Math.max(0, y) / w.base : 1;
+          let rgb = d === 1 ? (s > 0 ? bl._t : bl._b) : bl._c;
+          if (bl._a && bl.pat === 'check' && ((x + z + (d === 1 ? 0 : y)) & 1)) rgb = bl._a;
+          const pc = patC[id], bright = under * (pc ? 1 : patMul(bl, x, y, z, d));
+          let flat = true;
+          for (let k = 0; k < 4; k++) {
+            const cu = cs[k][0], cv = cs[k][1];
+            t[0] = x; t[1] = y; t[2] = z; t[d] += s; t[u] += cu ? 1 : -1;
+            const s1 = solid(t[0], t[1], t[2]);
+            t[0] = x; t[1] = y; t[2] = z; t[d] += s; t[v] += cv ? 1 : -1;
+            const s2 = solid(t[0], t[1], t[2]);
+            t[u] += cu ? 1 : -1;
+            const s3 = solid(t[0], t[1], t[2]);
+            ao[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3);
+            if (ao[k] !== ao[0]) flat = false;
+          }
+          const jt = flatJ[id];
+          if (flat) {
+            const f = bright * AO[ao[0]];
+            const r = Math.min(255, Math.round(rgb[0] * f * 255)), g = Math.min(255, Math.round(rgb[1] * f * 255)), b = Math.min(255, Math.round(rgb[2] * f * 255));
+            // 키 = 색(24비트) + 흔들림 세기(5비트) + 돌 무늬(2비트): 모두 같아야 합친다
+            mask[m] = (((r << 16) | (g << 8) | b) | ((Math.round(jt * 255) & 31) << 24) | (pc << 29)) + 1;
+            mj[m] = jt;
+            continue;
+          }
+          mask[m] = 0;
+          const base0 = lit.pos.length / 3;
+          for (let k = 0; k < 4; k++) {
+            const cu = cs[k][0], cv = cs[k][1];
+            vtx[d] = c + (s > 0 ? 1 : 0); vtx[u] = c3[u] + cu; vtx[v] = c3[v] + cv;
+            lit.pos.push3(vtx[0], vtx[1], vtx[2]); lit.nor.push3(nx, ny, nz);
+            const f = bright * AO[ao[k]];
+            lit.col.push3(rgb[0] * f, rgb[1] * f, rgb[2] * f);
+            lit.jit.grow(2); lit.jit.a[lit.jit.length++] = jt; lit.jit.a[lit.jit.length++] = pc;
+          }
+          if (ao[0] + ao[2] >= ao[1] + ao[3]) lit.idx.push6(base0, base0 + 1, base0 + 2, base0, base0 + 2, base0 + 3);
+          else lit.idx.push6(base0 + 1, base0 + 2, base0 + 3, base0 + 1, base0 + 3, base0);
+        }
+        // 3) 래스터 순서로 직사각형 묶기(쓴 칸은 모두 다시 0이 된다)
+        for (let j = j0; j < j1; j++) {
+          const i = sorted[j];
+          c3[0] = i % W; c3[1] = (i / WD) | 0; c3[2] = ((i / W) | 0) % D;
+          const a0 = c3[In], o0 = c3[Ou], m = a0 + o0 * Sn, key = mask[m];
+          if (!key) continue;
+          let wn = 1;
+          while (a0 + wn < Sn && mask[m + wn] === key) wn++;
+          let ho = 1;
+          grow: while (o0 + ho < So) {
+            const r0 = m + ho * Sn;
+            for (let k = 0; k < wn; k++) if (mask[r0 + k] !== key) break grow;
+            ho++;
+          }
+          for (let h2 = 0; h2 < ho; h2++) mask.fill(0, m + h2 * Sn, m + h2 * Sn + wn);
+          const kc = (key - 1) & 0xffffff, pc = ((key - 1) >>> 29) & 3, jt = mj[m];
+          const r = ((kc >> 16) & 255) / 255, g = ((kc >> 8) & 255) / 255, b = (kc & 255) / 255;
+          const wu = innerU ? wn : ho, hv = innerU ? ho : wn;
+          const base0 = lit.pos.length / 3;
+          for (let k = 0; k < 4; k++) {
+            const cu = cs[k][0], cv = cs[k][1];
+            vtx[d] = c + (s > 0 ? 1 : 0); vtx[u] = c3[u] + cu * wu; vtx[v] = c3[v] + cv * hv;
+            lit.pos.push3(vtx[0], vtx[1], vtx[2]); lit.nor.push3(nx, ny, nz);
+            lit.col.push3(r, g, b);
+            lit.jit.grow(2); lit.jit.a[lit.jit.length++] = jt; lit.jit.a[lit.jit.length++] = pc;
+          }
+          lit.idx.push6(base0, base0 + 1, base0 + 2, base0, base0 + 2, base0 + 3);
+        }
+      }
+    }
+  }
+
   function buildGeometry(w) {
     const W = w.W, D = w.D, H = w.H;
     const lit = newBuf(), glow = newBuf(), nite = newBuf();
@@ -237,20 +366,25 @@
     };
     if (w.sparse) {
       for (const [i, id] of w.data) emit(i % W, Math.floor(i / (W * D)), Math.floor(i / W) % D, id);
-    } else {
-      const data = w.data, WD = W * D;
-      for (let y = 0; y < H; y++) for (let z = 0; z < D; z++) {
-        const row = W * (z + D * y), edge = y === 0 || y === H - 1 || z === 0 || z === D - 1;
-        for (let x = 0; x < W; x++) {
-          const i = row + x, id = data[i];
-          if (!id) continue;
-          // 여섯 이웃이 모두 차 있으면 보이는 면이 없다(가장 흔한 속 블록을 빨리 건너뛴다)
-          if (!edge && x > 0 && x < W - 1 && data[i - 1] && data[i + 1] && data[i - W] && data[i + W] && data[i - WD] && data[i + WD]) continue;
-          emit(x, y, z, id);
-        }
-      }
-    }
+    } else greedy(w, lit, glow, nite, emit, solid);
     return { lit: toGeometry(lit), glow: glow.pos.length ? toGeometry(glow) : null, nite: nite.pos.length ? toGeometry(nite) : null };
+  }
+
+  // 밝은 면 재질: 램버트 + 복셀마다 밝기 흔들림(그리디 메싱으로 합친 면도 칸마다 결이 보이게)
+  function litPatch(sh) {
+    sh.vertexShader = 'attribute vec2 jit;\nvarying vec3 vVox;\nvarying vec2 vJ;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvVox = position - normal * 0.5; vJ = jit;');
+    sh.fragmentShader = 'varying vec3 vVox;\nvarying vec2 vJ;\nfloat vxh(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }\n' + sh.fragmentShader.replace('#include <color_fragment>', [
+      '#include <color_fragment>',
+      'vec3 cv = floor(vVox);',
+      'if (vJ.x > 0.0) diffuseColor.rgb *= 1.0 + (vxh(cv) * 2.0 - 1.0) * vJ.x;',
+      'if (vJ.y > 1.5) diffuseColor.rgb *= 0.9 + vxh(floor(cv / vec3(4.0, 2.0, 4.0)) + 17.0) * 0.18;',
+      'else if (vJ.y > 0.5) diffuseColor.rgb *= 0.88 + vxh(floor(cv * 0.5) + 31.0) * 0.22;',
+    ].join('\n'));
+  }
+  function litMaterial(m) {
+    m = m || new THREE.MeshLambertMaterial({ vertexColors: true });
+    m.onBeforeCompile = litPatch;
+    return m;
   }
 
   // 발광 재질: 알파 0.75를 빛 번짐 표시로 쓴다
@@ -593,5 +727,5 @@
     }
   }
 
-  window.VX = { W, D, H, World, buildGeometry, buildLiquid, glowMaterial, niteMaterial, pointsMaterial, PostFX, hash3, mulberry };
+  window.VX = { W, D, H, World, buildGeometry, litMaterial, buildLiquid, glowMaterial, niteMaterial, pointsMaterial, PostFX, hash3, mulberry };
 })();

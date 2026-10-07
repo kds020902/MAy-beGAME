@@ -236,7 +236,7 @@
   const post = new VX.PostFX(renderer);
   const scene = new THREE.Scene();
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 800);
-  const litMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const litMat = VX.litMaterial();
   const glowMat = VX.glowMaterial();
   const niteMat = VX.niteMaterial();
   const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 0.6);
@@ -535,7 +535,7 @@
       u.off = (o.off0 || [0, 0, 0]).slice(); u.rot = (o.rot0 || [0, 0, 0]).slice(); u.scl = (o.scl0 || [1, 1, 1]).slice();
       const lit = [], other = [];
       p.traverse(m => { if (m.isMesh) (m.material === litMat || (m.userData.fade && m.material === m.userData.fade) ? lit : other).push(m); });
-      lit.forEach(m => { if (!m.userData.fade) { m.userData.fade = litMat.clone(); m.userData.fade.transparent = true; m.userData.fade.depthWrite = false; } m.userData.fade.opacity = 0; m.material = m.userData.fade; });
+      lit.forEach(m => { if (!m.userData.fade) { m.userData.fade = VX.litMaterial(litMat.clone()); m.userData.fade.transparent = true; m.userData.fade.depthWrite = false; } m.userData.fade.opacity = 0; m.material = m.userData.fade; });
       other.forEach(m => { m.visible = false; });
       return new Promise(res => fades.push({ lit, other, t: 0, dur: dur || 0.9, res, map: cur }));
     },
@@ -1268,7 +1268,18 @@
   // 좌표는 복셀 단위(p = 발 위치). 충돌은 지도 점유 배열(cur.occ)을 한 칸씩 바로 읽는다
   // 사람 크기: 지도는 대략 2칸 = 1m(탁자·계산대 윗면 2칸, 집 문 4칸, 한 층 5칸). 서면 3.4칸(1.7m), 낮은 문(3칸)에선 2.85칸으로 웅크린다.
   // 폭 0.9칸(1칸 통로도 지남), 눈높이 3.15칸(≈1.6m). 걷기 2.8칸/초(1.4m/s), 달리기 8칸/초(4m/s), 점프 ≈1.1칸, 2단 점프 ≈1.3칸 더
-  const PL = { r: 0.45, h: 3.4, hStand: 3.4, hCrouch: 2.85, eyeStand: 3.15, eyeCrouch: 2.6, walk: 2.8, run: 8, jump: 7.6, jump2: 8.2, grav: 26, reach: 2.6 };
+  const PL0 = { r: 0.45, h: 3.4, hStand: 3.4, hCrouch: 2.85, eyeStand: 3.15, eyeCrouch: 2.6, walk: 2.8, run: 8, jump: 7.6, jump2: 8.2, grav: 26, reach: 2.6 };
+  const PL = Object.assign({}, PL0);
+  // 지도 배율(def.playerScale): 고해상도 지도(1칸 ≈ 25cm)는 2 → 키·폭·속도·점프·중력·팔 길이·카메라 거리를 모두 곱한다
+  let PS = 1;
+  function applyScale(k) {
+    k = k > 0 ? k : 1;
+    if (k === PS) return;
+    for (const n in PL0) PL[n] = PL0[n] * k;
+    play.tpDist *= k / PS; play.tpCur = play.tpDist;
+    PS = k;
+    pLight.distance = 14 * k;
+  }
   const play = {
     on: false, tp: false, lock: false, p: [0, 0, 0], v: [0, 0, 0], ground: false, swim: false, face: 0, faceT: 0, stepVis: 0,
     keys: {}, joy: { x: 0, y: 0, id: null }, near: null, home: null, tpDist: 6, tpCur: 6, eyeS: 3.15, hS: 3.4, saved: null, spawns: {}, view: 'iso', jumpQ: false, air: 0, unlockAt: 0,
@@ -1485,7 +1496,7 @@
     for (let k = 0; k <= span * 2; k++) {
       const yy = y + (k & 1 ? (k + 1) >> 1 : -(k >> 1));
       if (yy < 1 || yy >= H - 2) continue;
-      if (pSolid(x, yy - 1, z) && !pSolid(x, yy, z) && !pSolid(x, yy + 1, z) && !pSolid(x, yy + 2, z) && liqAt(x, z) < yy) return yy;
+      if (pSolid(x, yy - 1, z) && liqAt(x, z) < yy) { let ok = true; for (let c = 0; c < Math.ceil(PL.hCrouch) && ok; c++) if (pSolid(x, yy + c, z)) ok = false; if (ok) return yy; }
     }
     return -1;
   }
@@ -1502,7 +1513,7 @@
       const t = colTop(x, z);
       if (t < 0 || t >= H - 3) return false;
       if (!strict) return true;
-      if (t < m.base - 4 || t > m.base + 5) return false;
+      if (t < m.base - 4 * PS || t > m.base + 5 * PS) return false;
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (liqAt(x + dx, z + dz) >= 0 || Math.abs(colTop(x + dx, z + dz) - t) > 1) return false; }
       return true;
     };
@@ -1520,20 +1531,20 @@
   // 상호작용 상자 곁에 설 자리(안쪽 고리부터)
   function standAround(cx, cy, cz) {
     const X = Math.floor(cx), Z = Math.floor(cz), Y = Math.floor(cy);
-    for (let d = 1; d <= 12; d++) for (let dz = -d; dz <= d; dz++) for (let dx = -d; dx <= d; dx++) {
+    for (let d = 1; d <= 12 * PS; d++) for (let dz = -d; dz <= d; dz++) for (let dx = -d; dx <= d; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== d) continue;
-      const y = standNear(X + dx, Z + dz, Y, 8);
+      const y = standNear(X + dx, Z + dz, Y, 8 * PS);
       if (y >= 0) return [X + dx + 0.5, y, Z + dz + 0.5];
     }
     return null;
   }
   function besideBox(h) {
     const cx = (h[0] + h[3] + 1) / 2, cz = (h[2] + h[5] + 1) / 2;
-    for (let d = 1; d <= 8; d++) {
+    for (let d = 1; d <= 8 * PS; d++) {
       let best = null, bs = Infinity;
       for (let z = h[2] - d; z <= h[5] + d; z++) for (let x = h[0] - d; x <= h[3] + d; x++) {
         if (x !== h[0] - d && x !== h[3] + d && z !== h[2] - d && z !== h[5] + d) continue;
-        const y = standNear(x, z, h[1], 6);
+        const y = standNear(x, z, h[1], 6 * PS);
         if (y < 0) continue;
         const sc = Math.abs(y - h[1]) * 2 + Math.hypot(x + 0.5 - W / 2, z + 0.5 - D / 2) * 0.02;
         if (sc < bs) { bs = sc; best = [x + 0.5, y, z + 0.5, Math.atan2(cx - x - 0.5, cz - z - 0.5)]; }
@@ -1543,6 +1554,7 @@
     return null;
   }
   function placeAt(s, face) {
+    applyScale(cur.def.playerScale);
     play.p = [s[0], s[1], s[2]]; play.v = [0, 0, 0]; play.stepVis = 0; play.ground = false;
     play.ride = null; play.lastSafe = worldHit(s[0], s[1] - 0.05, s[2]) && !worldHit(s[0], s[1], s[2]) ? [s[0], s[1], s[2]] : null;
     play.props = null; play.ignore = [];
@@ -1555,6 +1567,7 @@
   }
   const toW = p => new THREE.Vector3(p[0] - W / 2, p[1] - cur.base, p[2] - D / 2);
   function spawnPlayer(fromId) {
+    applyScale(cur.def.playerScale);
     let s = null;
     if (fromId) { const a = cur.acts.find(q => q.goto === fromId); if (a) s = besideBox(a.hit); }
     const home = mapSpawn(cur);
@@ -1569,9 +1582,9 @@
     placeAt(play.home, play.home[3]);
     spawnBurst([play.p[0], play.p[1] + 0.6, play.p[2]], { n: 26, colors: ['#ffe9a0', '#ffc860', '#ffffff'], speed: 2, up: 2, life: 0.9, gravity: -0.5, spread: 0.8 });
   }
-  const playZoom = () => viewHalf() / 11;
+  const playZoom = () => viewHalf() / (11 * PS);
   function zoomPlay(f) {
-    if (play.tp) play.tpDist = Math.max(2.5, Math.min(14, play.tpDist * f));
+    if (play.tp) play.tpDist = Math.max(2.5 * PS, Math.min(14 * PS, play.tpDist * f));
     else state.zoomT = Math.max(viewHalf() / 80, Math.min(viewHalf() / 7, state.zoomT / f));
   }
 
@@ -1727,7 +1740,7 @@
     if (h0 > PL.hCrouch) { setH(PL.hCrouch); if (!boxHit(p[0], p[1], p[2])) return; }
     // 한 칸 오르기(땅·물에서, 그리고 점프 중에도 — 점프 + 한 칸으로 두 칸 턱을 오른다)
     if (play.ground || play.swim || play.v[1] > -4) {
-      const lim = play.swim ? 1.35 : 1.05;
+      const lim = (play.swim ? 1.35 : 1.05) * PS;
       for (const hh of h0 > PL.hCrouch ? [PL.hStand, PL.hCrouch] : [PL.hCrouch]) {
         setH(hh);
         for (let ny = Math.floor(p[1] + 1e-4) + 1; ny - p[1] <= lim; ny++) {
@@ -1760,8 +1773,8 @@
     // 부품이 몸을 살짝 파고들면(흔들리는 배·올라오는 승강기) 위로 올려 태우고, 깊이 덮치면(닫히는 문) 빠져나갈 때까지 무시
     for (const pv of play.props) {
       if (!propBox(pv, p[0], p[1], p[2], BODY_Y)) continue;
-      const lim = pv === play.ride ? 1.5 : 0.75;
-      let k = 0.125; while (k <= lim && propBox(pv, p[0], p[1] + k, p[2], BODY_Y)) k += 0.125;
+      const lim = (pv === play.ride ? 1.5 : 0.75) * PS;
+      let k = 0.125 * PS; while (k <= lim && propBox(pv, p[0], p[1] + k, p[2], BODY_Y)) k += 0.125 * PS;
       if (k <= lim && !worldHit(p[0], p[1] + k, p[2])) { p[1] += k; if (play.v[1] < 0) play.v[1] = 0; } else play.ignore.push(pv);
     }
     // 웅크렸으면 일어설 수 있는지 보고, 끼었으면 먼저 웅크려 본다
@@ -1769,8 +1782,8 @@
     else if (boxHit(p[0], p[1], p[2])) { setH(PL.hCrouch); if (boxHit(p[0], p[1], p[2])) setH(PL.hStand); }
     // 끼었으면 위로 빼고, 안 되면 처음 자리로(타고 있었으면 마지막 안전한 땅으로)
     if (boxHit(p[0], p[1], p[2])) {
-      let k = 1; while (k <= 4 && boxHit(p[0], p[1] + k, p[2])) k++;
-      if (k <= 4) p[1] = Math.floor(p[1]) + k; else { if (play.ride) dropOff(); else respawn(); return; }
+      let k = 1; while (k <= 4 * PS && boxHit(p[0], p[1] + k, p[2])) k++;
+      if (k <= 4 * PS) p[1] = Math.floor(p[1]) + k; else { if (play.ride) dropOff(); else respawn(); return; }
     }
     let ix = 0, iz = 0;
     if (!play.lock) {
@@ -1783,10 +1796,10 @@
     const run = K.ShiftLeft || K.ShiftRight || Math.hypot(play.joy.x, play.joy.y) > 0.92;
     // 물: 얕으면 걸어서 건너고, 깊으면 떠서 천천히 헤엄친다. 빛나는 액체(용암·쇳물)는 처음 자리로
     const lv = liqAt(Math.floor(p[0]), Math.floor(p[2])), depth = lv >= 0 ? lv + 0.8 - p[1] : -1;
-    if (depth > 0.4 && cur.def.liqGlow) { respawn(); return; }
-    play.swim = depth > 1.9;   // 가슴 넘게 깊으면 헤엄
+    if (depth > 0.4 * PS && cur.def.liqGlow) { respawn(); return; }
+    play.swim = depth > 1.9 * PS;   // 가슴 넘게 깊으면 헤엄
     const leafy = inFoliage();
-    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.6 : depth > 0.3 ? 0.75 : 1) * (leafy ? 0.85 : 1);
+    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.6 : depth > 0.3 * PS ? 0.75 : 1) * (leafy ? 0.85 : 1);
     const acc = Math.min(1, dt * (play.ground || play.swim ? 14 : 5));
     v[0] += (mx * sp - v[0]) * acc; v[2] += (mz * sp - v[2]) * acc;
     if (play.tp) play.faceT = state.yaw + Math.PI;   // 원근 시점: 바라보는 쪽으로 몸을 돌린다
@@ -1794,7 +1807,7 @@
     if (play.ground) play.air = 0;
     if (!play.lock && (K.Space || play.jumpQ)) {
       if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; SND.sfx('jump', { vol: 0.55 }); }
-      else if (play.swim) v[1] = Math.max(v[1], 3);
+      else if (play.swim) v[1] = Math.max(v[1], 3 * PS);
       else if (play.jumpQ && play.air < 2) {
         // 2단 점프: 발밑에 반짝이 한 줌
         v[1] = PL.jump2; play.air = 2; SND.sfx('djump', { vol: 0.6 });
@@ -1802,9 +1815,9 @@
       }
     }
     play.jumpQ = false;
-    if (play.swim) { v[1] += (-PL.grav * 0.15 + (depth - 2.3) * 7) * dt; v[1] *= Math.pow(0.15, dt); }
-    else v[1] = Math.max(-30, v[1] - PL.grav * dt);
-    const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / 0.25));
+    if (play.swim) { v[1] += (-PL.grav * 0.15 + (depth - 2.3 * PS) * 7) * dt; v[1] *= Math.pow(0.15, dt); }
+    else v[1] = Math.max(-30 * PS, v[1] - PL.grav * dt);
+    const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / (0.25 * PS)));
     for (let i = 0; i < n; i++) { moveH(0, v[0] * dt / n); moveH(2, v[2] * dt / n); moveV(v[1] * dt / n); }
     const under = v[1] <= 0.01 ? propUnder() : null;
     play.ground = v[1] <= 0.01 && (worldHit(p[0], p[1] - 0.05, p[2]) || !!under);
@@ -1820,13 +1833,13 @@
     let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     play.face += da * Math.min(1, dt * 12);
     // 몸: 둥실 떠서 흔들리고, 달리면 앞으로 기운다. 불꽃은 일렁인다
-    const w = toW(p), bob = reduced ? 0 : Math.sin(t * 3.2) * 0.06, spd = Math.hypot(v[0], v[2]);
+    const w = toW(p), bob = reduced ? 0 : Math.sin(t * 3.2) * 0.06 * PS, spd = Math.hypot(v[0], v[2]);
     const ek = Math.min(1, dt * 10);
     play.hS += (PL.h - play.hS) * ek; play.eyeS += ((PL.h < PL.hStand ? PL.eyeCrouch : PL.eyeStand) - play.eyeS) * ek;
-    avatar.position.set(w.x, w.y + play.stepVis + 0.08 + bob, w.z);
+    avatar.position.set(w.x, w.y + play.stepVis + 0.08 * PS + bob, w.z);
     avatar.rotation.y = play.face;
-    avatar.scale.set(1, play.hS / PL.hStand, 1);   // 웅크리면 납작
-    avBody.rotation.x = Math.min(0.12, spd * 0.012);
+    avatar.scale.set(PS, PS * play.hS / PL.hStand, PS);   // 웅크리면 납작
+    avBody.rotation.x = Math.min(0.12, spd * 0.012 / PS);
     avFlame.scale.set(1 + Math.sin(t * 11) * 0.08, 1 + Math.sin(t * 13) * 0.16 + Math.sin(t * 7.3) * 0.1, 1);
     avFlame.rotation.z = Math.sin(t * 5) * 0.12; avFlame.rotation.x = -Math.min(0.4, spd * 0.05);
     pLight.position.set(w.x, w.y + play.stepVis + play.hS * 0.6, w.z);
@@ -1849,7 +1862,7 @@
     const f = found();
     for (const l of cur.landmarks) {
       if (f.includes(l.name)) continue;
-      if (Math.hypot(l.p[0] - cx, l.p[2] - cz) <= 12 && Math.abs(l.p[1] - cyy) <= 18) {
+      if (Math.hypot(l.p[0] - cx, l.p[2] - cz) <= 12 * PS && Math.abs(l.p[1] - cyy) <= 18 * PS) {
         f.push(l.name); store.set('disc', play.disc); toast('발견: ' + l.name); syncDisc(); SND.sfx('discover', { vol: 0.75, gap: 0.6 });
       }
     }
@@ -1869,8 +1882,8 @@
     return STEPK[0];
   }
   function footAudio(dt, depth, run) {
-    const p = play.p, v = play.v, spd = Math.hypot(v[0], v[2]), wet = depth > 0.4;
-    if (wet && !play.wasWet) SND.sfx('splash', { vol: Math.min(1, 0.4 + Math.max(0, play.fallTop - p[1]) * 0.12), gap: 0.25 });
+    const p = play.p, v = play.v, spd = Math.hypot(v[0], v[2]) / PS, wet = depth > 0.4 * PS;
+    if (wet && !play.wasWet) SND.sfx('splash', { vol: Math.min(1, 0.4 + Math.max(0, play.fallTop - p[1]) / PS * 0.12), gap: 0.25 });
     play.wasWet = wet;
     if (play.swim) {
       play.fallTop = p[1]; play.stepAcc = 1.2;
@@ -1878,9 +1891,9 @@
     } else if (!play.ground) play.fallTop = Math.max(play.fallTop, p[1]);
     else {
       if (!play.wasGround) {
-        const drop = play.fallTop - p[1];
+        const drop = (play.fallTop - p[1]) / PS;
         if (drop > 1.5 && !wet) SND.sfx('land', { vol: Math.min(1, 0.4 + drop * 0.06) });
-        else if (drop > 0.3) SND.sfx(depth > 0.1 ? 'splash' : stepKey(), { vol: 0.3 });
+        else if (drop > 0.3) SND.sfx(depth > 0.1 * PS ? 'splash' : stepKey(), { vol: 0.3 });
         play.stepAcc = 0;
       }
       play.fallTop = p[1];
@@ -1888,7 +1901,7 @@
         play.stepAcc += spd * dt;
         if (play.stepAcc >= 1.75) {
           play.stepAcc = 0;
-          SND.sfx(depth > 0.1 ? 'splash' : stepKey(), { vol: (depth > 0.1 ? 0.22 : run ? 0.42 : 0.32), rate: 0.9 + Math.random() * 0.2 });
+          SND.sfx(depth > 0.1 * PS ? 'splash' : stepKey(), { vol: (depth > 0.1 * PS ? 0.22 : run ? 0.42 : 0.32), rate: 0.9 + Math.random() * 0.2 });
         }
       } else play.stepAcc = 1.2;
     }
@@ -1898,12 +1911,12 @@
   function updateCut() {
     const p = play.p, d = camDir(state.yaw, state.pitch);
     let hid = false;
-    for (const hy of [0.6, PL.h - 0.25]) { const tt = march(cur, [p[0], p[1] + hy, p[2]], d); if (tt < 120 && tt * d[1] > PL.h + 0.3 - hy) hid = true; }
+    for (const hy of [0.6 * PS, PL.h - 0.25 * PS]) { const tt = march(cur, [p[0], p[1] + hy, p[2]], d); if (tt < 120 * PS && tt * d[1] > PL.h + 0.3 * PS - hy) hid = true; }
     let cut = 1e5;
     if (hid) {
       const x = Math.floor(p[0]), z = Math.floor(p[2]), y0 = Math.floor(p[1] + 1e-4);
-      cut = y0 + 6;
-      for (let y = y0 + Math.ceil(PL.h); y <= y0 + 16; y++) if (pSolid(x, y, z)) { cut = y; break; }
+      cut = y0 + Math.round(6 * PS);
+      for (let y = y0 + Math.ceil(PL.h); y <= y0 + 16 * PS; y++) if (pSolid(x, y, z)) { cut = y; break; }
       cut -= cur.base;
     }
     play.cut = cut;
@@ -1914,7 +1927,7 @@
     const head = state.target.clone();
     const c = camDir(state.yaw, state.pitch), fp = play.view === 'fp';
     // 3인칭 뒤: 오른쪽 어깨 너머(0.8칸 옆, 머리보다 살짝 위)
-    if (play.view === 'tpb') { const sh = 0.8; head.x += Math.cos(state.yaw) * sh; head.z -= Math.sin(state.yaw) * sh; head.y += 0.25; }
+    if (play.view === 'tpb') { const sh = 0.8 * PS; head.x += Math.cos(state.yaw) * sh; head.z -= Math.sin(state.yaw) * sh; head.y += 0.25 * PS; }
     pcam.aspect = state.rtW / state.rtH;
     pcam.near = fp ? 0.1 : 0.2;
     if (fp) {
@@ -1924,11 +1937,11 @@
     } else {
       const d = play.view === 'tpf' ? [-c[0], -c[1], -c[2]] : c;
       const hit = march(cur, [head.x + W / 2, head.y + cur.base, head.z + D / 2], d, true);
-      const want = Math.max(0.5, Math.min(play.tpDist, hit - 0.4));
+      const want = Math.max(0.5 * PS, Math.min(play.tpDist, hit - 0.4 * PS));
       play.tpCur = want < play.tpCur ? want : play.tpCur + (want - play.tpCur) * Math.min(1, dt * 4);
       pcam.position.set(head.x + d[0] * play.tpCur, head.y + d[1] * play.tpCur, head.z + d[2] * play.tpCur);
       pcam.lookAt(head);
-      avatar.visible = play.tpCur > 1.2;
+      avatar.visible = play.tpCur > 1.2 * PS;
     }
     pcam.updateProjectionMatrix(); pcam.updateMatrixWorld();
   }
@@ -1937,7 +1950,7 @@
     const c = camDir(state.yaw, state.pitch), d = [-c[0], -c[1], -c[2]];
     const o = [pcam.position.x + W / 2, pcam.position.y + cur.base, pcam.position.z + D / 2];
     const wall = march(cur, o, d, true);
-    let best = null, bt = 6;
+    let best = null, bt = 6 * PS;
     for (const a of cur.acts) {
       const h = a.hit;
       let t0 = 0, t1 = Infinity;

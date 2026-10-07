@@ -1269,7 +1269,7 @@
   // 좌표는 복셀 단위(p = 발 위치). 충돌은 지도 점유 배열(cur.occ)을 한 칸씩 바로 읽는다
   // 사람 크기: 지도는 대략 2칸 = 1m(탁자·계산대 윗면 2칸, 집 문 4칸, 한 층 5칸). 서면 3.4칸(1.7m), 낮은 문(3칸)에선 2.85칸으로 웅크린다.
   // 폭 0.9칸(1칸 통로도 지남), 눈높이 3.15칸(≈1.6m). 걷기 2.8칸/초(1.4m/s), 달리기 8칸/초(4m/s), 점프 ≈1.1칸, 2단 점프 ≈1.3칸 더
-  const PL0 = { r: 0.45, h: 3.4, hStand: 3.4, hCrouch: 2.85, eyeStand: 3.15, eyeCrouch: 2.6, walk: 2.8, run: 8, jump: 7.6, jump2: 8.2, grav: 26, reach: 2.6 };
+  const PL0 = { r: 0.45, h: 3.4, hStand: 3.4, hCrouch: 2.85, eyeStand: 3.15, eyeCrouch: 2.6, walk: 3.136, run: 8.96, jump: 7.6, jump2: 8.2, grav: 26, reach: 2.6 };
   const PL = Object.assign({}, PL0);
   // 지도 배율(def.playerScale): 고해상도 지도(1칸 ≈ 25cm)는 2 → 키·폭·속도·점프·중력·팔 길이·카메라 거리를 모두 곱한다
   let PS = 1;
@@ -1289,7 +1289,7 @@
   };
   const app = $('#app'), promptEl = $('#prompt'), toastEl = $('#toast'), playBtn = $('#play');
   // 정령 모양: 복셀 메셔를 그대로 써서 지도와 같은 결로 만든다
-  const avatar = new THREE.Group(), avBody = new THREE.Group(), avFlame = new THREE.Group();
+  const avatar = new THREE.Group(), avBody = new THREE.Group(), avFlame = new THREE.Group(), avHandL = new THREE.Group(), avHandR = new THREE.Group();
   (function makeAvatar() {
     // 사람 키(약 3.5칸)의 등불 정령: 아래는 불꽃 자락, 위로 갈수록 가늘어지는 몸, 꼭대기에 두건 쓴 얼굴(눈은 눈높이쯤), 머리 위 작은 불꽃
     const S = 0.27;
@@ -1331,6 +1331,13 @@
     }, [-2.5, 0, -2.5]);
     avFlame.position.set(0, 12.6, -0.3);
     avBody.add(avFlame);
+    // 떠다니는 불씨 손 둘(몸에 붙지 않은 작은 불꽃): 걷기·뛰기·수영·점프·앉기 몸짓을 보여 준다
+    [avHandL, avHandR].forEach(h => {
+      mesh(h, { hd: { c: '#ffc860', top: '#fff0b4', bot: '#ff9a44', glow: true, v: 0.04 }, hc: { c: '#fff6d8', glow: true, v: 0 } }, [3, 3, 3], (w, B) => {
+        w.box(0, 0, 0, 2, 2, 2, B.hd); w.set(0, 0, 0, 0); w.set(2, 0, 2, 0); w.set(0, 2, 2, 0); w.set(2, 2, 0, 0); w.set(1, 1, 2, B.hc);
+      }, [-1.5, -1.5, -1.5]);
+      avBody.add(h);
+    });
     avBody.scale.setScalar(S);
     avatar.add(avBody);
     avatar.visible = false;
@@ -1403,6 +1410,7 @@
       u.R = Math.hypot(x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1) / 2;
       u.acts = [];
       u.solid = !o.ghost && cnt >= 4 && (!!o.solid || (!NOSOLID.test(n) && (DOOR_N.test(n) || RIDE_N.test(n))));
+      u.ride = !o.ghost && cnt >= 4 && RIDE_N.test(n);   // X로 올라탈 수 있는 탈것
     }
     // 동작 이름이 문·탈것이면 그 동작이 움직이는 부품(코드 안 따옴표 이름)도 단단하게
     for (const a of acts) {
@@ -1413,6 +1421,7 @@
         const u = props[q].userData;
         u.acts.push(a);
         if (!u.o.ghost && (door || ride) && !NOSOLID.test(q) && u.vw.data.size >= 6) u.solid = true;
+        if (!u.o.ghost && ride && !NOSOLID.test(q) && u.vw.data.size >= 6) u.ride = true;
       });
     }
   }
@@ -1562,6 +1571,7 @@
   }
   function placeAt(s, face) {
     applyScale(cur.def.playerScale);
+    play.sit = null; play.swimOn = false; syncSwimBtn();
     play.p = [s[0], s[1], s[2]]; play.v = [0, 0, 0]; play.stepVis = 0; play.ground = false;
     play.ride = null; play.lastSafe = worldHit(s[0], s[1] - 0.05, s[2]) && !worldHit(s[0], s[1], s[2]) ? [s[0], s[1], s[2]] : null;
     play.props = null; play.ignore = [];
@@ -1611,6 +1621,7 @@
       spawnPlayer(null);
     } else {
       setView('iso', true);
+      play.sit = null; play.swimOn = false;
       const s = play.saved;
       if (s) { state.targetT.copy(s.target); state.zoomT = s.zoom; state.pitchT = s.pitch; }
       avatar.visible = false; pLight.intensity = 0;
@@ -1650,6 +1661,97 @@
     state.yawT -= e.movementX * 0.0026; state.yaw = state.yawT;
     state.pitchT = Math.max(pl[0], Math.min(pl[1], state.pitchT + e.movementY * 0.0026)); state.pitch = state.pitchT;
   });
+  // ───── 앉기·타기(X)와 수영(Ctrl) ─────
+  const SEAT_K = /chair|stool|bench|seat|throne|pew|sofa|couch|cushion|saddle|armchair|의자|걸상/i;
+  function seatFlags() {
+    if (cur.seatF) return cur.seatF;
+    const f = new Uint8Array(256);
+    for (const k in cur.ids) if (SEAT_K.test(k)) f[cur.ids[k]] = 1;
+    return (cur.seatF = f);
+  }
+  const occAt = (x, y, z) => (x < 0 || z < 0 || y < 0 || x >= W || z >= D || y >= H) ? 0 : cur.occ[x + W * (z + D * y)];
+  // 가까운 의자 윗면(위 칸이 비었거나 풀): 가까운 순
+  function findSeat() {
+    const F = seatFlags(), p = play.p, R = Math.ceil(2.8 * PS), X = Math.floor(p[0]), Y = Math.floor(p[1] + 0.01), Z = Math.floor(p[2]);
+    let best = null, bd = Infinity;
+    for (let y = Y - Math.ceil(1.5 * PS); y <= Y + Math.ceil(2.5 * PS); y++) for (let z = Z - R; z <= Z + R; z++) for (let x = X - R; x <= X + R; x++) {
+      const b = occAt(x, y, z);
+      if (!b || !F[b]) continue;
+      const a = occAt(x, y + 1, z);
+      if (a && !cur.pass[a]) continue;
+      // 앉는 면은 무릎 높이쯤: 그보다 높은 면(등받이 꼭대기 등)은 크게 깎는다
+      const d = Math.hypot(x + 0.5 - p[0], z + 0.5 - p[2]) + Math.abs(y + 1 - p[1]) * 0.5 + Math.max(0, y + 1 - p[1] - 0.32 * PL.hStand) * 4;
+      if (d < bd) { bd = d; best = [x, y, z]; }
+    }
+    if (!best) return null;
+    const [x, y, z] = best;
+    // 등받이(의자 옆으로 더 높이 솟은 칸) 반대쪽을 바라본다
+    let face = play.face;
+    for (let r = 1; r <= Math.ceil(PS) && face === play.face; r++)
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = occAt(x + dx * r, y + 1, z + dz * r); if (a && !cur.pass[a]) { face = Math.atan2(-dx, -dz); break; } }
+    return { p: [x + 0.5, y + 1, z + 0.5], face };
+  }
+  // 가까운 탈것 윗면(부품 안에서 위가 몸 높이만큼 빈 칸): 세계 좌표로
+  function findRide() {
+    const p = play.p, out = { d: 6 * PS, p: null, pv: null };
+    for (const n in cur.props) {
+      const pv = cur.props[n], u = pv.userData;
+      if (!u.ride) continue;
+      const sc = pv.scale; if (Math.abs(sc.x * sc.y * sc.z) < 0.01) continue;
+      pv.updateMatrix();
+      if (!u.tops) {
+        // 몸 폭(배율 2면 좌우 한 칸씩 더)만큼 위가 비어야 선다
+        const PW = u.vw.W, PD = u.vw.D, tops = [], need = Math.ceil(PL0.hCrouch * PS), rr = Math.ceil(PL.r - 0.5 + 1e-6);
+        for (const [i] of u.vw.data) {
+          const x = i % PW, z = Math.floor(i / PW) % PD, y = Math.floor(i / (PW * PD));
+          let ok = true;
+          for (let c = 1; c <= need && ok; c++) for (let dz = -rr; dz <= rr && ok; dz++) for (let dx = -rr; dx <= rr && ok; dx++) if (u.vw.get(x + dx, y + c, z + dz)) ok = false;
+          if (ok) tops.push([x + 0.5 - u.base[0], y + 1 - u.base[1], z + 0.5 - u.base[2]]);
+        }
+        u.tops = tops;
+      }
+      for (const q of u.tops) {
+        tmpV3.set(q[0], q[1], q[2]).applyMatrix4(pv.matrix);
+        const d = Math.hypot(tmpV3.x - p[0], (tmpV3.y - p[1]) * 0.6, tmpV3.z - p[2]);
+        if (d < out.d && !worldHit(tmpV3.x, tmpV3.y + 0.05, tmpV3.z)) { out.d = d; out.p = [tmpV3.x, tmpV3.y + 0.02, tmpV3.z]; out.pv = pv; }
+      }
+    }
+    return out.p ? out : null;
+  }
+  function sitOrBoard() {
+    if (!play.on || play.lock) return;
+    if (play.sit) { standUp(); return; }
+    if (play.swim) { toast('물속에서는 앉을 수 없어요 · Ctrl 수영'); return; }
+    const seat = findSeat();
+    if (seat) {
+      play.sit = { kind: 'seat', p: seat.p };
+      play.p = seat.p.slice(); play.v = [0, 0, 0]; play.ride = null; play.faceT = seat.face;
+      SND.sfx('step_wood', { vol: 0.35, rate: 0.8 }); toast('앉기 · 움직이면 일어나요');
+      return;
+    }
+    const r = findRide();
+    if (r) {
+      play.p = r.p; play.v = [0, 0, 0]; play.ground = true; play.ride = null; play.props = null;
+      spawnBurst([r.p[0], r.p[1] + 0.3, r.p[2]], { n: 14, colors: ['#ffe9a0', '#ffffff'], speed: 1.4, up: 1.2, life: 0.5, gravity: -0.2, spread: 0.5 });
+      SND.sfx('land', { vol: 0.35 }); toast('탑승');
+      return;
+    }
+    if (!play.ground) return;
+    play.sit = { kind: 'ground', p: play.p.slice() }; play.v = [0, 0, 0];
+    toast('앉기 · 움직이면 일어나요');
+  }
+  function standUp() {
+    if (!play.sit) return;
+    play.sit = null; play.squash = -0.1;
+  }
+  function syncSwimBtn() { const b = document.getElementById('bswim'); if (b) { b.setAttribute('aria-pressed', String(!!play.swimOn)); b.disabled = !play.swim; } }
+  function toggleSwim() {
+    if (!play.on) return;
+    if (!play.swim) { if (play.swimOn) { play.swimOn = false; syncSwimBtn(); } return; }
+    play.swimOn = !play.swimOn; syncSwimBtn();
+    toast(play.swimOn ? '수영 · Ctrl로 그만' : '떠 있기');
+    if (play.swimOn) SND.sfx('swim', { vol: 0.5 });
+  }
   function interact() {
     const a = play.near;
     if (!a || a.busy || play.lock) return false;
@@ -1667,6 +1769,8 @@
     if (c === 'KeyE') { if (!interact() && !play.tp) state.yawT += Math.PI / 4; }
     else if (c === 'KeyF' || c === 'Enter') interact();
     else if (c === 'KeyQ') state.yawT -= Math.PI / 4;
+    else if (c === 'KeyX') sitOrBoard();
+    else if (c === 'ControlLeft' || c === 'ControlRight') { if (!e.repeat) toggleSwim(); }
     else if (c === 'KeyV' || c === 'F5') cycleView();
     else if (c === 'KeyR') respawn();
     // 첫 Esc는 마우스 잠금만 푼다(브라우저가 먼저 풀었으면 그 직후 Esc도 무시)
@@ -1703,6 +1807,8 @@
   hold($('#bjump'), 'Space');
   $('#bact').addEventListener('click', () => interact());
   $('#bview').addEventListener('click', () => cycleView());
+  $('#bsit').addEventListener('click', () => sitOrBoard());
+  $('#bswim').addEventListener('click', () => toggleSwim());
 
   // 상호작용 안내: 가장 가까운 상호작용 상자(3칸 안)
   function syncPrompt() {
@@ -1777,6 +1883,11 @@
     play.props = nearProps(); play.ignore = [];
     carry();
     if (!play.props) play.props = nearProps();
+    // 앉아 있으면: 움직이면(이동·점프) 일어서고, 아니면 제자리(탄 부품이 있으면 따라감)
+    if (play.sit) {
+      const moving = !play.lock && (K.KeyW || K.KeyA || K.KeyS || K.KeyD || K.ArrowUp || K.ArrowDown || K.ArrowLeft || K.ArrowRight || K.Space || play.jumpQ || Math.hypot(play.joy.x, play.joy.y) > 0.3);
+      if (moving) standUp(); else { v[0] = v[1] = v[2] = 0; play.jumpQ = false; play.ground = true; return stepLook(dt, 0, false); }
+    }
     // 부품이 몸을 살짝 파고들면(흔들리는 배·올라오는 승강기) 위로 올려 태우고, 깊이 덮치면(닫히는 문) 빠져나갈 때까지 무시
     for (const pv of play.props) {
       if (!propBox(pv, p[0], p[1], p[2], BODY_Y)) continue;
@@ -1804,20 +1915,22 @@
     // 물: 얕으면 걸어서 건너고, 깊으면 떠서 천천히 헤엄친다. 빛나는 액체(용암·쇳물)는 처음 자리로
     const lv = liqAt(Math.floor(p[0]), Math.floor(p[2])), depth = lv >= 0 ? lv + 0.8 - p[1] : -1;
     if (depth > 0.4 * PS && cur.def.liqGlow) { respawn(); return; }
-    play.swim = depth > 1.9 * PS;   // 가슴 넘게 깊으면 헤엄
+    play.swim = depth > 1.9 * PS;   // 가슴 넘게 깊으면 물에 뜬다
+    if (play.swim !== play.swimWas) { play.swimWas = play.swim; if (!play.swim) play.swimOn = false; syncSwimBtn(); if (play.swim && !play.swimOn) toast('깊은 물 · Ctrl로 수영'); }
     const leafy = inFoliage();
-    const sp = (run ? PL.run : PL.walk) * (play.swim ? 0.6 : depth > 0.3 * PS ? 0.75 : 1) * (leafy ? 0.85 : 1);
+    // 깊은 물: 그냥은 떠서 천천히 첨벙(0.35), Ctrl로 수영 모드를 켜면 팔을 저어 빠르게(0.85)
+    const sp = (run ? PL.run : PL.walk) * (play.swim ? (play.swimOn ? 0.85 : 0.35) : depth > 0.3 * PS ? 0.75 : 1) * (leafy ? 0.85 : 1);
     const acc = Math.min(1, dt * (play.ground || play.swim ? 14 : 5));
     v[0] += (mx * sp - v[0]) * acc; v[2] += (mz * sp - v[2]) * acc;
     if (play.tp) play.faceT = state.yaw + Math.PI;   // 원근 시점: 바라보는 쪽으로 몸을 돌린다
     else if (Math.abs(mx) + Math.abs(mz) > 0.05) play.faceT = Math.atan2(mx, mz);
     if (play.ground) play.air = 0;
     if (!play.lock && (K.Space || play.jumpQ)) {
-      if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; SND.sfx('jump', { vol: 0.55 }); }
+      if (play.ground) { v[1] = PL.jump; play.ground = false; play.air = 1; play.squash = -0.12; SND.sfx('jump', { vol: 0.55 }); }
       else if (play.swim) v[1] = Math.max(v[1], 3 * PS);
       else if (play.jumpQ && play.air < 2) {
         // 2단 점프: 발밑에 반짝이 한 줌
-        v[1] = PL.jump2; play.air = 2; SND.sfx('djump', { vol: 0.6 });
+        v[1] = PL.jump2; play.air = 2; play.spin = Math.PI * 2; SND.sfx('djump', { vol: 0.6 });
         spawnBurst([p[0], p[1] + 0.1, p[2]], { n: 22, colors: ['#fff4c4', '#ffd468', '#ffffff', '#ffa04a'], speed: 2.4, up: -0.6, life: 0.6, gravity: 1.5, spread: 0.5, flat: true });
       }
     }
@@ -1836,19 +1949,71 @@
     footAudio(dt, depth, run);
     // 풀·잎을 헤치고 가면 가끔 사각사각
     if (leafy) { play.rustle = (play.rustle || 0) + Math.hypot(v[0], v[2]) * dt; if (play.rustle > 2.2) { play.rustle = 0; SND.sfx('step_grass', { vol: 0.22, rate: 1.15 + Math.random() * 0.2, gap: 0.3 }); } } else play.rustle = 1.6;
+    return stepLook(dt, depth, run);
+  }
+  // 몸짓(걷기·뛰기·수영·떠 있기·점프·앉기)·불빛·카메라 목표·가까운 상호작용·발견
+  function stepLook(dt, depth, run) {
+    const p = play.p, v = play.v;
     play.stepVis *= Math.pow(0.0005, dt);
     let da = play.faceT - play.face; da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     play.face += da * Math.min(1, dt * 12);
-    // 몸: 둥실 떠서 흔들리고, 달리면 앞으로 기운다. 불꽃은 일렁인다
-    const w = toW(p), bob = reduced ? 0 : Math.sin(t * 3.2) * 0.06 * PS, spd = Math.hypot(v[0], v[2]);
+    // 몸짓: 걷기·뛰기·수영·떠 있기·점프·앉기. 손(불씨 둘)과 몸의 기울기·출렁임·늘고 줄기를 상태마다 목표로 두고 부드럽게 따라간다
+    const w = toW(p), spd = Math.hypot(v[0], v[2]) / PS;
     const ek = Math.min(1, dt * 10);
-    play.hS += (PL.h - play.hS) * ek; play.eyeS += ((PL.h < PL.hStand ? PL.eyeCrouch : PL.eyeStand) - play.eyeS) * ek;
-    avatar.position.set(w.x, w.y + play.stepVis + 0.08 * PS + bob, w.z);
-    avatar.rotation.y = play.face;
-    avatar.scale.set(PS, PS * play.hS / PL.hStand, PS);   // 웅크리면 납작
-    avBody.rotation.x = Math.min(0.12, spd * 0.012 / PS);
+    play.airT = play.ground ? 0 : (play.airT || 0) + dt;   // 계단 한 칸 오를 때 잠깐 뜨는 건 점프로 치지 않는다
+    const anim = play.sit ? 'sit' : play.swim ? (play.swimOn ? 'swim' : 'float') : (play.airT > 0.14 || play.air > 0) ? 'jump' : spd > PL0.walk * 1.25 ? 'run' : spd > 0.4 ? 'walk' : 'idle';
+    if (anim !== play.anim) { if (play.anim === 'jump' && (anim === 'walk' || anim === 'run' || anim === 'idle')) play.squash = 0.2; play.anim = anim; }
+    play.gait = (play.gait || 0) + dt * (anim === 'swim' ? 3.2 : anim === 'float' ? 2 : Math.max(2.2, spd * 1.25));
+    const g = play.gait, R0 = reduced ? 0 : 1;
+    // 기본값(서 있기)
+    let lean = 0, roll = 0, lift = Math.sin(t * 3.2) * 0.06 * R0, sy = 1;
+    let hl = [-4.4, 5.2, 0.6], hr = [4.4, 5.2, 0.6];   // 손 위치(몸 복셀 좌표: x 옆, y 높이, z 앞)
+    hl[1] += Math.sin(t * 2.1) * 0.35 * R0; hr[1] += Math.sin(t * 2.1 + 1.6) * 0.35 * R0;
+    if (anim === 'walk') {
+      const s1 = Math.sin(g * Math.PI);
+      lean = 0.1; roll = s1 * 0.07 * R0; lift += Math.abs(s1) * 0.14 * R0;
+      hl = [-4.3, 5 + Math.abs(s1) * 0.4, 0.6 + s1 * 2.2 * R0]; hr = [4.3, 5 + Math.abs(s1) * 0.4, 0.6 - s1 * 2.2 * R0];
+    } else if (anim === 'run') {
+      const s1 = Math.sin(g * Math.PI);
+      lean = 0.34; roll = s1 * 0.05 * R0; lift += Math.abs(s1) * 0.32 * R0;
+      hl = [-4.6, 6.2 + s1 * 0.6, 1 + s1 * 3.4 * R0]; hr = [4.6, 6.2 - s1 * 0.6, 1 - s1 * 3.4 * R0];
+    } else if (anim === 'swim') {
+      // 평영: 몸을 눕히고 손으로 큰 원을 그린다
+      const a = g * Math.PI;
+      lean = 1.2; lift = -0.9 + Math.sin(a) * 0.12 * R0;
+      hl = [-2.5 - Math.cos(a) * 2.6, 9.5 + Math.sin(a) * 1.2, 2.2 + Math.sin(a) * 2.6]; hr = [2.5 + Math.cos(a) * 2.6, 9.5 + Math.sin(a) * 1.2, 2.2 + Math.sin(a) * 2.6];
+    } else if (anim === 'float') {
+      // 떠 있기: 꼿꼿이 서서 둥실, 손으로 물을 살살 젓는다
+      const a = g * Math.PI;
+      lean = 0.06; lift = -0.6 + Math.sin(t * 2.2) * 0.16 * R0;
+      hl = [-4.8 - Math.cos(a) * 0.8, 6.4, 0.6 + Math.sin(a) * 1.2]; hr = [4.8 + Math.cos(a) * 0.8, 6.4, 0.6 - Math.sin(a) * 1.2];
+    } else if (anim === 'jump') {
+      // 오를 땐 위로 늘고 손을 번쩍, 내려올 땐 손을 벌려 균형
+      const up = v[1] > 0;
+      sy = up ? 1.1 : 0.97; lean = up ? -0.06 : 0.08;
+      hl = up ? [-3.6, 11.5, 0.4] : [-5.8, 8.2, 0]; hr = up ? [3.6, 11.5, 0.4] : [5.8, 8.2, 0];
+    } else if (anim === 'sit') {
+      // 앉기: 몸을 접어 낮추고 살짝 뒤로 기대며 손은 무릎(앞)에
+      const ground = play.sit && play.sit.kind === 'ground';
+      sy = ground ? 0.62 : 0.74; lean = -0.12; lift = (ground ? -0.05 : -0.1) * PL0.hStand + Math.sin(t * 1.6) * 0.03 * R0;
+      hl = [-2.4, 3.4, 3]; hr = [2.4, 3.4, 3];
+    }
+    play.squash = (play.squash || 0) * Math.pow(0.0008, dt);   // 착지하면 잠깐 납작, 뛰기 직전엔 살짝 웅크림
+    sy *= 1 - Math.abs(play.squash) * (play.squash > 0 ? 1 : -1);
+    play.spin = (play.spin || 0) * Math.pow(0.004, dt);   // 2단 점프: 한 바퀴 돈다
+    const L = play.look = play.look || { lean: 0, roll: 0, lift: 0, sy: 1, hl: [-4.4, 5.2, 0.6], hr: [4.4, 5.2, 0.6] };
+    const k2 = Math.min(1, dt * 12);
+    L.lean += (lean - L.lean) * k2; L.roll += (roll - L.roll) * k2; L.lift += (lift - L.lift) * k2; L.sy += (sy - L.sy) * Math.min(1, dt * 18);
+    for (let q = 0; q < 3; q++) { L.hl[q] += (hl[q] - L.hl[q]) * k2; L.hr[q] += (hr[q] - L.hr[q]) * k2; }
+    const sitEye = play.sit ? (play.sit.kind === 'ground' ? 0.58 : 0.74) : 1;
+    play.hS += (PL.h - play.hS) * ek; play.eyeS += ((PL.h < PL.hStand ? PL.eyeCrouch : PL.eyeStand) * sitEye - play.eyeS) * ek;
+    avatar.position.set(w.x, w.y + play.stepVis + (0.08 + L.lift) * PS, w.z);
+    avatar.rotation.set(0, play.face + play.spin, 0);
+    avatar.scale.set(PS * (2 - L.sy) ** 0.5, PS * L.sy * play.hS / PL.hStand, PS * (2 - L.sy) ** 0.5);   // 늘면 가늘게, 납작하면 넓게
+    avBody.rotation.set(L.lean, 0, L.roll);
+    avHandL.position.set(L.hl[0], L.hl[1], L.hl[2]); avHandR.position.set(L.hr[0], L.hr[1], L.hr[2]);
     avFlame.scale.set(1 + Math.sin(t * 11) * 0.08, 1 + Math.sin(t * 13) * 0.16 + Math.sin(t * 7.3) * 0.1, 1);
-    avFlame.rotation.z = Math.sin(t * 5) * 0.12; avFlame.rotation.x = -Math.min(0.4, spd * 0.05);
+    avFlame.rotation.z = Math.sin(t * 5) * 0.12; avFlame.rotation.x = -Math.min(0.5, spd * 0.06) - (anim === 'swim' ? 0.9 : 0);
     pLight.position.set(w.x, w.y + play.stepVis + play.hS * 0.6, w.z);
     pLight.intensity = (effTime() === 'night' ? 1.7 : 0.45) * (1 + Math.sin(t * 9) * 0.06 + Math.sin(t * 23) * 0.04);
     state.targetT.set(w.x, w.y + play.stepVis + play.eyeS, w.z);   // 카메라 목표 = 눈높이
@@ -1894,7 +2059,7 @@
     play.wasWet = wet;
     if (play.swim) {
       play.fallTop = p[1]; play.stepAcc = 1.2;
-      if (spd > 0.6) { play.swimAcc += spd * dt; if (play.swimAcc >= 2.3) { play.swimAcc = 0; SND.sfx('swim', { vol: 0.45 }); } } else play.swimAcc = 1.6;
+      if (play.swimOn && spd > 0.6) { play.swimAcc += spd * dt; if (play.swimAcc >= 2.3) { play.swimAcc = 0; SND.sfx('swim', { vol: 0.45 }); } } else play.swimAcc = 1.6;
     } else if (!play.ground) play.fallTop = Math.max(play.fallTop, p[1]);
     else {
       if (!play.wasGround) {
@@ -2100,7 +2265,8 @@
     // 놀이 모드 손잡이
     play: on => setPlay(on !== false), tp: on => setTP(on !== false), view: v => setView(v), cycleView, lockPointer, get keys() { return play.keys; }, interact,
     ride: () => play.ride && Object.keys(cur.props).find(n => cur.props[n] === play.ride),
-    dbg: () => ({ h: PL.h, eye: play.eyeS, hS: play.hS, PL }),
+    dbg: () => ({ h: PL.h, eye: play.eyeS, hS: play.hS, PL, anim: play.anim, sit: play.sit && play.sit.kind, swimOn: !!play.swimOn, swim: !!play.swim }),
+    sitOrBoard, toggleSwim, findSeat: () => findSeat(), findRide: () => { const r = findRide(); return r && r.p; },
     passKeys: () => cur ? Object.keys(cur.ids).filter(k => cur.pass[cur.ids[k]]) : [],
     // 검사용: 풀·잎 통과를 잠시 끈다(예전처럼 막히는지 비교)
     passOff: off => { if (!cur) return; if (off) { cur.pass0 = cur.pass0 || cur.pass; cur.pass = new Uint8Array(cur.pass.length); } else if (cur.pass0) cur.pass = cur.pass0; },

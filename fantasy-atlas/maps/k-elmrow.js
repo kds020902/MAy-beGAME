@@ -23,6 +23,9 @@
     ],
     blocks: Object.assign({}, KP, {
       grass3: { c: '#6a4a30', top: '#5e9a42', v: 0.08 },
+      // 옹벽 발치 흙 비탈·이끼·담쟁이·닳은 흙
+      grassSh: { c: '#4a7836', top: '#4e8a3a', v: 0.09 }, grassB: { c: '#55883c', top: '#5e9a42', v: 0.09 }, bankDirt: { c: '#55603a', v: 0.09 }, stMoss: { c: '#7e8a68', v: 0.07 }, stMoss2: { c: '#6a7a58', v: 0.07 },
+      ivy: { c: '#3e7432', v: 0.1 }, ivy2: { c: '#558e40', v: 0.1 }, fern: { c: '#4a8a3a', v: 0.1 }, trod: { c: '#6a4a30', top: '#9a8462', v: 0.07 }, trod2: { c: '#6a4a30', top: '#87724f', v: 0.07 },
       clothR: { c: '#d86a6a', v: 0.02 }, clothB: { c: '#7aa8d8', v: 0.02 }, clothW: { c: '#f4f0e8', v: 0.02 }, clothY: { c: '#f0d870', v: 0.02 },
       veg: { c: '#5aa040', v: 0.09 }, veg2: { c: '#8ac860', v: 0.08 }, soil: { c: '#5a3a24', top: '#6a4428', v: 0.08 }, bench: { c: '#7a5a3a', v: 0.05, pat: 'plank' }, bell: { c: '#c8a050', v: 0.05 },
       pump: { c: '#3a5a4a', v: 0.04 }, waterB: { c: '#5aa0d8', v: 0.03 },
@@ -356,6 +359,68 @@
         }
         for (const x of [sx - 1, sx + SW]) w.line(x, top + 6, k * BAND, x, bot + 6, k * BAND + top - bot, B.iron);
       }
+      // ───────── 옹벽 발치: 벽 아랫도리를 묻는 들쭉날쭉한 풀 비탈, 굴러떨어진 돌, 젖은 이끼와 담쟁이 ─────────
+      const stairD = x => Math.min(...STAIRS.map(s => x < s - 1 ? s - 1 - x : x > s + SW ? x - s - SW : 0));
+      const STSET = new Set([B.st1, B.st2, B.st3, B.st4]);
+      for (let k = 1; k < 5; k++) {
+        const zw = k * BAND, y0 = lvl(zw), wTop = lvl(zw - 1);
+        const bankH = new Float32Array(W);
+        for (let x = 0; x < W; x++) {
+          const sd = stairD(x); if (sd < 2) continue;
+          let lim = 8;
+          if (k === 2 && x >= 92 && x <= 172) lim = 5;        // 쉼터 바닥 테두리(z 134) 앞에서 멈춘다
+          if (k === 2 && x >= 188 && x <= 256) lim = 1;       // 빵집 마당 포장은 그대로
+          let L = Math.min(lim + 1, 3.5 + n.fbm(x * 0.11, k * 5 + 40, 2) * 6);
+          const hx = Math.min(L * 1.05, (2 + 7.5 * n.fbm(x * 0.045 + k * 9.1, k * 3.7, 3)) * MH.sstep(1.5, 10, sd));
+          bankH[x] = hx;
+          for (let dz = 0; dz <= lim; dz++) {
+            const t = dz / L; if (t >= 1) break;
+            const hh = Math.round(hx * Math.pow(1 - t, 1.25) + (hash3(x, dz, k + 50) - 0.5) * 0.9);
+            if (hh <= 0) break;
+            const z = zw + dz, y = y0 + hh;
+            for (let yy = y0; yy < y; yy++) w.set(x, yy, z, B.bankDirt);
+            w.set(x, y, z, n.fbm(x * 0.09, z * 0.09 + k * 7, 2) > 0.52 ? B.grassSh : B.grassB);
+            w.hm[x + W * z] = y;
+            // 비탈 위 고사리 덤불(무리 단위)
+            if (hh >= 2 && n.fbm(x * 0.13 + 70, z * 0.13 + k, 2) > 0.64 && hash3(x, z, 91) > 0.45) { w.set(x, y + 1, z, B.fern); if (hash3(x, z, 92) > 0.6) w.set(x, y + 2, z, B.fern); }
+          }
+        }
+        // 젖은 벽 발치와 이끼 낀 돌 무리(벽돌만 바꿔 줄눈은 남긴다)
+        for (let x = 0; x < W; x++) {
+          if (stairD(x) < 1) continue;
+          const foot = y0 + Math.round(bankH[x]);
+          for (let y = y0 + 1; y <= wTop; y++) {
+            const b = w.get(x, y, zw - 1); if (!STSET.has(b)) continue;
+            const m = n.fbm(x * 0.06 + k * 13, y * 0.11, 2), wet = y <= foot + 2;
+            if (m > 0.64 || (wet && m > 0.4) || (y >= wTop - 1 && m > 0.56)) w.set(x, y, zw - 1, (m > 0.7 || wet) ? B.stMoss2 : B.stMoss);
+          }
+        }
+        // 난간에서 늘어진 담쟁이 줄기(덩어리로)
+        for (let x = 0; x < W; x++) {
+          if (stairD(x) < 2) continue;
+          const c = n.fbm(x * 0.07 + 31, k * 19, 2); if (c < 0.6) continue;
+          const len = Math.round(3 + (c - 0.6) * 40 * (0.6 + hash3(x, k, 77) * 0.6));
+          const leaf = ((x >> 2) + k) & 1 ? B.ivy : B.ivy2;
+          for (let i = 0; i < len; i++) {
+            const y = wTop + 3 - i; if (y <= w.hm[x + W * zw]) break;
+            if (i > 2 && hash3(x, y, 81) < 0.12) continue;
+            w.set(x, y, zw, leaf);
+          }
+        }
+        // 옹벽에서 떨어져 비탈 아래 굴러간 돌덩이(묻힌 것 포함)
+        for (let q = 0; q < 16; q++) {
+          const x = 4 + Math.floor(hash3(q, k, 61) * (W - 10));
+          if (stairD(x) < 5 || (k === 2 && x >= 186 && x <= 258)) continue;
+          const lim = (k === 2 && x >= 90 && x <= 174) ? 4 : 6;
+          const z = zw + Math.min(lim, Math.max(1, Math.round(bankH[x] * 0.9 + hash3(q, k, 62) * 2)));
+          const sx = 2 + (hash3(q, k, 63) * 2 | 0), sz = 2 + (hash3(q, k, 64) * 2 | 0), tall = hash3(q, k, 65) > 0.6 ? 2 : 1;
+          const gy = MH.minG(w, x, z, x + sx - 1, Math.min(zw + lim, z + sz - 1));
+          for (let dz = 0; dz < sz && z + dz <= zw + lim; dz++) for (let dx = 0; dx < sx; dx++) {
+            const corner = (dx === 0 || dx === sx - 1) && (dz === 0 || dz === sz - 1);
+            for (let yy = gy; yy < gy + tall + (hash3(q, dx, dz) > 0.5 ? 1 : 0); yy++) if (!(corner && yy === gy + tall)) w.set(x + dx, yy, z + dz, yy === gy + tall || (yy === gy + tall - 1 && hash3(x + dx, yy, z + dz) > 0.5) ? B.stMoss : STONES[(hash3(q, k, 66) * 6) | 0]);
+          }
+        }
+      }
 
       // ───────── 층층이 늘어선 집들 + 앞마당(울타리 · 꽃밭 · 디딤돌) ─────────
       const WALLS = [B.plaster, B.plasterB, B.plasterP, B.plasterG, B.plasterY];
@@ -398,6 +463,25 @@
           const [a, b] = hs, yy = Math.min(a.top, b.top) - 4, zc = Math.round((a.z0 + a.z1) / 2);
           lines.push({ ax: a.x1 + a.e + 1, bx: b.x0 - b.e - 1, y: yy, z: zc, k });
         });
+      }
+      // ───────── 골목 가장자리: 곧은 경계 대신 풀이 돌길을 파고들고, 사람들이 다닌 자리는 흙이 드러난다 ─────────
+      const GR = new Set([B.grass, B.grass2, B.grass3]), PV = new Set([B.paveA, B.paveB, B.paveC, B.paveJ]);
+      for (let k = 0; k < 5; k++) {
+        const za = k * BAND + 48;
+        for (let x = 0; x < W; x++) {
+          if (k === 2 && x >= 188 && x <= 256) continue;
+          const bnd = za - 0.5 + (n.fbm(x * 0.13 + 5, k * 17, 2) - 0.45) * 7;
+          const wear = n.fbm(x * 0.09 + 50, k * 23, 2);
+          for (let z = za - 4; z <= za + 3; z++) {
+            const b = MH.g(w, x, z) >= 0 ? w.get(x, MH.g(w, x, z), z) : 0, d = z - bnd;
+            if (GR.has(b)) {
+              if (d > -0.5 || (d > -2.5 && wear > 0.55 && hash3(x, z, 41) > 0.3)) MH.paint(w, x, z, (wear + hash3(x >> 1, z, 42) * 0.2) > 0.62 ? B.trod2 : B.trod);
+            } else if (PV.has(b) && z < za + 3) {
+              if (d < -1) MH.paint(w, x, z, hash3(x >> 1, z >> 1, 43) > 0.5 ? B.grass3 : B.grass);
+              else if (d < 0.5) MH.paint(w, x, z, B.trod);
+            }
+          }
+        }
       }
       // ───────── 빨랫줄: 집과 집 사이(옷감은 3×5칸, 나무 집게) ─────────
       const CLOTH = [B.clothR, B.clothB, B.clothW, B.clothY];

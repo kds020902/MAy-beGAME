@@ -18,8 +18,9 @@
     camY: -8, zoom: 1.1,
     particles: [{ n: 140, colors: ['#b8ff8a', '#e0ffb0'], mode: 'rise', speed: 1.2, area: [168, 188, 10], size: 2, y0: 76, y1: 148 }],
     blocks: {
-      cob: { c: '#4a4a40', top: '#5a5a50', v: 0.12, pat: 'stone' }, grass: { c: '#3a3028', top: '#4a6a3a', v: 0.1 }, grass2: { c: '#3a3028', top: '#56763e', v: 0.1 },
+      cob: { c: '#4a4a40', top: '#5a5a50', v: 0.12, pat: 'stone' }, grass: { c: '#3e5232', top: '#4a6a3a', v: 0.1 }, grass2: { c: '#435a36', top: '#56763e', v: 0.1 },
       dirt: { c: '#3a3028', v: 0.08 }, rock: { c: '#4a4a44', v: 0.07, pat: 'big' }, rockDk: { c: '#2e2e2a', v: 0.06, pat: 'stone' },
+      rockR: { c: '#5e5446', v: 0.07, pat: 'big' }, rockL: { c: '#5a5a52', v: 0.07, pat: 'big' }, scree: { c: '#3e3c36', top: '#57544a', v: 0.12 }, mossR: { c: '#4a5a3a', top: '#4e6a38', v: 0.1 },
       cobble: { c: '#4e4e46', top: '#5e5e54', v: 0.06 }, cobble2: { c: '#46463e', top: '#54544a', v: 0.06 }, cobble3: { c: '#55534a', top: '#68665a', v: 0.06 }, cobbleJ: { c: '#2e2e2a', top: '#363630', v: 0.04 },
       st1: { c: '#6a6a62', v: 0.05 }, st2: { c: '#5c5c56', v: 0.05 }, st3: { c: '#74726a', v: 0.05 }, st4: { c: '#62665c', v: 0.05 }, mortar: { c: '#48463e', v: 0.04 }, sill: { c: '#7a786e', v: 0.04 },
       wallC: { c: '#c8c0a8', v: 0.04 }, wallT: { c: '#4a8a8a', v: 0.04 }, wallM: { c: '#7a3a4a', v: 0.04 }, wallY: { c: '#c8a040', v: 0.04 },
@@ -46,11 +47,24 @@
       const cx = z => 168 + Math.sin(z * 0.019) * 20;
       const MKZ = 292, MKX = Math.round(cx(MKZ));               // 남쪽 약재 장터
       const wide = z => 30 + Math.max(0, 20 - Math.abs(z - 188) * 0.5) + Math.max(0, 28 - Math.abs(z - MKZ) * 0.7);
+      // 협곡 벽: 발치(wd)는 그대로 두고, 위로는 폭이 들쭉날쭉한 비탈 + 두세 단의 바위 선반 + 거친 면 + 기울어진 지층 띠.
+      // 벼랑 위 굴곡은 가장자리에서 서서히 섞어 테두리 턱이 생기지 않게 한다.
+      const cliffT = (x, z) => { const d = Math.abs(x - cx(z)), wd = wide(z), side = x < cx(z) ? 0 : 50; return (d - wd) / (12 + 7 * n.fbm(z * 0.018 + side, 3.3, 2)); };
+      let sX = -1, sZ = -1, sW = 0;
+      const strata = (x, y, z) => { if (x !== sX || z !== sZ) { sX = x; sZ = z; sW = (n.fbm(x * 0.017 + 9, z * 0.017, 2) - 0.5) * 14 + x * 0.04; } const yw = y + sW; const b = ((Math.floor(yw / 4) % 5) + 5) % 5; return b === 1 ? B.rockDk : b === 3 ? B.rockR : b === 4 ? B.rockL : B.rock; };
       MH.terrain(w, {
         floor: 8,
-        height: (x, z) => { const d = Math.abs(x - cx(z)), wd = wide(z); return F + MH.sstep(wd, wd + 12, d) * 40 + (d > wd + 12 ? n.fbm(x * 0.025, z * 0.025) * 8 : 0); },
-        surface: (x, z, y, s) => s >= 5 ? B.rock : y > F + 20 ? (hash3(x >> 3, 1, z >> 3) > 0.6 ? B.grass2 : B.grass) : B.cob,
-        under: (x, z, y, dep, s) => dep < 4 && y > F + 20 && s < 5 ? B.dirt : ((y % 10) < 2 ? B.rockDk : B.rock),
+        height: (x, z) => {
+          const t = cliffT(x, z);
+          if (t <= 0) return F;
+          const P = MH.sstep(0, 1, t), K = 3, q = P * K, P2 = (Math.floor(q) + MH.sstep(0.3, 0.8, q - Math.floor(q))) / K;
+          const ledge = MH.sstep(0.4, 0.6, t) * (0.55 + 0.4 * n.fbm(x * 0.03 + 21, z * 0.03, 2));
+          const rough = (n.fbm(x * 0.11 + 5, z * 0.11, 2) - 0.5) * 9 * Math.sin(Math.PI * Math.min(1, t)) * MH.sstep(0.25, 0.5, t);
+          const top = n.fbm(x * 0.025, z * 0.025) * 8 * MH.sstep(0.75, 1.4, t);
+          return F + (P + (P2 - P) * ledge) * 40 + rough + top;
+        },
+        surface: (x, z, y, s) => s >= 4 ? strata(x, y, z) : y > F + 16 ? (n.fbm(x * 0.06 + 3, z * 0.06, 2) > 0.55 ? B.grass2 : B.grass) : y > F + 2 ? B.scree : B.cob,
+        under: (x, z, y, dep, s) => dep < 3 && y > F + 16 && s < 4 ? B.dirt : strata(x, y, z),
       });
       const lights = [], acts = [], smoke = [], landmarks = [], chims = [];
       const KX = 168, KZ = 188;
@@ -845,6 +859,26 @@
         if (gg < F + 30 || (w.get(x, gg, z) !== B.grass && w.get(x, gg, z) !== B.grass2) || w.slope[x + W * z] > 2) continue;
         let ok = true; for (let q = 1; q <= 20; q++) for (const [dx, dz] of [[0, 0], [6, 0], [-6, 0], [0, 6], [0, -6]]) if (w.get(x + dx, gg + q, z + dz)) ok = false;
         if (ok) tree(x, gg + 1, z, { h: w.ri(11, 15), r: 6.2, leaves: [B.leafM, B.herb, B.leafDk] });
+      }
+      // ───────── 벼랑 발치의 무너진 돌무더기(비어 있는 자리에만, 몇 개는 반쯤 묻힘) ─────────
+      for (let i = 0; i < 110; i++) {
+        const z = w.ri(4, D - 5), side = i % 2 ? 1 : -1, wd = wide(z);
+        const x = Math.round(cx(z) + side * (wd + w.r(-1, 3)));
+        if (Math.abs(z - MKZ) < 44 || MH.dist(x, z, KX, KZ) < 34 || x < 4 || x > W - 5) continue;
+        const r = w.r(1.6, 3.4), R = Math.ceil(r) + 2;
+        let ok = true;
+        for (let dz = -R; dz <= R && ok; dz++) for (let dx = -R; dx <= R && ok; dx++) {
+          const gg = MH.g(w, x + dx, z + dz);
+          if (gg < F || w.liq[x + dx + W * (z + dz)] >= 0) { ok = false; break; }
+          for (let y = gg + 1; y <= F + 8; y++) if (w.get(x + dx, y, z + dz)) { ok = false; break; }
+        }
+        if (!ok) continue;
+        const sink = hash3(x, 3, z) > 0.6 ? 1 : 0;
+        MH.rock(w, x, F + 1 - sink, z, r, i % 3 ? B.rock : B.rockR, B.mossR, B.rockDk);
+        for (let q = 0; q < 3; q++) {
+          const a = hash3(x, q, z) * 6.28, dd = r + 1.5 + hash3(z, q, x) * 2, px = Math.round(x + Math.cos(a) * dd), pz = Math.round(z + Math.sin(a) * dd);
+          if (MH.g(w, px, pz) === F && !w.get(px, F + 1, pz) && w.liq[px + W * pz] < 0) { w.set(px, F + 1, pz, q ? B.rockL : B.rockDk); if (q === 1) w.set(px + 1, F + 1, pz, B.rockL); }
+        }
       }
       return { lights, landmarks, acts, particles: smoke };
     },

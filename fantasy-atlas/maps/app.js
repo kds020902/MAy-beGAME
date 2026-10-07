@@ -1575,7 +1575,7 @@
   }
   function placeAt(s, face) {
     applyScale(cur.def.playerScale);
-    play.sit = null; play.swimOn = false; syncSwimBtn();
+    play.sit = null; play.swimOn = false; play.fell = false; syncSwimBtn();
     play.p = [s[0], s[1], s[2]]; play.v = [0, 0, 0]; play.stepVis = 0; play.ground = false;
     play.ride = null; play.lastSafe = worldHit(s[0], s[1] - 0.05, s[2]) && !worldHit(s[0], s[1], s[2]) ? [s[0], s[1], s[2]] : null;
     play.props = null; play.ignore = [];
@@ -1591,6 +1591,9 @@
     applyScale(cur.def.playerScale);
     let s = null;
     if (fromId) { const a = cur.acts.find(q => q.goto === fromId); if (a) s = besideBox(a.hit); }
+    // def.arrive[출발 지도] = [x, y, z]: 그 지도에서 오면 이 자리(공중이면 떨어져 내려온다)
+    const ar = fromId && cur.def.arrive && cur.def.arrive[fromId];
+    if (ar) s = [ar[0] + 0.5, ar[1], ar[2] + 0.5, ar[3]];
     const home = mapSpawn(cur);
     play.home = s || home;
     placeAt(play.home, s ? s[3] : null);
@@ -1950,9 +1953,14 @@
     else v[1] = Math.max(-30 * PS, v[1] - PL.grav * dt);
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2])) * dt / (0.25 * PS)));
     for (let i = 0; i < n; i++) { moveH(0, v[0] * dt / n); moveH(2, v[2] * dt / n); moveV(v[1] * dt / n); }
+    // 떨어지는 구멍: def.falls = [{ box: [x0,y0,z0,x1,y1,z1], goto, toast }] — 몸이 그 상자 안으로 떨어지면 다른 지도로
+    if (cur.def.falls && !play.fell && !play.lock) for (const f of cur.def.falls) {
+      const b = f.box;
+      if (p[0] >= b[0] && p[0] <= b[3] + 1 && p[1] >= b[1] && p[1] <= b[4] + 1 && p[2] >= b[2] && p[2] <= b[5] + 1) { play.fell = true; if (f.toast) toast(f.toast); SND.sfx('travel', { vol: 0.6 }); travel(f.goto); return; }
+    }
     const under = v[1] <= 0.01 ? propUnder() : null;
     play.ground = v[1] <= 0.01 && (worldHit(p[0], p[1] - 0.05, p[2]) || !!under);
-    if (p[1] < -3) { if (play.ride || play.lastSafe) dropOff(); else respawn(); return; }
+    if (p[1] < -3 && !play.fell) { if (play.ride || play.lastSafe) dropOff(); else respawn(); return; }
     // 발밑이 부품이면 탄다(다음 걸음에 그 부품이 움직인 만큼 따라감)
     play.ride = under;
     // 탈것에 올라서 잠깐(0.6초) 있으면 그 탈것의 이동 동작(a.ride + goto, rideAuto가 false가 아니면)이 저절로 시작된다
